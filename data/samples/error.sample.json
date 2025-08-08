@@ -1,0 +1,17 @@
+{
+  "id": "err-0001",
+  "createdAt": "2025-08-08T10:00:00Z",
+  "category": "proof-verification",
+  "tech": "groth16",
+  "title": "Groth16 verifier reverts on valid proof",
+  "summary": "On-chain Pairing.sol revert observed despite locally verified proof; mismatch traced to BN254 field normalization.",
+  "evidence": {
+    "repo": "org/repo",
+    "issueUrl": "https://github.com/org/repo/issues/374",
+    "commit": "abc1234"
+  },
+  "affectedVersions": [
+    "v1.2.3"
+  ],
+  "severity": "high"
+}

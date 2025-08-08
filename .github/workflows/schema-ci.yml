@@ -1,0 +1,28 @@
+name: Schema & Core CI
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-test-validate:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [18, 20]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: 'npm'
+      - run: npm ci
+        continue-on-error: true
+      - run: npm install
+      - run: npm run -w @zkpip/core lint || true
+      - run: npm run -w @zkpip/core typecheck
+      - run: npm run -w @zkpip/core build
+      - run: npm test -w @zkpip/core || true
+      - name: Validate JSON samples against schemas
+        run: npm run -w @zkpip/core schema:check

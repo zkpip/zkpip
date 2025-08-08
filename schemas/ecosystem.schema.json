@@ -1,0 +1,48 @@
+{
+  "$id": "https://zkpip.org/schemas/ecosystem.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "common.schema.json"
+    }
+  ],
+  "type": "object",
+  "properties": {
+    "project": {
+      "type": "string",
+      "minLength": 2
+    },
+    "website": {
+      "type": "string",
+      "format": "uri"
+    },
+    "repo": {
+      "type": "string"
+    },
+    "zkTech": {
+      "type": "string"
+    },
+    "languages": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "verifierAvailable": {
+      "type": "boolean"
+    },
+    "docs": {
+      "type": "string",
+      "format": "uri"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 10
+    }
+  },
+  "required": [
+    "project",
+    "zkTech",
+    "description"
+  ]
+}
