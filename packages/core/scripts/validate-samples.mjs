@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
-import { makeAjv } from "../src/validation/ajv.js";
+// ✅ Import from the built output, not the TS source
+import { makeAjv } from "../dist/validation/ajv.js";
 
 const ajv = makeAjv();
 const samplesDir = resolve(process.cwd(), "data", "samples");
@@ -15,10 +16,10 @@ for (const f of files) {
     ? "https://zkpip.org/schemas/issue.schema.json"
     : "https://zkpip.org/schemas/ecosystem.schema.json";
   const v = ajv.getSchema(schemaId);
-  const ok = v(json);
+  const ok = v && v(json);
   if (!ok) {
     failed++;
-    console.error(`❌ ${f} failed:`, v.errors);
+    console.error(`❌ ${f} failed:`, v?.errors);
   } else {
     console.log(`✅ ${f} valid against ${schemaId}`);
   }
