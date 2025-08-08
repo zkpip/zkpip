@@ -23,6 +23,13 @@ jobs:
       - run: npm run -w @zkpip/core lint || true
       - run: npm run -w @zkpip/core typecheck
       - run: npm run -w @zkpip/core build
+      - run: |
+          if [ -f packages/core/dist/validation/ajv.js ]; then
+            echo "✅ ajv.js found in build output"
+          else
+            echo "❌ ajv.js is missing in dist/validation"
+            exit 1
+          fi
       - run: npm test -w @zkpip/core || true
       - name: Validate JSON samples against schemas
         run: npm run -w @zkpip/core schema:check
