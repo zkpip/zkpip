@@ -30,11 +30,6 @@ jobs:
           token: ${{ secrets.ORG_READ_TOKEN }}
           path: __core
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
       - name: Build core validator
         run: |
           npm ci --prefix __core
