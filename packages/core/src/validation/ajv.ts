@@ -1,17 +1,16 @@
-// packages/core/src/validation/ajv.ts
 // AJV bootstrap with JSON Schema 2020-12 support and formats plugin
-import AjvModule from "ajv";
+import Ajv2020Module from "ajv/dist/2020.js";
 import type { Options } from "ajv";
 import addFormatsImport from "ajv-formats";
-import { readFileSync } from "fs";
+import { readFileSync, existsSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 
-// Cast module default export to a constructable class type
-const Ajv = AjvModule as unknown as { new (opts?: Options): any };
+// Cast module default export to a constructable class type (TS workaround)
+const Ajv2020 = Ajv2020Module as unknown as { new (opts?: Options): any };
 
-// Workaround for ajv-formats type definition issues in some TS setups
-const addFormats = addFormatsImport as unknown as (ajv: InstanceType<typeof Ajv>) => void;
+// ajv-formats sometimes mis-types; keep it simple:
+const addFormats = addFormatsImport as unknown as (ajv: InstanceType<typeof Ajv2020>) => void;
 
 /**
  * Creates a configured AJV instance with all core schemas preloaded.
@@ -19,28 +18,27 @@ const addFormats = addFormatsImport as unknown as (ajv: InstanceType<typeof Ajv>
  * - Supports union types
  * - Loads standard formats (URI, email, date-time, etc.)
  * - Preloads common, error, issue, and ecosystem schemas
+ * Note: Ajv 2020 build already registers the JSON Schema 2020-12 meta-schema.
  */
 export function makeAjv() {
-  const ajv = new Ajv({
+  const ajv = new Ajv2020({
     strict: true,
     allErrors: true,
-    allowUnionTypes: true
-  });
+    allowUnionTypes: true,
+  } as Options);
 
-  // Enable standard formats
   addFormats(ajv);
 
-  // Resolve repo root relative to this compiled file:
+  // Resolve repo root from this compiled file:
   // dist/validation/ajv.js -> dist -> core -> packages -> <repo root>
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = dirname(__filename);
   const repoRoot = resolve(__dirname, "../../../../");
 
-  // Prefer repo-rooted schemas; fallback to CWD (useful for local runs)
-  const base =
-    safeExists(resolve(repoRoot, "schemas"))
-      ? resolve(repoRoot, "schemas")
-      : resolve(process.cwd(), "schemas");
+  // Prefer <repo>/schemas; fallback to CWD for local runs
+  const base = existsSync(resolve(repoRoot, "schemas"))
+    ? resolve(repoRoot, "schemas")
+    : resolve(process.cwd(), "schemas");
 
   const load = (p: string) =>
     JSON.parse(readFileSync(resolve(base, p), "utf-8"));
@@ -49,26 +47,11 @@ export function makeAjv() {
   const common = load("common.schema.json");
   (ajv as any).addSchema(common, common.$id);
 
-  // Register the domain-specific schemas
+  // Register domain-specific schemas
   for (const name of ["error.schema.json", "issue.schema.json", "ecosystem.schema.json"]) {
     const s = load(name);
     (ajv as any).addSchema(s, s.$id);
   }
 
   return ajv;
-}
-
-// Tiny synchronous existence check to keep things simple
-function safeExists(path: string): boolean {
-  try {
-    readFileSync(resolve(path, ".")); // will throw if not directory
-    return true;
-  } catch {
-    try {
-      // if previous threw because it's a dir, try stat via reading a known file shortly after
-      return true;
-    } catch {
-      return false;
-    }
-  }
 }
