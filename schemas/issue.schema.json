@@ -1,0 +1,17 @@
+{
+  "$id": "https://zkpip.org/schemas/issue.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    { "$ref": "https://zkpip.org/schemas/common.schema.json" }
+  ],
+  "type": "object",
+  "properties": {
+    "source": { "type": "string", "enum": ["github", "gitlab", "stack-overflow", "discussion"] },
+    "url": { "type": "string", "format": "uri" },
+    "title": { "type": "string", "minLength": 3 },
+    "labels": { "type": "array", "items": { "type": "string" } },
+    "classification": { "type": "string" },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+  },
+  "required": ["source", "url", "title"]
+}

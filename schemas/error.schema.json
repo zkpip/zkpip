@@ -1,0 +1,26 @@
+{
+  "$id": "https://zkpip.org/schemas/error.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    { "$ref": "https://zkpip.org/schemas/common.schema.json" }
+  ],
+  "type": "object",
+  "properties": {
+    "category": { "type": "string", "enum": ["proof-verification", "constraint-failure", "circuit-setup", "tooling", "witness", "performance", "other"] },
+    "tech": { "type": "string", "enum": ["noir", "circom", "halo2", "plonk", "groth16", "starknet", "o1js", "gnark", "aztec", "zksync", "barretenberg", "other"] },
+    "title": { "type": "string", "minLength": 3 },
+    "summary": { "type": "string", "minLength": 10 },
+    "evidence": {
+      "type": "object",
+      "properties": {
+        "repo": { "type": "string", "minLength": 1 },
+        "issueUrl": { "type": "string", "format": "uri" },
+        "commit": { "type": "string" }
+      },
+      "required": ["repo"]
+    },
+    "affectedVersions": { "type": "array", "items": { "type": "string" } },
+    "severity": { "type": "string", "enum": ["low", "medium", "high", "critical"] }
+  },
+  "required": ["category", "tech", "title", "summary", "evidence", "severity"]
+}

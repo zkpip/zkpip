@@ -1,0 +1,41 @@
+name: Reusable Schema Guard
+on:
+  workflow_call:
+    inputs:
+      paths:
+        description: 'Glob patterns to validate (comma-separated)'
+        required: true
+        type: string
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout consumer repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install @zkpip/core
+        run: |
+          npm init -y >/dev/null 2>&1 || true
+          npm i -D @zkpip/core@^0.1.0 fast-glob@^3.3.2
+
+      - name: Run schema validation
+        run: |
+          node -e "const fg=require('fast-glob');
+          const { validateFileBatch } = require('@zkpip/core/dist/cli/validate');
+          const globs=process.env.GLOBS.split(',').map(s=>s.trim()).filter(Boolean);
+          (async()=>{
+            const files=await fg(globs,{dot:false,onlyFiles:true});
+            if(!files.length){ console.log('No files matched'); process.exit(0); }
+            const {failed}=await validateFileBatch(files);
+            if(failed.length){ console.error('Invalid files:', failed); process.exit(1); }
+            console.log('All files are schema-valid ✅');
+          })().catch(e=>{ console.error(e); process.exit(1); });"
+        env:
+          GLOBS: ${{ inputs.paths }}
