@@ -7,6 +7,16 @@ on:
         description: 'Comma-separated glob patterns for files to validate'
         required: true
         type: string
+      exclude:
+        description: 'Comma- or newline-separated glob patterns to exclude'
+        required: false
+        default: ''
+        type: string
+      annotate:
+        description: 'Emit GitHub error annotations for failing files'
+        required: false
+        default: false
+        type: boolean        
     secrets:
       ORG_READ_TOKEN:
         description: 'Fine-grained PAT with Contents: Read for the zkpip/zkpip repo'
@@ -41,6 +51,7 @@ jobs:
         shell: bash
         env:
           GLOBS: ${{ inputs.paths }}
+          EXCLUDES: ${{ inputs.exclude }}
         run: |
           set -euo pipefail
           # Convert comma-separated globs into an array
@@ -54,6 +65,17 @@ jobs:
           done
           # Remove duplicates and sort
           printf "%s\n" "${files[@]}" | awk 'NF' | sort -u > .schema_files.txt
+          
+          if [[ -n "${EXCLUDES// /}" ]]; then
+            mapfile -t xpat < <(printf "%s" "$EXCLUDES" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | awk 'NF')
+            > .schema_excludes.txt
+            for pat in "${xpat[@]}"; do
+              git ls-files "$pat" 2>/dev/null || true
+            done | awk 'NF' | sort -u > .schema_excludes.txt
+            grep -Fvx -f .schema_excludes.txt .schema_includes.txt || true > .schema_files.txt
+          else
+            cp .schema_includes.txt .schema_files.txt
+          fi          
           echo "Collected files for schema validation:"
           cat .schema_files.txt || true
           # Export for the next step
@@ -65,6 +87,8 @@ jobs:
 
       - name: Run schema validation
         shell: bash
+        env:
+          ANNOTATE: ${{ inputs.annotate }}        
         run: |
           node -e "
             const { validateFileBatch } = require('./__core/packages/core/dist/cli/validate.js');
@@ -76,6 +100,14 @@ jobs:
               }
               const { failed } = await validateFileBatch(files);
               if (failed.length) {
+                if (process.env.ANNOTATE === 'true') {
+                  for (const f of failed) {
+                    const file = typeof f === 'string' ? f : (f.file || f.path || '');
+                    const msg = (typeof f === 'object' && f.message) ? f.message : 'Schema validation failed';
+                    if (file) console.log('::error file=' + file + '::' + msg);
+                    else console.log('::error::' + msg);
+                  }
+                }              
                 console.error('Invalid files:', failed);
                 process.exit(1);
               }
