@@ -4,10 +4,12 @@ on:
   workflow_call:
     inputs:
       paths:
+        description: 'Comma-separated glob patterns for files to validate'
         required: true
         type: string
     secrets:
       ORG_READ_TOKEN:
+        description: 'Fine-grained PAT with Contents: Read for the zkpip/zkpip repo'
         required: true
 
 permissions:
@@ -17,14 +19,14 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout consumer repo
+      - name: Checkout consumer repository
         uses: actions/checkout@v4
 
-      - name: Checkout core schema repo
+      - name: Checkout core schema repository
         uses: actions/checkout@v4
         with:
           repository: zkpip/zkpip
-          ref: ${{ github.ref }}
+          ref: ${{ github.ref }} # same tag/branch as the consumer repo
           token: ${{ secrets.ORG_READ_TOKEN }}
           path: __core
 
@@ -39,22 +41,50 @@ jobs:
           npm ci --prefix __core
           npm run build --prefix __core/packages/core
 
-      - name: Ensure fast-glob is available in consumer workspace
-        run: |
-          npm init -y >/dev/null 2>&1 || true
-          npm i -D fast-glob@^3.3.2
-          
-      - name: Run schema validation
-        run: |
-          node -e "const fg=require('fast-glob');
-          const { validateFileBatch } = require('./__core/packages/core/dist/cli/validate.js');
-          (async()=>{
-            const globs=(process.env.GLOBS||'').split(',').map(s=>s.trim()).filter(Boolean);
-            const files=await fg(globs,{dot:false,onlyFiles:true});
-            if(!files.length){ console.log('No files matched'); process.exit(0); }
-            const {failed}=await validateFileBatch(files);
-            if(failed.length){ console.error('Invalid files:', failed); process.exit(1); }
-            console.log('All files are schema-valid ✅');
-          })().catch(e=>{ console.error(e); process.exit(1); });"
+      # Collect matching files using shell (no npm install in the consumer repo)
+      - name: Collect matching files
+        id: collect
+        shell: bash
         env:
           GLOBS: ${{ inputs.paths }}
+        run: |
+          set -euo pipefail
+          # Convert comma-separated globs into an array
+          mapfile -t patterns < <(printf "%s" "$GLOBS" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+          files=()
+          for pat in "${patterns[@]}"; do
+            # Use git ls-files to match tracked files only
+            while IFS= read -r f; do
+              [[ -n "$f" ]] && files+=("$f")
+            done < <(git ls-files "$pat" 2>/dev/null || true)
+          done
+          # Remove duplicates and sort
+          printf "%s\n" "${files[@]}" | awk 'NF' | sort -u > .schema_files.txt
+          echo "Collected files for schema validation:"
+          cat .schema_files.txt || true
+          # Export for the next step
+          {
+            echo 'FILES<<EOF'
+            cat .schema_files.txt
+            echo 'EOF'
+          } >> "$GITHUB_ENV"
+
+      - name: Run schema validation
+        shell: bash
+        run: |
+          node -e "
+            const { validateFileBatch } = require('./__core/packages/core/dist/cli/validate.js');
+            const files = (process.env.FILES || '').split('\n').filter(Boolean);
+            (async () => {
+              if (!files.length) {
+                console.log('No files matched');
+                process.exit(0);
+              }
+              const { failed } = await validateFileBatch(files);
+              if (failed.length) {
+                console.error('Invalid files:', failed);
+                process.exit(1);
+              }
+              console.log('All files are schema-valid ✅');
+            })().catch(e => { console.error(e); process.exit(1); });
+          "
