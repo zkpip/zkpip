@@ -54,31 +54,45 @@ jobs:
           EXCLUDES: ${{ inputs.exclude }}
         run: |
           set -euo pipefail
-          # Convert comma-separated globs into an array
-          mapfile -t patterns < <(printf "%s" "$GLOBS" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-          files=()
-          for pat in "${patterns[@]}"; do
-            # Use git ls-files to match tracked files only
-            while IFS= read -r f; do
-              [[ -n "$f" ]] && files+=("$f")
-            done < <(git ls-files "$pat" 2>/dev/null || true)
-          done
-          # Remove duplicates and sort
-          printf "%s\n" "${files[@]}" | awk 'NF' | sort -u > .schema_files.txt
-          
+
+          # ---- Includes (always produce file, even if empty)
+          : > .schema_includes.raw
+          while IFS= read -r pat; do
+            [[ -z "$pat" ]] && continue
+            git ls-files "$pat" 2>/dev/null >> .schema_includes.raw || true
+          done < <(printf "%s" "$GLOBS" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | awk 'NF')
+
+          sort -u .schema_includes.raw > .schema_includes.txt || true
+          touch .schema_includes.txt
+
+          if [[ -s .schema_includes.txt ]]; then
+            echo "Includes:"
+            cat .schema_includes.txt
+          else
+            echo "No files matched include patterns."
+          fi
+
+          # ---- Excludes (optional; same strategy; always produce files)
+          : > .schema_files.txt
           if [[ -n "${EXCLUDES// /}" ]]; then
-            mapfile -t xpat < <(printf "%s" "$EXCLUDES" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | awk 'NF')
-            > .schema_excludes.txt
-            for pat in "${xpat[@]}"; do
-              git ls-files "$pat" 2>/dev/null || true
-            done | awk 'NF' | sort -u > .schema_excludes.txt
-            grep -Fvx -f .schema_excludes.txt .schema_includes.txt || true > .schema_files.txt
+            : > .schema_excludes.raw
+            while IFS= read -r xpat; do
+              [[ -z "$xpat" ]] && continue
+              git ls-files "$xpat" 2>/dev/null >> .schema_excludes.raw || true
+            done < <(printf "%s" "$EXCLUDES" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | awk 'NF')
+
+            sort -u .schema_excludes.raw > .schema_excludes.txt || true
+            touch .schema_excludes.txt
+
+            # set difference: includes \ excludes  (mindkettő rendezett)
+            comm -23 .schema_includes.txt .schema_excludes.txt > .schema_files.txt || true
           else
             cp .schema_includes.txt .schema_files.txt
-          fi          
-          echo "Collected files for schema validation:"
+          fi
+
+          echo "Final file list for validation (may be empty):"
           cat .schema_files.txt || true
-          # Export for the next step
+
           {
             echo 'FILES<<EOF'
             cat .schema_files.txt
@@ -90,6 +104,11 @@ jobs:
         env:
           ANNOTATE: ${{ inputs.annotate }}        
         run: |
+          set -euo pipefail
+          if [[ ! -s .schema_files.txt ]]; then
+            echo "No files to validate after filters. Exiting 0."
+            exit 0
+          fi        
           node -e "
             const { validateFileBatch } = require('./__core/packages/core/dist/cli/validate.js');
             const files = (process.env.FILES || '').split('\n').filter(Boolean);
