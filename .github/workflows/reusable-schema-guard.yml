@@ -6,6 +6,10 @@ on:
         description: 'Glob patterns to validate (comma-separated)'
         required: true
         type: string
+    secrets:
+      ORG_READ_TOKEN:
+        description: 'Token with contents:read permission to fetch core repo'
+        required: true        
 
 jobs:
   validate:
