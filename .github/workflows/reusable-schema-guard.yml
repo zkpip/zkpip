@@ -24,18 +24,32 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: zkpip/zkpip
-          ref: v0.1.0
+          ref: ${{ github.ref }}
           token: ${{ secrets.ORG_READ_TOKEN }}
+          path: __core
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
+          cache: npm
 
-      - name: Install dependencies
-        run: npm ci --ignore-scripts
+      - name: Build core validator
+        run: |
+          npm ci --prefix __core
+          npm run build --prefix __core/packages/core
 
       - name: Run schema validation
         run: |
-          echo "Validating JSON files against core schema..."
-          node ./packages/core/scripts/validate-samples.mjs ${{ inputs.paths }}
+          node -e "const fg=require('fast-glob');
+          const { validateFileBatch } = require('./__core/packages/core/dist/cli/validate.js');
+          (async()=>{
+            const globs=(process.env.GLOBS||'').split(',').map(s=>s.trim()).filter(Boolean);
+            const files=await fg(globs,{dot:false,onlyFiles:true});
+            if(!files.length){ console.log('No files matched'); process.exit(0); }
+            const {failed}=await validateFileBatch(files);
+            if(failed.length){ console.error('Invalid files:', failed); process.exit(1); }
+            console.log('All files are schema-valid ✅');
+          })().catch(e=>{ console.error(e); process.exit(1); });"
+        env:
+          GLOBS: ${{ inputs.paths }}
