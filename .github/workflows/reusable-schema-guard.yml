@@ -39,6 +39,11 @@ jobs:
           npm ci --prefix __core
           npm run build --prefix __core/packages/core
 
+      - name: Ensure fast-glob is available in consumer workspace
+        run: |
+          npm init -y >/dev/null 2>&1 || true
+          npm i -D fast-glob@^3.3.2
+          
       - name: Run schema validation
         run: |
           node -e "const fg=require('fast-glob');
