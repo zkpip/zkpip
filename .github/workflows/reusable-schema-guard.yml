@@ -16,7 +16,12 @@ on:
         description: 'Emit GitHub error annotations for failing files'
         required: false
         default: false
-        type: boolean        
+        type: boolean
+      core_ref:
+        description: 'Branch/tag to use for zkpip/zkpip checkout (fallback: PR base or ref_name)'
+        required: false
+        default: ''
+        type: string
     secrets:
       ORG_READ_TOKEN:
         description: 'Fine-grained PAT with Contents: Read for the zkpip/zkpip repo'
@@ -55,7 +60,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          # ---- Includes (always produce file, even if empty)
+          # ---- Includes (mindig készül fájl, üresen is)
           : > .schema_includes.raw
           while IFS= read -r pat; do
             [[ -z "$pat" ]] && continue
@@ -65,14 +70,7 @@ jobs:
           sort -u .schema_includes.raw > .schema_includes.txt || true
           touch .schema_includes.txt
 
-          if [[ -s .schema_includes.txt ]]; then
-            echo "Includes:"
-            cat .schema_includes.txt
-          else
-            echo "No files matched include patterns."
-          fi
-
-          # ---- Excludes (optional; same strategy; always produce files)
+          # ---- Excludes (mindig készül fájl, üresen is)
           : > .schema_files.txt
           if [[ -n "${EXCLUDES// /}" ]]; then
             : > .schema_excludes.raw
@@ -80,17 +78,15 @@ jobs:
               [[ -z "$xpat" ]] && continue
               git ls-files "$xpat" 2>/dev/null >> .schema_excludes.raw || true
             done < <(printf "%s" "$EXCLUDES" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | awk 'NF')
-
             sort -u .schema_excludes.raw > .schema_excludes.txt || true
             touch .schema_excludes.txt
-
-            # set difference: includes \ excludes  (mindkettő rendezett)
+            # includes \ excludes
             comm -23 .schema_includes.txt .schema_excludes.txt > .schema_files.txt || true
           else
-            cp .schema_includes.txt .schema_files.txt
+            cp -f .schema_includes.txt .schema_files.txt || true
           fi
 
-          echo "Final file list for validation (may be empty):"
+          echo "Final file list (may be empty):"
           cat .schema_files.txt || true
 
           {
