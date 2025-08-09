@@ -1,11 +1,20 @@
+// packages/core/scripts/validate-samples.mjs
 import { readFileSync, readdirSync } from "node:fs";
-import { resolve } from "node:path";
-// ✅ Import from the built output, not the TS source
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { makeAjv } from "../dist/validation/ajv.js";
 
-const ajv = makeAjv();
-const samplesDir = resolve(process.cwd(), "data", "samples");
+// Resolve repo root relative to this script:
+// packages/core/scripts -> core -> packages -> <repo root>
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const repoRoot = resolve(__dirname, "../../../");
+
+// Use data/samples from repo root
+const samplesDir = resolve(repoRoot, "data", "samples");
 const files = readdirSync(samplesDir).filter((f) => f.endsWith(".json"));
+
+const ajv = makeAjv();
 
 let failed = 0;
 for (const f of files) {

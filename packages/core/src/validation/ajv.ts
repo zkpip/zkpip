@@ -4,7 +4,8 @@ import AjvModule from "ajv";
 import type { Options } from "ajv";
 import addFormatsImport from "ajv-formats";
 import { readFileSync } from "fs";
-import { resolve } from "path";
+import { resolve, dirname } from "path";
+import { fileURLToPath } from "url";
 
 // Cast module default export to a constructable class type
 const Ajv = AjvModule as unknown as { new (opts?: Options): any };
@@ -29,8 +30,18 @@ export function makeAjv() {
   // Enable standard formats
   addFormats(ajv);
 
-  // Load schemas from repo-level `schemas/` directory
-  const base = resolve(process.cwd(), "schemas");
+  // Resolve repo root relative to this compiled file:
+  // dist/validation/ajv.js -> dist -> core -> packages -> <repo root>
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = dirname(__filename);
+  const repoRoot = resolve(__dirname, "../../../../");
+
+  // Prefer repo-rooted schemas; fallback to CWD (useful for local runs)
+  const base =
+    safeExists(resolve(repoRoot, "schemas"))
+      ? resolve(repoRoot, "schemas")
+      : resolve(process.cwd(), "schemas");
+
   const load = (p: string) =>
     JSON.parse(readFileSync(resolve(base, p), "utf-8"));
 
@@ -45,4 +56,19 @@ export function makeAjv() {
   }
 
   return ajv;
+}
+
+// Tiny synchronous existence check to keep things simple
+function safeExists(path: string): boolean {
+  try {
+    readFileSync(resolve(path, ".")); // will throw if not directory
+    return true;
+  } catch {
+    try {
+      // if previous threw because it's a dir, try stat via reading a known file shortly after
+      return true;
+    } catch {
+      return false;
+    }
+  }
 }
