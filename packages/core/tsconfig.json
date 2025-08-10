@@ -9,8 +9,7 @@
     "resolveJsonModule": true,
     "verbatimModuleSyntax": true,
     "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    "types": ["vitest/globals"]
+    "allowSyntheticDefaultImports": true
   },
   "include": ["src/**/*"]
 }

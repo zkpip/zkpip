@@ -45,16 +45,15 @@ jobs:
         run: npm test -w @zkpip/core
 
       # Optional: upload coverage if you enable coverage output
-      - name: Upload coverage (optional)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: core-coverage
-          path: packages/core/coverage/
-          if-no-files-found: ignore
-          
       - name: Run tests with coverage (enforces thresholds)
-        run: npm run -w @zkpip/core test:coverage
+        working-directory: packages/core
+        run: npm run test:coverage
+
+      - name: Show coverage tree (debug)
+        if: always()
+        run: |
+          echo "Listing coverage directory (if any):"
+          ls -lah packages/core/coverage || true
 
       - name: Upload coverage (LCOV)
         if: always()
@@ -63,3 +62,4 @@ jobs:
           name: core-coverage
           path: packages/core/coverage/
           if-no-files-found: error
+
