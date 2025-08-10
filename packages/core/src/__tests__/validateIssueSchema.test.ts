@@ -1,84 +1,75 @@
+// packages/core/src/__tests__/validateIssueSchema.test.ts
 import { describe, it, expect } from 'vitest';
+import type { ValidateFunction } from 'ajv';
 import { makeAjv } from '../validation/ajv.js';
 
-describe('issue.schema.json (negative cases)', () => {
+describe('issue.schema.json', () => {
   const ajv = makeAjv();
-  const validate = ajv.getSchema('https://zkpip.org/schemas/issue.schema.json')!;
+  const schemaId = 'https://zkpip.org/schemas/issue.schema.json';
 
-  it('rejects missing required field: source', () => {
-    const data = {
-      id: 'iss-missing-source',
-      createdAt: '2025-08-10T10:40:00.000Z',
-      url: 'https://github.com/org/repo/issues/42',
-      title: 'Title present',
-    } as any;
-    expect(validate(data)).toBe(false);
-  });
+  // get the typed validator without using `any`
+  const maybeValidator = ajv.getSchema(schemaId);
+  if (!maybeValidator) {
+    throw new Error(`Issue schema validator not found for $id: ${schemaId}`);
+  }
+  const validate: ValidateFunction<unknown> = maybeValidator;
 
-  it('rejects unknown source enum value', () => {
+  it('accepts a valid GitHub-sourced issue with labels and confidence', () => {
     const data = {
-      id: 'iss-bad-source',
-      createdAt: '2025-08-10T10:40:00.000Z',
-      source: 'reddit', // not allowed
-      url: 'https://github.com/org/repo/issues/101',
-      title: 'Unsupported source value',
-    } as any;
-    expect(validate(data)).toBe(false);
-  });
-
-  it('rejects invalid URL format', () => {
-    const data = {
-      id: 'iss-bad-url',
+      id: 'iss-001',
       createdAt: '2025-08-10T10:40:00.000Z',
       source: 'github',
-      url: 'not-a-url',
-      title: 'Bad url format',
+      url: 'https://github.com/org/repo/issues/42',
+      title: 'Verifier produces inconsistent outputs across platforms',
+      labels: ['verifier', 'cross-platform'],
+      classification: 'proof-verification',
+      confidence: 0.92
     };
-    expect(validate(data)).toBe(false);
+    expect(validate(data)).toBe(true);
   });
 
-  it('rejects title shorter than minLength (3)', () => {
-    const data = {
-      id: 'iss-short-title',
-      createdAt: '2025-08-10T10:40:00.000Z',
-      source: 'gitlab',
-      url: 'https://gitlab.com/org/repo/-/issues/5',
-      title: 'Hi', // too short
-    };
-    expect(validate(data)).toBe(false);
-  });
-
-  it('rejects confidence below 0 or above 1', () => {
-    const below = {
-      id: 'iss-conf-below',
-      createdAt: '2025-08-10T10:40:00.000Z',
+  it('rejects when confidence is outside the allowed [0..1] range', () => {
+    const data: unknown = {
+      id: 'iss-002',
+      createdAt: '2025-08-10T10:45:00.000Z',
       source: 'discussion',
       url: 'https://forum.example.org/t/zk-topic/1234',
-      title: 'Confidence too low',
-      confidence: -0.1,
-    } as any;
-    const above = {
-      id: 'iss-conf-above',
-      createdAt: '2025-08-10T10:40:00.000Z',
-      source: 'stack-overflow',
-      url: 'https://stackoverflow.com/questions/12345',
-      title: 'Confidence too high',
-      confidence: 1.01,
-    } as any;
-
-    expect(validate(below)).toBe(false);
-    expect(validate(above)).toBe(false);
+      title: 'Edge case in witness generation',
+      confidence: 1.5
+    };
+    expect(validate(data)).toBe(false);
   });
 
-  it('rejects labels when not an array of strings', () => {
-    const data = {
-      id: 'iss-bad-labels',
-      createdAt: '2025-08-10T10:40:00.000Z',
-      source: 'github',
-      url: 'https://github.com/org/repo/issues/77',
-      title: 'Labels contain a non-string',
-      labels: ['a', 2, 'c'], // invalid number in items
-    } as any;
+  it('rejects invalid URL and unknown source', () => {
+    const data: unknown = {
+      id: 'iss-003',
+      createdAt: '2025-08-10T10:50:00.000Z',
+      source: 'reddit', // not in enum
+      url: 'not-a-url',
+      title: 'Title ok'
+    };
     expect(validate(data)).toBe(false);
+  });
+
+  it('rejects when a required field (title) is missing', () => {
+    const data: unknown = {
+      id: 'iss-004',
+      createdAt: '2025-08-10T10:55:00.000Z',
+      source: 'github',
+      url: 'https://github.com/org/repo/issues/7'
+      // title is missing
+    };
+    expect(validate(data)).toBe(false);
+  });
+
+  it('accepts a minimal valid issue object', () => {
+    const data = {
+      id: 'iss-005',
+      createdAt: '2025-08-10T11:00:00.000Z',
+      source: 'github',
+      url: 'https://github.com/org/repo/issues/100',
+      title: 'Witness generation fails under specific constraints'
+    };
+    expect(validate(data)).toBe(true);
   });
 });

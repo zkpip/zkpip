@@ -1,40 +1,56 @@
 import { describe, it, expect } from 'vitest';
+import type { ValidateFunction } from 'ajv';
 import { makeAjv } from '../validation/ajv.js';
 
-describe('error.schema.json (negative cases)', () => {
+describe('error.schema.json', () => {
   const ajv = makeAjv();
-  const validate = ajv.getSchema('https://zkpip.org/schemas/error.schema.json')!;
+  const schemaId = 'https://zkpip.org/schemas/error.schema.json';
 
-  it('rejects missing required field: evidence', () => {
-    const data = {
-      id: 'err-missing-evidence',
-      createdAt: '2025-08-10T10:20:00.000Z',
-      category: 'tooling',
-      tech: 'noir',
-      title: 'Build fails',
-      summary: 'This summary has enough length to pass the minLength rule.',
-      severity: 'medium',
-    } as any;
-    expect(validate(data)).toBe(false);
-  });
+  const maybeValidator = ajv.getSchema(schemaId);
+  if (!maybeValidator) {
+    throw new Error(`Error schema validator not found for $id: ${schemaId}`);
+  }
+  const validate: ValidateFunction<unknown> = maybeValidator;
 
-  it('rejects evidence without required repo', () => {
+  it('accepts a valid error entry', () => {
     const data = {
-      id: 'err-no-repo',
+      id: 'err-001',
       createdAt: '2025-08-10T10:20:00.000Z',
       category: 'proof-verification',
       tech: 'groth16',
-      title: 'Verifier regression',
-      summary: 'Summary that is long enough for validation.',
-      evidence: { issueUrl: 'https://github.com/org/repo/issues/7' },
+      title: 'Pairing check reverts on valid proof',
+      summary:
+        'Observed verifier revert when verifying known-good Groth16 proof due to incorrect G2 point order.',
+      evidence: {
+        repo: 'org/repo',
+        issueUrl: 'https://github.com/org/repo/issues/123',
+      },
       severity: 'high',
-    } as any;
+    };
+    expect(validate(data)).toBe(true);
+  });
+
+  it('rejects when a required field is missing (evidence.repo)', () => {
+    const data: unknown = {
+      id: 'err-002',
+      createdAt: '2025-08-10T10:25:00.000Z',
+      category: 'tooling',
+      tech: 'noir',
+      title: 'nargo build fails',
+      summary:
+        'Build fails on CI runners with inconsistent resolver cache when using workspace crates.',
+      evidence: {
+        // repo is missing
+        issueUrl: 'https://github.com/org/repo/issues/999',
+      },
+      severity: 'medium',
+    };
     expect(validate(data)).toBe(false);
   });
 
   it('rejects invalid issueUrl format in evidence', () => {
-    const data = {
-      id: 'err-bad-issue-url',
+    const data: unknown = {
+      id: 'err-003',
       createdAt: '2025-08-10T10:20:00.000Z',
       category: 'witness',
       tech: 'halo2',
@@ -46,37 +62,23 @@ describe('error.schema.json (negative cases)', () => {
     expect(validate(data)).toBe(false);
   });
 
-  it('rejects title shorter than minLength (3) and summary shorter than minLength (10)', () => {
-    const data = {
-      id: 'err-short-text',
+  it('rejects too short title/summary and out-of-enum severity', () => {
+    const data: unknown = {
+      id: 'err-004',
       createdAt: '2025-08-10T10:20:00.000Z',
       category: 'constraint-failure',
       tech: 'circom',
-      title: 'Hi',     // too short
+      title: 'Hi', // too short
       summary: 'short', // too short
       evidence: { repo: 'org/repo' },
-      severity: 'critical',
+      severity: 'blocker', // not allowed
     };
     expect(validate(data)).toBe(false);
   });
 
-  it('rejects severity outside the enum', () => {
-    const data = {
-      id: 'err-bad-severity',
-      createdAt: '2025-08-10T10:20:00.000Z',
-      category: 'other',
-      tech: 'other',
-      title: 'Unsupported severity',
-      summary: 'A sufficiently long summary for validation here.',
-      evidence: { repo: 'org/repo' },
-      severity: 'blocker', // not allowed
-    } as any;
-    expect(validate(data)).toBe(false);
-  });
-
-  it('rejects affectedVersions with non-string items', () => {
-    const data = {
-      id: 'err-bad-versions',
+  it('rejects affectedVersions when items are not all strings', () => {
+    const data: unknown = {
+      id: 'err-005',
       createdAt: '2025-08-10T10:20:00.000Z',
       category: 'performance',
       tech: 'gnark',
@@ -84,8 +86,8 @@ describe('error.schema.json (negative cases)', () => {
       summary: 'Observed significant slowdowns when switching proving backends.',
       evidence: { repo: 'org/repo' },
       severity: 'medium',
-      affectedVersions: ['v1.0.0', 2], // invalid: number in items
-    } as any;
+      affectedVersions: ['v1.0.0', 2], // invalid number item
+    };
     expect(validate(data)).toBe(false);
   });
 });

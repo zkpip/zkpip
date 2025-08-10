@@ -35,7 +35,7 @@ export function makeAjv(): AjvInstance {
     strict: true,
     allErrors: true,
     allowUnionTypes: true,
-  } as Options) as unknown as AjvInstance;
+  } as Options) as AjvInstance;
 
   addFormats(ajv as unknown);
 
