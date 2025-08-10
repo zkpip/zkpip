@@ -36,13 +36,15 @@ jobs:
     steps:
       - name: Checkout consumer repository
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.ORG_READ_TOKEN || secrets.token || github.token }}
 
       - name: Checkout core schema repository
         uses: actions/checkout@v4
         with:
           repository: zkpip/zkpip
           ref: ${{ inputs.core_ref || (github.event_name == 'pull_request' && github.base_ref || 'main') }}
-          token: ${{ secrets.ORG_READ_TOKEN }}
+          token: ${{ secrets.ORG_READ_TOKEN || secrets.token }}
           path: __core
 
       - name: Build core validator
