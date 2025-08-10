@@ -41,13 +41,10 @@ jobs:
       - name: Typecheck (optional)
         run: npm run -w @zkpip/core -s typecheck || echo "No typecheck script"
 
-      - name: Run tests
-        run: npm test -w @zkpip/core
-
       # Optional: upload coverage if you enable coverage output
       - name: Run tests with coverage (enforces thresholds)
         working-directory: packages/core
-        run: npm run test:coverage
+        run: npm run -s test:coverage -- --coverage.reporter=lcov --coverage.reporter=text-summary --coverage.reportsDirectory=coverage
 
       - name: Show coverage tree (debug)
         if: always()
@@ -62,4 +59,11 @@ jobs:
           name: core-coverage
           path: packages/core/coverage/
           if-no-files-found: error
+
+      - name: Assert LCOV exists
+        run: |
+          echo "Files in coverage:"
+          ls -lah coverage || true
+          test -f coverage/lcov.info || (echo "❌ lcov.info missing"; exit 1)
+        working-directory: packages/core          
 
