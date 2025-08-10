@@ -1,4 +1,4 @@
-name: Schema & Core CI
+name: Schema CI
 
 on:
   pull_request:
