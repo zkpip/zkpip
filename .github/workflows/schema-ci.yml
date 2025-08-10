@@ -130,7 +130,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
-    uses: zkpip/zkpip/.github/workflows/reusable-schema-guard.yml@v0.1.14
+    uses: zkpip/zkpip/.github/workflows/reusable-schema-guard.yml@v0.1.16
     with:
       paths: "schemas/**/*.json, output/**/*.json"
       exclude: "node_modules/**, **/dist/**, **/build/**"
