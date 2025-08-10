@@ -7,12 +7,13 @@
   "exports": {
     ".": "./dist/index.js",
     "./dist/cli/validate": "./dist/cli/validate.js"
-  },  
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "lint": "eslint .",
+    "lint": "eslint \"src/**/*.{ts,tsx}\" \"test/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\" \"spec/**/*.{ts,tsx}\" --no-error-on-unmatched-pattern --max-warnings=0",
+    "lint:fix": "eslint \"src/**/*.{ts,tsx}\" \"test/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\" \"spec/**/*.{ts,tsx}\" --no-error-on-unmatched-pattern --fix",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --reporter=dot",
     "schema:check": "node ./scripts/validate-samples.mjs"
   },
   "dependencies": {
@@ -20,8 +21,14 @@
     "ajv-formats": "^3.0.1"
   },
   "devDependencies": {
-    "typescript": "^5.5.4",
-    "vitest": "^2.0.0",
-    "eslint": "^9.8.0"
+    "@eslint/js": "^9.33.0",
+    "@types/node": "^24.2.1",
+    "@typescript-eslint/eslint-plugin": "^8.39.0",
+    "@typescript-eslint/parser": "^8.39.0",
+    "eslint": "^9.33.0",
+    "globals": "^16.3.0",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.39.0",
+    "vitest": "^2.0.0"
   }
 }

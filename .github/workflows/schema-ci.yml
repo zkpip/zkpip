@@ -121,9 +121,7 @@ jobs:
             npm install
           fi
       - name: Run tests (fail on error)
-        run: npm test -w @zkpip/core -- --ci --runInBand
-        # If you don't have tests yet and want to avoid false failures temporarily, append:
-        #   --passWithNoTests
+        run: npm test -w @zkpip/core
 
   schema_validate:
     name: schema:validate

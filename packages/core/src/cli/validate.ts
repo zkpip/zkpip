@@ -1,31 +1,48 @@
-// Tiny helper to validate a batch of JSON files against registered schemas.
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import { makeAjv } from "../validation/ajv.js";
+import { pickSchemaId } from "./pickSchemaId.js";
 
-const ajv = makeAjv();
+/**
+ * Validates the given JSON files against schemas inferred from their file names.
+ * Returns an exit code: 0 if all files pass, 1 if any fails.
+ */
+export function validateFileBatch(files: string[]): number {
+  const ajv = makeAjv();
+  let failures = 0;
 
-// Resolve schema by heuristics from filename; customize as needed.
-function pickSchemaId(file: string): string {
-  const f = file.toLowerCase();
-  if (f.includes("error")) return "https://zkpip.org/schemas/error.schema.json";
-  if (f.includes("issue")) return "https://zkpip.org/schemas/issue.schema.json";
-  return "https://zkpip.org/schemas/ecosystem.schema.json";
-}
-
-export async function validateFileBatch(files: string[]) {
-  const failed: string[] = [];
   for (const file of files) {
-    const json = JSON.parse(readFileSync(resolve(process.cwd(), file), "utf-8"));
+    const abs = resolve(process.cwd(), file);
+
+    let data: unknown;
+    try {
+      data = JSON.parse(readFileSync(abs, "utf-8")) as unknown;
+    } catch (e) {
+       
+      console.error(`❌ ${file} is not valid JSON:`, e instanceof Error ? e.message : String(e));
+      failures++;
+      continue;
+    }
+
     const id = pickSchemaId(file);
     const validate = ajv.getSchema(id);
-    const ok = validate && validate(json);
+    if (!validate) {
+       
+      console.error(`❌ Missing schema validator for '${id}' (file: ${file})`);
+      failures++;
+      continue;
+    }
+
+    const ok = validate(data);
     if (!ok) {
-      console.error(`❌ ${file} failed against ${id}`, validate?.errors);
-      failed.push(file);
+       
+      console.error(`❌ ${file} failed against ${id}`, validate.errors ?? []);
+      failures++;
     } else {
+       
       console.log(`✅ ${file} valid (${id})`);
     }
   }
-  return { failed };
+
+  return failures === 0 ? 0 : 1;
 }
