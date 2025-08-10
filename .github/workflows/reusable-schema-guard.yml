@@ -34,17 +34,28 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
+      - name: Preflight – confirm secret and ref
+        shell: bash
+        run: |
+          echo "Workflow ref: ${{ github.ref }}  (event: ${{ github.event_name }})"
+          echo "Caller asked for core_ref='${{ inputs.core_ref }}'"
+          if [ -z "${{ secrets.ORG_READ_TOKEN }}" ]; then
+            echo "::error::ORG_READ_TOKEN is empty or not passed. Failing early."
+            exit 1
+          else
+            echo "ORG_READ_TOKEN appears to be set (length > 0)."
+          fi
+
       - name: Checkout consumer repository
         uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.ORG_READ_TOKEN || secrets.token || github.token }}
+        # saját repo – alapból használja a github.token-t; explicit nem szükséges token
 
       - name: Checkout core schema repository
         uses: actions/checkout@v4
         with:
           repository: zkpip/zkpip
           ref: ${{ inputs.core_ref || (github.event_name == 'pull_request' && github.base_ref || 'main') }}
-          token: ${{ secrets.ORG_READ_TOKEN || secrets.token }}
+          token: ${{ secrets.ORG_READ_TOKEN }}
           path: __core
 
       - name: Build core validator
@@ -52,7 +63,6 @@ jobs:
           npm ci --prefix __core
           npm run build --prefix __core/packages/core
 
-      # Collect matching files using shell (no npm install in the consumer repo)
       - name: Collect matching files
         id: collect
         shell: bash
@@ -61,18 +71,14 @@ jobs:
           EXCLUDES: ${{ inputs.exclude }}
         run: |
           set -euo pipefail
-
-          # ---- Includes (mindig készül fájl, üresen is)
           : > .schema_includes.raw
           while IFS= read -r pat; do
             [[ -z "$pat" ]] && continue
             git ls-files "$pat" 2>/dev/null >> .schema_includes.raw || true
           done < <(printf "%s" "$GLOBS" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | awk 'NF')
-
           sort -u .schema_includes.raw > .schema_includes.txt || true
           touch .schema_includes.txt
 
-          # ---- Excludes (mindig készül fájl, üresen is)
           : > .schema_files.txt
           if [[ -n "${EXCLUDES// /}" ]]; then
             : > .schema_excludes.raw
@@ -82,7 +88,6 @@ jobs:
             done < <(printf "%s" "$EXCLUDES" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | awk 'NF')
             sort -u .schema_excludes.raw > .schema_excludes.txt || true
             touch .schema_excludes.txt
-            # includes \ excludes
             comm -23 .schema_includes.txt .schema_excludes.txt > .schema_files.txt || true
           else
             cp -f .schema_includes.txt .schema_files.txt || true
@@ -100,13 +105,13 @@ jobs:
       - name: Run schema validation
         shell: bash
         env:
-          ANNOTATE: ${{ inputs.annotate }}        
+          ANNOTATE: ${{ inputs.annotate }}
         run: |
           set -euo pipefail
           if [[ ! -s .schema_files.txt ]]; then
             echo "No files to validate after filters. Exiting 0."
             exit 0
-          fi        
+          fi
           node -e "
             const { validateFileBatch } = require('./__core/packages/core/dist/cli/validate.js');
             const files = (process.env.FILES || '').split('\n').filter(Boolean);
@@ -124,7 +129,7 @@ jobs:
                     if (file) console.log('::error file=' + file + '::' + msg);
                     else console.log('::error::' + msg);
                   }
-                }              
+                }
                 console.error('Invalid files:', failed);
                 process.exit(1);
               }

@@ -130,12 +130,11 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
-    # Testing with v0.1.14
     uses: zkpip/zkpip/.github/workflows/reusable-schema-guard.yml@v0.1.14
     with:
       paths: "schemas/**/*.json, output/**/*.json"
       exclude: "node_modules/**, **/dist/**, **/build/**"
       annotate: true
       core_ref: ""
-    secrets:      
-      ORG_READ_TOKEN: ${{ secrets.ORG_READ_TOKEN }} 
+    secrets:
+      ORG_READ_TOKEN: ${{ secrets.ORG_READ_TOKEN }}
