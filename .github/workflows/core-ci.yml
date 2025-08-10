@@ -1,0 +1,54 @@
+name: core-ci
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "packages/core/**"
+      - ".github/workflows/core-ci.yml"
+  pull_request:
+    paths:
+      - "packages/core/**"
+      - ".github/workflows/core-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: core-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test @zkpip/core
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install (monorepo root)
+        run: npm ci
+
+      # Optional: typecheck if you have a script for it; won't fail the job if missing
+      - name: Typecheck (optional)
+        run: npm run -w @zkpip/core -s typecheck || echo "No typecheck script"
+
+      - name: Run tests
+        run: npm test -w @zkpip/core
+
+      # Optional: upload coverage if you enable coverage output
+      - name: Upload coverage (optional)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-coverage
+          path: packages/core/coverage/
+          if-no-files-found: ignore
