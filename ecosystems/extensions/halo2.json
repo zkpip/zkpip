@@ -1,0 +1,11 @@
+{
+  "name": "halo2",
+  "description": "Rust-based proof system with plonkish arithmetization and recursion support",
+  "proofSystem": "halo2",
+  "curve": "bn254",
+  "language": "rust",
+  "repository": "https://github.com/zcash/halo2",
+  "documentation": "https://zcash.github.io/halo2/",
+  "categories": ["prover", "verifier"],
+  "license": "MIT"
+}

@@ -7,12 +7,14 @@
   "devDependencies": {
     "@types/node": "^24.2.1",
     "ajv": "^8.17.1",
-    "ajv-formats": "^3.0.1",
+    "ajv-formats": "^2.1.1",
     "eslint": "^9.8.0",
-    "typescript": "^5.5.4",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.2",
     "vitest": "^2.0.0"
   },
   "scripts": {
-    "build": "npm -w @zkpip/core run build"
+    "build": "npm -w @zkpip/core run build",
+    "validate:schemas": "ts-node --project ./tsconfig.scripts.json ./scripts/validateSchemas.ts"
   }
 }

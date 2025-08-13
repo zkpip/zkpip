@@ -1,0 +1,11 @@
+{
+  "name": "stark",
+  "description": "Scalable transparent argument of knowledge, no trusted setup, hash-based",
+  "proofSystem": "stark",
+  "curve": "none",
+  "language": "cairo",
+  "repository": "https://github.com/starkware-libs/cairo",
+  "documentation": "https://starkware.co/stark/",
+  "categories": ["prover", "verifier"],
+  "license": "Apache-2.0"
+}

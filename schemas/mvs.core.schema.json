@@ -1,0 +1,22 @@
+{
+  "$id": "https://zkpip.org/schemas/mvs.core.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ZKPIP MVS — Core",
+  "type": "object",
+  "required": ["schemaVersion", "recordType", "id", "createdAt", "updatedAt"],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "description": "Semantic version marker of the MVS schema applied to this record.",
+      "pattern": "^mvs-\\d+\\.\\d+\\.\\d+$"
+    },
+    "recordType": {
+      "type": "string",
+      "enum": ["verification", "issue", "ecosystem"]
+    },
+    "id": { "type": "string", "minLength": 8 },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": true
+}
