@@ -22,6 +22,14 @@ on:
         required: false
         default: true
         type: boolean
+      core_repo:       
+        required: false
+        type: string
+        default: zkpip/zkpip
+      core_path:       
+        required: false
+        type: string
+        default: __core        
     secrets:
       ORG_READ_TOKEN:
         description: "Optional PAT with Contents: Read for zkpip/zkpip (if private)"
