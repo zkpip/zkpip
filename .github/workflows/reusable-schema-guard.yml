@@ -70,8 +70,20 @@ jobs:
             exit 66
           fi
 
-      # 3) Setup Node.js
-      - name: Setup Node.js
+      # 3) Setup Node with cache (internal runs)     
+      - name: Setup Node (with npm cache)
+        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            ${{ inputs.core_path }}/package-lock.json
+            ${{ inputs.core_path }}/packages/**/package-lock.json
+
+      # Fork PRs → no cache
+      - name: Setup Node (no cache on forks)
+        if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == true }}
         uses: actions/setup-node@v4
         with:
           node-version: 20
