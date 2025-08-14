@@ -1,0 +1,61 @@
+name: Core CI
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "packages/core/**"
+      - ".github/workflows/core-ci.yml"
+  pull_request:
+    paths:
+      - "packages/core/**"
+      - ".github/workflows/core-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: core-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core:
+    name: Build & Test @zkpip/core (with coverage)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: "true"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install (monorepo root)
+        run: npm ci --no-audit --fund=false
+
+      - name: Typecheck (optional)
+        run: npm run -w @zkpip/core -s typecheck || echo "No typecheck script"
+
+      - name: Run tests with coverage (Vitest)
+        working-directory: packages/core
+        run: npm run -s test:coverage
+
+      - name: Upload coverage (LCOV)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-coverage
+          path: packages/core/coverage/
+          if-no-files-found: error
+
+      - name: Assert LCOV exists
+        if: always()
+        working-directory: packages/core
+        run: test -f coverage/lcov.info || (echo "❌ lcov.info missing"; exit 1)

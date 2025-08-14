@@ -7,6 +7,7 @@ a structured proposal system designed to standardize and unify the fragmented ze
 ---
 
 ![Schema Validation](https://github.com/zkpip/zkpip/actions/workflows/schema-validation.yml/badge.svg)
+![Core CI](https://github.com/zkpip/zkpip>/actions/workflows/core-ci.yml/badge.svg)
 
 ## Purpose
 
