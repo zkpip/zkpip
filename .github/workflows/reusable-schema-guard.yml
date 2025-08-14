@@ -1,0 +1,133 @@
+name: Reusable Schema Guard (Lite)
+
+on:
+  workflow_call:
+    inputs:
+      include:
+        description: "Glob patterns to include (newline- or comma-separated)"
+        required: true
+        type: string
+      exclude:
+        description: "Glob patterns to exclude (optional; newline- or comma-separated)"
+        required: false
+        default: ""
+        type: string
+      core_ref:
+        description: "Branch/tag for zkpip/zkpip (default: PR base or main)"
+        required: false
+        default: ""
+        type: string
+      annotate:
+        description: "Emit GitHub error annotations for failing files"
+        required: false
+        default: true
+        type: boolean
+    secrets:
+      ORG_READ_TOKEN:
+        description: "Optional PAT with Contents: Read for zkpip/zkpip (if private)"
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout consumer repository
+        uses: actions/checkout@v4
+
+      - name: Checkout core schema repository
+        uses: actions/checkout@v4
+        with:
+          repository: zkpip/zkpip
+          ref: ${{ inputs.core_ref || (github.event_name == 'pull_request' && github.base_ref || 'main') }}
+          token: ${{ secrets.ORG_READ_TOKEN || github.token }}
+          path: __core
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install core deps + build validator
+        run: |
+          npm ci --prefix __core --no-audit --fund=false
+          npm run -w @zkpip/core -s build || npm run --prefix __core/packages/core -s build
+
+      - name: Collect files
+        id: files
+        shell: bash
+        env:
+          INCLUDE: ${{ inputs.include }}
+          EXCLUDE: ${{ inputs.exclude }}
+        run: |
+          set -euo pipefail
+          mapfile -t inc < <(printf "%s\n" "$INCLUDE" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | awk 'NF')
+          mapfile -t exc < <(printf "%s\n" "$EXCLUDE" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | awk 'NF')
+
+          # gyűjtés
+          tmp=$(mktemp)
+          for pat in "${inc[@]}"; do
+            git ls-files "$pat" 2>/dev/null >> "$tmp" || true
+          done
+          sort -u "$tmp" -o "$tmp"
+
+          # kizárás
+          if ((${#exc[@]})); then
+            tmp2=$(mktemp)
+            for pat in "${exc[@]}"; do
+              git ls-files "$pat" 2>/dev/null >> "$tmp2" || true
+            done
+            sort -u "$tmp2" -o "$tmp2"
+            comm -23 "$tmp" "$tmp2" > .schema_files.txt || true
+          else
+            cp "$tmp" .schema_files.txt || true
+          fi
+
+          echo "Files to validate:"
+          cat .schema_files.txt || true
+
+          if [[ -s .schema_files.txt ]]; then
+            {
+              echo 'FILES<<EOF'
+              cat .schema_files.txt
+              echo 'EOF'
+            } >> "$GITHUB_ENV"
+          else
+            echo "No files after filtering."
+          fi
+
+      - name: Run schema validation
+        if: env.FILES != ''
+        shell: bash
+        env:
+          ANNOTATE: ${{ inputs.annotate }}
+        run: |
+          node -e "
+            const { validateFileBatch } = require('./__core/packages/core/dist/cli/validate.js');
+            const files = (process.env.FILES || '').split('\n').filter(Boolean);
+            (async () => {
+              const { failed } = await validateFileBatch(files);
+              if (failed.length) {
+                if (process.env.ANNOTATE === 'true') {
+                  for (const f of failed) {
+                    const file = typeof f === 'string' ? f : (f.file || f.path || '');
+                    const msg = (typeof f === 'object' && f.message) ? f.message : 'Schema validation failed';
+                    if (file) console.log('::error file=' + file + '::' + msg);
+                    else console.log('::error::' + msg);
+                  }
+                }
+                console.error('Invalid files:', failed);
+                process.exit(1);
+              }
+              console.log('All files are schema-valid ✅');
+            })().catch(e => { console.error(e); process.exit(1); });
+          "
+
+      - name: No files matched (skip)
+        if: env.FILES == ''
+        run: echo "No files matched include/exclude. Skipping validation."
