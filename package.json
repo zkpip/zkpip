@@ -15,6 +15,6 @@
   },
   "scripts": {
     "build": "npm -w @zkpip/core run build",
-    "validate:schemas": "ts-node --project ./tsconfig.scripts.json ./scripts/validateSchemas.ts"
+    "validate-schemas": "ts-node --project ./tsconfig.scripts.json ./scripts/validateSchemas.ts"
   }
 }

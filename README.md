@@ -1,9 +1,12 @@
+
 # ZKPIP – Zero-Knowledge Proof Improvement Proposals
 
 This repository defines the **core framework, schemas, and governance model** for ZKPIP –  
 a structured proposal system designed to standardize and unify the fragmented zero-knowledge (ZK) ecosystem.
 
 ---
+
+![Schema Validation](https://github.com/zkpip/zkpip/actions/workflows/schema-validation.yml/badge.svg)
 
 ## Purpose
 

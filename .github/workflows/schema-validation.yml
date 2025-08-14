@@ -1,0 +1,53 @@
+name: Schema Validation
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "schemas/**"
+      - "ecosystems/**"
+      - "scripts/validateSchemas.ts"
+      - "tsconfig.scripts.json"
+      - "package.json"
+      - "package-lock.json"
+  pull_request:
+    branches: [ main ]
+    paths:
+      - "schemas/**"
+      - "ecosystems/**"
+      - "scripts/validateSchemas.ts"
+      - "tsconfig.scripts.json"
+      - "package.json"
+      - "package-lock.json"
+  workflow_dispatch:
+
+jobs:
+  validate-schemas:
+    name: Validate JSON Schemas
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: schema-validation-${{ github.ref }}
+      cancel-in-progress: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # Prefer npm ci if a lockfile exists; fall back to npm install otherwise.
+      - name: Install deps (npm ci)
+        if: hashFiles('package-lock.json') != ''
+        run: npm ci --no-audit --fund=false
+
+      - name: Install deps (npm install fallback)
+        if: hashFiles('package-lock.json') == ''
+        run: npm install --no-audit --fund=false
+
+      - name: Run schema validation
+        run: npm run validate-schemas
