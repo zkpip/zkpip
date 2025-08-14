@@ -1,0 +1,17 @@
+# CODEOWNERS for zkpip/zkpip
+# Order matters; the last matching pattern takes precedence.
+
+# -- Core JSON Schemas (top-level) --
+/schemas/**/*.json                 @tonynagyeurope
+
+# -- Core package schemas (monorepo path) --
+/packages/core/schemas/**/*.json   @tonynagyeurope
+
+# -- Reusable/CI workflows --
+/.github/workflows/reusable-schema-guard.yml  @tonynagyeurope
+/.github/workflows/schema-validation.yml      @tonynagyeurope
+/.github/workflows/core-ci.yml                @tonynagyeurope
+/.github/workflows/secret-watchdog.yml        @tonynagyeurope
+
+# -- Optional: default owners for everything else --
+# *  @tonynagyeurope
