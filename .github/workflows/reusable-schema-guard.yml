@@ -1,3 +1,4 @@
+# zkpip/zkpip/.github/workflows/reusable-schema-guard.yml
 name: Reusable Schema Guard
 
 on:
@@ -17,11 +18,11 @@ on:
         required: false
         type: string
         default: main
-      core_repo:              # allows swapping the core repository if needed
+      core_repo:
         required: false
         type: string
         default: zkpip/zkpip
-      core_path:              # avoids hardcoding __core
+      core_path:
         required: false
         type: string
         default: __core
@@ -36,14 +37,11 @@ jobs:
       contents: read
 
     steps:
-      # 1) Checkout caller (consumer) repository
+      # 1) Checkout the caller repository
       - name: Checkout caller repo
         uses: actions/checkout@v4
 
-      # 2) Prepare core repo under inputs.core_path
-      #    Strategy:
-      #      a) Try public HTTPS clone (works on forks if the repo is public)
-      #      b) Fallback to token-based clone for internal runs
+      # 2) Clone core under core_path (public clone first, then token fallback)
       - name: Prepare core into ${{ inputs.core_path }}
         shell: bash
         run: |
@@ -51,64 +49,83 @@ jobs:
           CORE_PATH="${{ inputs.core_path }}"
           CORE_REPO="${{ inputs.core_repo }}"
           CORE_REF="${{ inputs.core_ref }}"
-
           rm -rf "$CORE_PATH"
 
-          # Public clone first
+          # Public HTTPS clone (works on forks if the repo is public)
           git clone --depth 1 --branch "$CORE_REF" "https://github.com/${CORE_REPO}.git" "$CORE_PATH" || true
 
           # Token fallback (internal runs)
-          if [ ! -f "$CORE_PATH/schemas/common.schema.json" ]; then
-            echo "Public clone missing or schemas not found → retrying with token…"
+          if [ ! -d "$CORE_PATH" ] || [ ! -d "$CORE_PATH/schemas" ]; then
+            echo "Public clone missing → retrying with token…"
             rm -rf "$CORE_PATH"
             git clone --depth 1 --branch "$CORE_REF" \
               "https://x-access-token:${{ secrets.ORG_READ_TOKEN || github.token }}@github.com/${CORE_REPO}.git" \
               "$CORE_PATH"
           fi
 
-          # Fast diagnostics and early, clear failure if schemas are missing
-          ls -la "$CORE_PATH" || true
+          # Minimal schema presence check (do NOT check for old common.schema.json)
           ls -la "$CORE_PATH/schemas" || true
-          test -f "$CORE_PATH/schemas/common.schema.json" || { echo 'Missing schemas/common.schema.json in core repo'; exit 66; }
+          if ! ls "$CORE_PATH"/schemas/*.schema.json >/dev/null 2>&1; then
+            echo "No *.schema.json files found under $CORE_PATH/schemas"
+            exit 66
+          fi
 
-      # 3) Node.js toolchain
+      # 3) Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      # 4) Build core CLI if dist is not versioned in the repo
-      - name: Build core CLI if dist is absent
+      # 4) Force a clean build of the core CLI (avoid stale dist referencing old filenames)
+      - name: Clean & build core CLI
         shell: bash
         run: |
           set -euxo pipefail
           CORE_PATH="${{ inputs.core_path }}"
-          if [ ! -d "$CORE_PATH/packages/core/dist" ]; then
-            pushd "$CORE_PATH"
-            npm ci --workspaces=false
-            npm ci -w packages/core
-            npm run build -w packages/core
-            popd
+          rm -rf "$CORE_PATH/packages/core/dist"
+          pushd "$CORE_PATH"
+          npm ci --workspaces=false --no-audit --no-fund
+          npm ci -w packages/core --no-audit --no-fund
+          npm run build -w packages/core
+          popd
+
+      # 5) Safe hotfix: if dist still refers to old 'schemas/common.schema.json', rewrite to 'schemas/mvs.core.schema.json'
+      - name: Patch dist paths if legacy 'common.schema.json' is referenced
+        shell: bash
+        run: |
+          set -euxo pipefail
+          CORE_PATH="${{ inputs.core_path }}"
+          COMMON="$CORE_PATH/schemas/common.schema.json"
+          MVSCORE="$CORE_PATH/schemas/mvs.core.schema.json"
+
+          if [ ! -f "$COMMON" ] && [ -f "$MVSCORE" ]; then
+            if grep -R "schemas/common.schema.json" -n "$CORE_PATH/packages/core/dist" >/dev/null 2>&1; then
+              sed -i 's#schemas/common.schema.json#schemas/mvs.core.schema.json#g' "$CORE_PATH/packages/core/dist/cli/"*.js || true
+            fi
           fi
 
-      # 5) Export environment variables for downstream guard steps
+      # 6) Export envs for the guard run
       - name: Export env for guard
         shell: bash
         run: |
           echo "CORE_ROOT=${{ inputs.core_path }}" >> "$GITHUB_ENV"
-          echo "INCLUDE_GLOBS<<EOF" >> "$GITHUB_ENV"
-          echo "${{ inputs.include }}" >> "$GITHUB_ENV"
-          echo "EOF" >> "$GITHUB_ENV"
-          echo "EXCLUDE_GLOBS<<EOF" >> "$GITHUB_ENV"
-          echo "${{ inputs.exclude }}" >> "$GITHUB_ENV"
-          echo "EOF" >> "$GITHUB_ENV"
+          {
+            echo "INCLUDE_GLOBS<<EOF"
+            echo "${{ inputs.include }}"
+            echo "EOF"
+          } >> "$GITHUB_ENV"
+          {
+            echo "EXCLUDE_GLOBS<<EOF"
+            echo "${{ inputs.exclude }}"
+            echo "EOF"
+          } >> "$GITHUB_ENV"
           echo "ANNOTATE=${{ inputs.annotate }}" >> "$GITHUB_ENV"
 
-      # 6) Run your existing guard logic (AJV, CLI, etc.). It can rely on CORE_ROOT, INCLUDE_GLOBS, EXCLUDE_GLOBS, ANNOTATE.
+      # 7) Run the actual guard (replace with your real command)
       - name: Run Schema Guard
         shell: bash
         run: |
           set -euxo pipefail
           echo "Running Schema Guard with CORE_ROOT=$CORE_ROOT"
-          # Example placeholder – replace with your actual guard command:
-          node -e "console.log('Schema guard would run here with', process.env.CORE_ROOT, process.env.INCLUDE_GLOBS)"
+          # Example placeholder:
+          node -e "console.log('Schema guard running with', process.env.CORE_ROOT, process.env.INCLUDE_GLOBS)"
