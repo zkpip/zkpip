@@ -15,6 +15,15 @@
       "url": "https://github.com/zkpip"
     }
   ],
+  "homepage": "https://zkpip.org",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zkpip/zkpip.git",
+    "directory": "packages/core"
+  },
+  "bugs": {
+    "url": "https://github.com/zkpip/zkpip/issues"
+  },  
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
