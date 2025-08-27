@@ -2,38 +2,52 @@
   "name": "@zkpip/core",
   "version": "0.1.0",
   "type": "module",
+  "private": false,
+  "license": "Apache-2.0",
+  "author": {
+    "name": "Tony Nagy",
+    "email": "info@tonynagy.io",
+    "url": "https://tonynagy.io"
+  },
+  "contributors": [
+    {
+      "name": "ZKPIP contributors",
+      "url": "https://github.com/zkpip"
+    }
+  ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
     ".": "./dist/index.js",
-    "./dist/cli/validate": "./dist/cli/validate.js"
+    "./cli": "./dist/cli/zkpip.js"
+  },
+  "bin": {
+    "zkpip": "./dist/cli/zkpip.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "lint": "eslint \"src/**/*.{ts,tsx}\" \"test/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\" \"spec/**/*.{ts,tsx}\" --no-error-on-unmatched-pattern --max-warnings=0",
-    "lint:fix": "eslint \"src/**/*.{ts,tsx}\" \"test/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\" \"spec/**/*.{ts,tsx}\" --no-error-on-unmatched-pattern --fix",
+    "dev": "tsc -p tsconfig.json -w",
+    "lint": "eslint \"src/**/*.{ts,tsx}\" --max-warnings=0",
+    "lint:fix": "eslint \"src/**/*.{ts,tsx}\" --fix",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "typecheck:test": "tsc -p tsconfig.vitest.json --noEmit",
     "test": "vitest run",
-    "test:coverage": "vitest run --coverage",
-    "vitest": "vitest",
-    "schema:check": "node ./scripts/validate-samples.mjs",
-    "validate:file": "node dist/cli/validate.js",
-    "test:validate": "vitest run src/__tests__/validate.integration.picker.test.ts"
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage",
+    "prepublishOnly": "npm run lint && npm run typecheck && npm run build"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1"
   },
   "devDependencies": {
-    "@eslint/js": "^9.33.0",
-    "@types/node": "^24.2.1",
-    "@typescript-eslint/eslint-plugin": "^8.39.0",
-    "@typescript-eslint/parser": "^8.39.0",
+    "@types/node": "^20.14.9",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
     "@vitest/coverage-v8": "^2.1.9",
-    "ajv": "^8.17.1",
-    "ajv-formats": "^3.0.1",
-    "eslint": "^9.33.0",
-    "globals": "^16.3.0",
+    "eslint": "^9.6.0",
+    "globals": "^15.6.0",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.2",
-    "typescript-eslint": "^8.39.0",
+    "typescript": "^5.4.5",
     "vitest": "^2.1.9"
   }
 }
