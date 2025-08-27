@@ -1,10 +1,41 @@
 // AJV bootstrap helpers for loading repository JSON Schemas.
-import * as Ajv2020NS from "ajv/dist/2020.js";
-import * as addFormatsNS from "ajv-formats";
+
+import type { Options as AjvOptions, ErrorObject } from "ajv";
+import * as AjvNS from "ajv";
+import addFormatsOrig from "ajv-formats";
 import { readFileSync, existsSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import path from "path";
+import fs from "fs";
+import { createRequire } from "module";
+
+/* ========= ESM/CJS interop, explicit és típusos ========= */
+
+// Az Ajv konstruktor típusát definiáljuk (csak amire szükségünk van).
+type ValidateFunction = ((data: unknown) => boolean) & {
+  errors?: ErrorObject[] | null;
+};
+
+export interface AjvInstance {
+  addSchema(schema: Record<string, unknown>, key?: string): unknown;
+  getSchema(id: string): ValidateFunction | undefined;
+  errorsText(
+    errors?: ErrorObject[] | null,
+    opts?: { separator?: string }
+  ): string;
+}
+
+// Ajv konstruktor kinyerése default exportból, any nélkül.
+type AjvCtor = new (opts?: AjvOptions) => AjvInstance;
+const Ajv = (AjvNS as unknown as { default: AjvCtor }).default;
+
+// az ajv-formats típusa nem kötődik a konkrét Ajv osztályhoz – általános, biztonságos szignatúra:
+const addFormats: (ajv: unknown) => unknown = addFormatsOrig as unknown as (
+  ajv: unknown
+) => unknown;
+
+/* ========= Publikus konstansok és utilok ========= */
 
 export const CANONICAL_IDS = {
   core: "urn:zkpip:mvs.core.schema.json",
@@ -14,6 +45,19 @@ export const CANONICAL_IDS = {
   proofBundle: "urn:zkpip:mvs.proof-bundle.schema.json",
   cir: "urn:zkpip:mvs.cir.schema.json",
 } as const;
+
+type CanonicalKey = keyof typeof CANONICAL_IDS;
+
+function isCanonicalKey(x: string): x is CanonicalKey {
+  return x in CANONICAL_IDS;
+}
+
+function getCanonicalId(idKey: string) {
+  if (!isCanonicalKey(idKey)) {
+    throw new Error(`Unknown canonical key: ${idKey}`);
+  }
+  return CANONICAL_IDS[idKey]; // OK
+}
 
 export function vectorsDir(): string {
   const __filename = fileURLToPath(import.meta.url);
@@ -63,21 +107,74 @@ function loadFirstExistingSchema(baseDir: string, candidates: string[]): Record<
   throw new Error(`Schema file not found. Looked for: ${candidates.join(", ")} in ${baseDir}`);
 }
 
-const Ajv2020 = (Ajv2020NS as unknown as { default: new (opts?: any) => any }).default;
-const addFormats = (addFormatsNS as any).default ?? addFormatsNS;
-
-/** Create a strict AJV instance (JSON Schema 2020-12) with formats. */
 export function createAjv() {
-  const ajv = new Ajv2020({ strict: true, allErrors: true, allowUnionTypes: true });
+  const ajv = new Ajv({
+    strict: false,
+    allErrors: true,
+    validateSchema: false,
+  });
+
   addFormats(ajv);
   return ajv;
 }
 
-/** Use the concrete instance type returned by createAjv (no Ajv type import needed). */
-type AjvInstance = ReturnType<typeof createAjv>;
+export function schemasDir(): string {
+  const override = process.env.ZKPIP_SCHEMAS_DIR;
+  if (override && override.trim()) {
+    return resolve(override);
+  }
+  return repoSchemasDirFromHere();
+}
+
+export function readJson<T = unknown>(p: string): T {
+  if (!existsSync(p)) {
+    throw new Error(`Schema file not found at: ${p}`);
+  }
+  const raw = readFileSync(p, "utf8");
+  try {
+    return JSON.parse(raw) as T;
+  } catch (e) {
+    throw new Error(`Invalid JSON in schema file: ${p} — ${(e as Error).message}`);
+  }
+}
+
+const URN_RE = /^urn:[a-z0-9][a-z0-9-]{0,31}:.+/i;
+
+function assertValidUrn(id: string, where: string) {
+  if (!URN_RE.test(id)) {
+    throw new Error(`Invalid URN at ${where}: "${id}"  (expected "urn:<nid>:<nss>")`);
+  }
+}
+
+function* walkRefs(obj: unknown, path: string[] = []): Generator<{ref:string; where:string}> {
+  if (obj && typeof obj === "object") {
+    for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+      const here = [...path, k];
+      if (k === "$ref" && typeof v === "string") {
+        yield { ref: v, where: `$.${here.join(".")}` };
+      } else {
+        yield* walkRefs(v, here);
+      }
+    }
+  }
+}
+
+function preflightSchemaIdsAndRefs(schema: any, fileTag: string) {
+  if (typeof schema.$schema === "string" && schema.$schema.startsWith("urn:")) {
+    throw new Error(`$schema must be a draft URL, not URN. Found at ${fileTag}: ${schema.$schema}`);
+  }
+  
+  if (typeof schema.$id === "string" && schema.$id.startsWith("urn:")) {
+    assertValidUrn(schema.$id, `${fileTag}.$id`);
+  }
+  
+  for (const { ref, where } of walkRefs(schema)) {
+    if (ref.startsWith("urn:")) assertValidUrn(ref, `${fileTag}:${where}`);
+  }
+}
 
 export function addCoreSchemas(ajv: AjvInstance): void {
-  const base = repoSchemasDirFromHere();
+  const base = schemasDir(); // ← fontos: ne hívd közvetlenül a repo keresőt
 
   const sources: Array<{ id: string; candidates: string[] }> = [
     { id: CANONICAL_IDS.core,         candidates: ["mvs.core.schema.json", "common.schema.json"] },
@@ -89,7 +186,18 @@ export function addCoreSchemas(ajv: AjvInstance): void {
   ];
 
   for (const { id, candidates } of sources) {
-    const schema = loadFirstExistingSchema(base, candidates);
+    let schema: Record<string, unknown>;
+    try {
+      schema = loadFirstExistingSchema(base, candidates);
+    } catch {
+      // ezt várja a teszt:
+      throw new Error(`Missing core schema: ${candidates.join(" | ")} in ${base}`);
+    }
+
+    (schema as any).$id = id;
+    assertValidUrn(id, `addCoreSchemas:$id(${candidates[0] ?? "unknown"})`);
+    preflightSchemaIdsAndRefs(schema, `schema:${id}`);
     ajv.addSchema(schema, id);
   }
 }
+

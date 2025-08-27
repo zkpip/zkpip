@@ -5,6 +5,10 @@ import { readFileSync } from "fs";
 import { resolve } from "path";
 import { createAjv, addCoreSchemas } from "../schemaUtils.js";
 import { pickSchemaId } from "./pickSchemaId.js";
+import type { ErrorObject } from "ajv";
+
+/** Ajv hibákat hordozó Error típus (tesztekhez hasznos). */
+type AjvErrorCarrier = Error & { errors?: ErrorObject[] | null };
 
 /**
  * Validate a single JSON file against a schema picked from its filename.
@@ -32,7 +36,7 @@ export async function validatePath(inputPath: string): Promise<void> {
   if (!validate) {
     throw new Error(
       `Schema not registered in AJV: ${schemaId}\n` +
-      `Ensure the corresponding schema file exists under /schemas and has a proper "$id".`
+        `Ensure the corresponding schema file exists under /schemas and has a proper "$id".`
     );
   }
 
@@ -40,10 +44,10 @@ export async function validatePath(inputPath: string): Promise<void> {
   if (!ok) {
     // Build a readable error message; attach raw errors for tests if needed
     const msg = ajv.errorsText(validate.errors, { separator: "\n" });
-    const err = new Error(
+    const err: AjvErrorCarrier = new Error(
       `Validation failed for ${abs}\nSchema: ${schemaId}\n${msg}`
     );
-    (err as any).errors = validate.errors;
+    err.errors = validate.errors ?? null;
     throw err;
   }
 }
@@ -53,7 +57,7 @@ export async function validatePath(inputPath: string): Promise<void> {
  * Usage: node dist/cli/validate.js <path-to-json>
  */
 if (import.meta.url === `file://${process.argv[1]}`) {
-  (async () => {
+  void (async () => {
     const fileArg = process.argv[2];
     if (!fileArg) {
       console.error("Usage: zkpip-validate <path-to-json>");

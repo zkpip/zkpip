@@ -6,7 +6,7 @@
   ],
   "devDependencies": {
     "@types/node": "^24.2.1",
-    "ajv": "^8.17.1",
+    "ajv": "^8.12.0",
     "ajv-formats": "^2.1.1",
     "eslint": "^9.8.0",
     "ts-node": "^10.9.2",
@@ -16,6 +16,9 @@
   },
   "scripts": {
     "build": "npm -w @zkpip/core run build",
-    "validate-schemas": "tsx ./scripts/validateSchemas.ts"
+    "validate-schemas": "tsx ./scripts/validateSchemas.ts",
+    "lint:schemas:refs": "bash scripts/lint-schemas-refs.sh",
+    "lint:schemas:ids": "node scripts/check-schema-ids.mjs",
+    "lint:schemas": "npm run -s lint:schemas:refs && npm run -s lint:schemas:ids"
   }
 }

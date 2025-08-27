@@ -1,0 +1,9 @@
+{
+  "type": "circuit",
+  "version": "0.1",
+  "id": "cir-789",
+  "language": "circom",
+  "entryPoint": "compute",
+  "inputs": [],
+  "outputs": ["result"]
+}

@@ -28,7 +28,6 @@ const VERIF_VECTOR = resolve(SCHEMAS_DIR, "tests/vectors/mvs/verification-groth1
 const ISSUE_VECTOR = resolve(SCHEMAS_DIR, "tests/vectors/mvs/issue-public-input-order.json");
 const ECO_VECTOR   = resolve(SCHEMAS_DIR, "tests/vectors/mvs/ecosystem-aztec.json");
 
-// a test cases-ben pedig ezeket használd:
 await expect(validatePath(VERIF_VECTOR)).resolves.toBeUndefined();
 await expect(validatePath(ISSUE_VECTOR)).resolves.toBeUndefined();
 await expect(validatePath(ECO_VECTOR)).resolves.toBeUndefined();
@@ -134,7 +133,11 @@ describe("validate.ts + pickSchemaId integration", () => {
 
   it("defaults to core schema when filename does not match any known pattern", async () => {
     // Minimal 'core' payload; adjust if your core schema is stricter.
-    const minimalCore = { $schema: "urn:zkpip:mvs.core.schema.json" };
+    const minimalCore = {
+      $schema: "https://json-schema.org/draft/2020-12/schema",  
+      $id: "urn:zkpip:mvs:core.payload:0.1",                   
+      type: "object"
+    };
     const p = tmpJsonFile("random.json", minimalCore);
 
     try {

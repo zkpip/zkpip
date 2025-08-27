@@ -10,13 +10,15 @@ describe("$id uniqueness by filename (no duplicates among core schemas)", () => 
       "mvs.issue.schema.json",
       "mvs.verification.schema.json",
     ];
+
     const seen = new Set<string>();
     for (const n of names) {
-      const p = path.join(schemasDir(), n);
-      const s = readJson(p);
+      const p = path.join(schemasDir(), n);                    // ← string típusú
+      const s = readJson<Record<string, unknown>>(p);          // ← nincs any
+
       expect(seen.has(n)).toBe(false);
       seen.add(n);
-      // opcionális sanity: a fájl JSON legyen objektum
+
       expect(typeof s).toBe("object");
       expect(s).not.toBeNull();
     }

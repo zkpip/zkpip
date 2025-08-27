@@ -1,0 +1,10 @@
+{
+  "type": "proofBundle",
+  "version": "0.1",
+  "id": "bundle-mistyped",
+  "proof": {
+    "scheme": 123, 
+    "curve": true
+  },
+  "publicSignals": "0xdeadbeef"
+}
