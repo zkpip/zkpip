@@ -47,8 +47,6 @@ jobs:
     needs: changes
     if: needs.changes.outputs.schemas == 'true'
     uses: ./.github/workflows/reusable-schema-guard.yml
-    # Ha a reusable workflow annotációt ír PR-okra, a fenti
-    # pull-requests: write jogosultság ezt engedni fogja.
     with:
       include: |
         schemas/**

@@ -42,6 +42,14 @@ jobs:
     timeout-minutes: 15
 
     steps:
+      - name: Validate inputs
+        shell: bash
+        run: |
+          if [ -z "${{ inputs.include }}" ]; then
+            echo "Missing required 'include' patterns."
+            exit 2
+          fi
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -57,21 +65,27 @@ jobs:
         run: npm ci
 
       - name: Echo inputs (informative)
+        shell: bash
         run: |
+          set -euo pipefail
           echo "Included globs (info):"
-          echo "${{ inputs.include }}"
+          printf '%s\n' "${{ inputs.include }}"
           echo "Excluded globs (info):"
-          echo "${{ inputs.exclude }}"
+          printf '%s\n' "${{ inputs.exclude }}"
 
       - name: Run schema validation
         id: validate
         shell: bash
         run: |
-          set -euo pipefail
-          set +e
-          # Ha a script támogatja: pl. npm run -s validate-schemas -- --include "${{ inputs.include }}" --exclude "${{ inputs.exclude }}"
+          set -o pipefail
+
           npm run -s validate-schemas | tee schema-guard.log
           status=${PIPESTATUS[0]}
+
+          if [ ! -s schema-guard.log ]; then
+            echo "validate-schemas did not produce output (possible quoting/indent issue)" > schema-guard.log
+          fi
+
           echo "status=$status" >> "$GITHUB_OUTPUT"
 
       - name: Upload schema-guard log (artifact)
