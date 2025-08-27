@@ -1,97 +1,95 @@
-// packages/core/src/schemaUtils.ts
-import fs from "fs";
+// AJV bootstrap helpers for loading repository JSON Schemas.
+import * as Ajv2020NS from "ajv/dist/2020.js";
+import * as addFormatsNS from "ajv-formats";
+import { readFileSync, existsSync } from "fs";
+import { resolve, dirname } from "path";
+import { fileURLToPath } from "url";
 import path from "path";
 
-export const CANONICAL_IDS: Record<string, string> = {
-  "mvs.core.schema.json": "https://zkpip.org/schemas/mvs.core.schema.json",
-  "mvs.ecosystem.schema.json": "https://zkpip.org/schemas/mvs.ecosystem.schema.json",
-  "mvs.issue.schema.json": "https://zkpip.org/schemas/mvs.issue.schema.json",
-  "mvs.verification.schema.json": "https://zkpip.org/schemas/mvs.verification.schema.json",
-};
+export const CANONICAL_IDS = {
+  core: "urn:zkpip:mvs.core.schema.json",
+  verification: "urn:zkpip:mvs.verification.schema.json",
+  issue: "urn:zkpip:mvs.issue.schema.json",
+  ecosystem: "urn:zkpip:mvs.ecosystem.schema.json",
+  proofBundle: "urn:zkpip:mvs.proof-bundle.schema.json",
+  cir: "urn:zkpip:mvs.cir.schema.json",
+} as const;
 
-// 💡 Típus az AJV példányra (stabil a NodeNext + verbatim mellett is)
-type Ajv = import("ajv").default;
+export function vectorsDir(): string {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  const repoRoot = path.resolve(__dirname, "../../..");
+  return path.join(repoRoot, "schemas", "tests", "vectors", "mvs");
+}
 
-// 💡 Konstruktor fallback: először próbál ESM (ajv/dist/2020), majd ajv default, végül CJS
-const AjvCtor: new (opts?: any) => Ajv = (() => {
-  try {
-    // ESM 2020-12 build (ha elérhető a típussal)
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    return require("ajv/dist/2020").default;
-  } catch {
-    try {
-      // Normál default export
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const mod = require("ajv");
-      return (mod.default ?? mod) as new (opts?: any) => Ajv;
-    } catch (e) {
-      throw new Error(
-        "Failed to load AJV constructor. Ensure `ajv@^8` is installed in packages/core."
-      );
-    }
+function findSchemasDir(startDir: string): string | null {
+  let dir = startDir;
+  for (let i = 0; i < 8; i++) {
+    const candidate = resolve(dir, "schemas");
+    if (existsSync(candidate)) return candidate;
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
   }
-})();
+  return null;
+}
 
-// 🔹 addFormats fallback loader (ESM/CJS kompatibilis)
-type AddFormats = (ajv: Ajv) => void;
-const addFormats: AddFormats = (() => {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const mod = require("ajv-formats");
-    return (mod.default ?? mod) as AddFormats;
-  } catch {
-    throw new Error("Failed to load ajv-formats. Ensure `ajv-formats@^3` is installed in packages/core.");
+/** Resolve the /schemas directory robustly from compiled file location or CWD. */
+function repoSchemasDirFromHere(): string {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = dirname(__filename);
+
+  const fromDist = findSchemasDir(__dirname);
+  if (fromDist) return fromDist;
+
+  const fromCwd = findSchemasDir(process.cwd());
+  if (fromCwd) return fromCwd;
+
+  // last resort
+  return resolve(process.cwd(), "schemas");
+}
+
+function readSchema(baseDir: string, filename: string): Record<string, unknown> | null {
+  const abs = resolve(baseDir, filename);
+  if (!existsSync(abs)) return null;
+  return JSON.parse(readFileSync(abs, "utf-8")) as Record<string, unknown>;
+}
+
+function loadFirstExistingSchema(baseDir: string, candidates: string[]): Record<string, unknown> {
+  for (const fn of candidates) {
+    const json = readSchema(baseDir, fn);
+    if (json) return json;
   }
-})();
+  throw new Error(`Schema file not found. Looked for: ${candidates.join(", ")} in ${baseDir}`);
+}
 
-export function createAjv(): Ajv {
-  const ajv = new AjvCtor({ allErrors: true, strict: false });
+const Ajv2020 = (Ajv2020NS as unknown as { default: new (opts?: any) => any }).default;
+const addFormats = (addFormatsNS as any).default ?? addFormatsNS;
+
+/** Create a strict AJV instance (JSON Schema 2020-12) with formats. */
+export function createAjv() {
+  const ajv = new Ajv2020({ strict: true, allErrors: true, allowUnionTypes: true });
   addFormats(ajv);
   return ajv;
 }
 
-export function repoRoot(): string {
-  return path.resolve(process.cwd(), "../../");
-}
+/** Use the concrete instance type returned by createAjv (no Ajv type import needed). */
+type AjvInstance = ReturnType<typeof createAjv>;
 
-export function readJson(absPath: string): any {
-  const raw = fs.readFileSync(absPath, "utf8");
-  return JSON.parse(raw);
-}
+export function addCoreSchemas(ajv: AjvInstance): void {
+  const base = repoSchemasDirFromHere();
 
-export function schemasDir(): string {
-  return path.join(repoRoot(), "schemas");
-}
+  const sources: Array<{ id: string; candidates: string[] }> = [
+    { id: CANONICAL_IDS.core,         candidates: ["mvs.core.schema.json", "common.schema.json"] },
+    { id: CANONICAL_IDS.verification, candidates: ["mvs.verification.schema.json", "error.schema.json"] },
+    { id: CANONICAL_IDS.issue,        candidates: ["mvs.issue.schema.json", "issue.schema.json"] },
+    { id: CANONICAL_IDS.ecosystem,    candidates: ["mvs.ecosystem.schema.json", "ecosystem.schema.json"] },
+    { id: CANONICAL_IDS.proofBundle,  candidates: ["mvs.proof-bundle.schema.json"] },
+    { id: CANONICAL_IDS.cir,          candidates: ["mvs.cir.schema.json"] },
+  ];
 
-export function vectorsDir(): string {
-  return path.join(schemasDir(), "tests", "vectors", "mvs");
-}
-
-export function addCoreSchemas(ajv: Ajv, baseDir: string = schemasDir()): void {
-   const coreOrder = [
-     "mvs.core.schema.json",
-     "mvs.ecosystem.schema.json",
-     "mvs.issue.schema.json",
-     "mvs.verification.schema.json",
-   ];
-   for (const name of coreOrder) {
-     const p = path.join(baseDir, name);
-     if (!fs.existsSync(p)) {
-       throw new Error(`Missing core schema: ${p}`);
-     }
-     const schema = readJson(p);
-     const id = CANONICAL_IDS[name];
-     schema.$id = id;
-     ajv.addSchema(schema, id);
-   }
- }
-
-export function validateAgainst(ajv: Ajv, refId: string, data: any): { ok: boolean; errors?: string } {
-  try {
-    const validate = ajv.getSchema(refId) || ajv.compile({ $ref: refId });
-    const ok = !!validate(data);
-    return ok ? { ok } : { ok, errors: ajv.errorsText(validate.errors, { separator: "\n" }) };
-  } catch (e: any) {
-    return { ok: false, errors: String(e?.stack || e) };
+  for (const { id, candidates } of sources) {
+    const schema = loadFirstExistingSchema(base, candidates);
+    ajv.addSchema(schema, id);
   }
 }

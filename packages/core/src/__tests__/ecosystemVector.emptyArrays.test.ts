@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import path from "path";
 import fs from "fs";
-import { createAjv, addCoreSchemas, validateAgainst, CANONICAL_IDS, vectorsDir } from "../schemaUtils.js";
+import { createAjv, addCoreSchemas, CANONICAL_IDS, vectorsDir } from "../schemaUtils.js";
+import { validateAgainstResult } from "../testing/ajv-helpers.js";
 
 describe("Negative: ecosystem arrays must have at least 1 element", () => {
   it("should fail when languages or hashes are empty", () => {
@@ -14,11 +15,14 @@ describe("Negative: ecosystem arrays must have at least 1 element", () => {
     data.languages = [];
     data.hashes = [];
 
-    const res = validateAgainst(ajv, CANONICAL_IDS["mvs.ecosystem.schema.json"], data);
+    const res = validateAgainstResult(ajv, CANONICAL_IDS.ecosystem, data);
 
     expect(res.ok).toBe(false);
-    expect(res.errors).toMatch(/languages/);
-    expect(res.errors).toMatch(/hashes/);
-    expect(res.errors).toMatch(/must NOT have fewer than 1 items|must contain at least 1 items/);
+    if (!res.ok) {
+      console.error(res.text);
+      expect(res.text).toMatch(/languages/);
+      expect(res.text).toMatch(/hashes/);
+      expect(res.text).toMatch(/must NOT have fewer than 1 items|must contain at least 1 items/);
+    }
   });
 });

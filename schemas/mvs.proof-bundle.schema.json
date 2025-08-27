@@ -1,0 +1,233 @@
+{
+  "$id": "urn:zkpip:mvs.proof-bundle.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ZKPIP MVS Proof Bundle (v0.1)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "bundleId",
+    "prover",
+    "proofSystem",
+    "curve",
+    "program",
+    "artifacts"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "description": "Semantic version of the bundle schema used to produce this manifest",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"
+    },
+    "bundleId": {
+      "type": "string",
+      "description": "Stable identifier (UUID or content-hash). Free-text allowed at MVS.",
+      "minLength": 1
+    },
+    "prover": {
+      "type": "string",
+      "enum": ["snarkjs", "rapidsnark", "gnark", "halo2"]
+    },
+    "proofSystem": {
+      "type": "string",
+      "enum": ["groth16", "plonk", "halo2"]
+    },
+    "curve": {
+      "type": "string",
+      "enum": ["bn128", "bls12-381"]
+    },
+    "program": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["language", "entry"],
+      "properties": {
+        "language": { "type": "string", "enum": ["circom", "noir", "halo2"] },
+        "entry": { "type": "string", "minLength": 1 },
+        "version": { "type": "string" },
+        "commit": { "type": "string" },
+        "tag": { "type": "string" }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "description": "Build artifacts; exact requirements validated by invariants and conditional rules below.",
+      "additionalProperties": false,
+      "properties": {
+        "wasm": { "$ref": "#/$defs/ArtifactRef" },
+        "zkey": { "$ref": "#/$defs/ArtifactRef" },
+        "r1cs": { "$ref": "#/$defs/ArtifactRef" },
+        "pk":   { "$ref": "#/$defs/ArtifactRef" },
+        "vk":   { "$ref": "#/$defs/ArtifactRef" },
+        "kzg":  { "$ref": "#/$defs/ArtifactRef" }
+      }
+    },
+    "inputs": {
+      "description": "Either a witness artifact, or explicit public/private sections.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["witness"],
+          "properties": { "witness": { "$ref": "#/$defs/ArtifactRef" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "public": { "$ref": "#/$defs/KeyValue" },
+            "private": { "$ref": "#/$defs/KeyValue" }
+          }
+        }
+      ]
+    },
+    "meta": {
+      "type": "object",
+      "description": "Free-form metadata (MVS: limited validation).",
+      "additionalProperties": true,
+      "maxProperties": 100
+    },
+    "caps": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "supportsGroth16": { "type": "boolean" },
+        "supportsPlonk":   { "type": "boolean" },
+        "supportsHalo2":   { "type": "boolean" }
+      }
+    },
+    "extensions": {
+        "type": "object",
+        "description": "Vendor/system-specific extensions. Keys SHOULD be URIs. Values are objects validated by their own schemas (if provided).",
+        "maxProperties": 32,
+        "patternProperties": {
+        "^[a-zA-Z][a-zA-Z0-9+.-]*:": { "type": "object" }
+        },
+        "additionalProperties": false
+    }
+  },
+
+  "allOf": [
+    {
+      "if": {
+        "properties": { "prover": { "const": "snarkjs" } },
+        "required": ["prover"]
+      },
+      "then": {
+        "type": "object",
+        "required": ["artifacts"],
+        "properties": {
+          "artifacts": {
+            "type": "object",
+            "properties": {
+              "wasm": {},
+              "zkey": {}
+            },
+            "required": ["wasm", "zkey"]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "prover": { "const": "rapidsnark" } },
+        "required": ["prover"]
+      },
+      "then": {
+        "type": "object",
+        "required": ["artifacts"],
+        "properties": {
+          "artifacts": {
+            "type": "object",
+            "properties": {
+              "wasm": {},
+              "zkey": {}
+            },
+            "required": ["wasm", "zkey"]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "prover": { "const": "gnark" } },
+        "required": ["prover"]
+      },
+      "then": {
+        "type": "object",
+        "required": ["artifacts"],
+        "properties": {
+          "artifacts": {
+            "type": "object",
+            "properties": {
+              "pk": {},
+              "vk": {}
+            },
+            "required": ["pk", "vk"]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "prover": { "const": "halo2" } },
+        "required": ["prover"]
+      },
+      "then": {
+        "type": "object",
+        "required": ["artifacts"],
+        "properties": {
+          "artifacts": {
+            "type": "object",
+            "properties": {
+              "pk": {},
+              "vk": {},
+              "kzg": {}
+            },
+            "required": ["pk", "vk", "kzg"]
+          }
+        }
+      }
+    }
+  ],
+
+  "$defs": {
+    "ArtifactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "KeyValue": {
+      "type": "object",
+      "additionalProperties": {
+        "oneOf": [
+          { "type": "string" },
+          { "type": "number" },
+          { "type": "integer" },
+          { "type": "boolean" },
+          { "type": "array", "items": { "type": ["string","number","integer","boolean"] } }
+        ]
+      }
+    }
+  },
+
+  "examples": [
+    {
+      "schemaVersion": "0.1.0",
+      "bundleId": "bndl-2025-08-16-0001",
+      "prover": "snarkjs",
+      "proofSystem": "groth16",
+      "curve": "bn128",
+      "program": { "language": "circom", "entry": "circuits/main.circom", "version": "2.1.9" },
+      "artifacts": {
+        "wasm": { "path": "build/main.wasm", "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd" },
+        "zkey": { "path": "build/main_final.zkey" }
+      },
+      "inputs": { "public": { "x": "1" }, "private": { "w": "2" } },
+      "caps": { "supportsGroth16": true }
+    }
+  ]
+}

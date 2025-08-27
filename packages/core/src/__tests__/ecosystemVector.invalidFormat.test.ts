@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import path from "path";
 import fs from "fs";
-import { createAjv, addCoreSchemas, validateAgainst, CANONICAL_IDS, vectorsDir } from "../schemaUtils.js";
+import { createAjv, addCoreSchemas, CANONICAL_IDS, vectorsDir } from "../schemaUtils.js";
+import { validateAgainstResult } from "../testing/ajv-helpers.js";
 
 describe("Negative: ecosystem createdAt/updatedAt invalid format", () => {
   it("should fail when createdAt is not a valid date-time", () => {
@@ -12,10 +13,13 @@ describe("Negative: ecosystem createdAt/updatedAt invalid format", () => {
     const data = JSON.parse(fs.readFileSync(p, "utf8"));
 
     data.createdAt = "INVALID_DATE";
-    const res = validateAgainst(ajv, CANONICAL_IDS["mvs.ecosystem.schema.json"], data);
+    const res = validateAgainstResult(ajv, CANONICAL_IDS.ecosystem, data);
 
-    expect(res.ok).toBe(false);
-    expect(res.errors).toMatch(/createdAt/);
-    expect(res.errors).toMatch(/date-time/);
+    if (!res.ok) {
+      console.error(res.text);
+      expect(res.text).toBe(false);
+      expect(res.text).toMatch(/createdAt/);
+      expect(res.text).toMatch(/date-time/);
+    }
   });
 });

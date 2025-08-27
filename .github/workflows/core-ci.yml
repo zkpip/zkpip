@@ -1,51 +1,95 @@
 name: Core CI
 
 on:
+  pull_request:
   push:
     branches: [ main ]
-    paths:
-      - "packages/core/**"
-      - ".github/workflows/core-ci.yml"
-  pull_request:
-    paths:
-      - "packages/core/**"
-      - ".github/workflows/core-ci.yml"
-  workflow_dispatch:
+  workflow_dispatch: {}    
 
 permissions:
   contents: read
+  pull-requests: write
 
 concurrency:
   group: core-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  core:
-    name: Build & Test @zkpip/core (with coverage)
+  changes:
+    name: Detect changed areas
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      CI: "true"
+    outputs:
+      core: ${{ steps.filter.outputs.core }}
+      schemas: ${{ steps.filter.outputs.schemas }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
+      - name: Paths filter
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            core:
+              - 'packages/core/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'npm-shrinkwrap.json'
+            schemas:
+              - 'schemas/**'
+              - 'ecosystems/**'
+              - '.github/workflows/reusable-schema-guard.yml'
+
+  schema-validation:
+    name: Schema Validation
+    needs: changes
+    if: needs.changes.outputs.schemas == 'true'
+    uses: ./.github/workflows/reusable-schema-guard.yml
+    # Ha a reusable workflow annotációt ír PR-okra, a fenti
+    # pull-requests: write jogosultság ezt engedni fogja.
+    with:
+      include: |
+        schemas/**
+        ecosystems/**
+      exclude: ""
+      annotate: true
+
+  core:
+    name: Core build & test
+    needs: changes
+    if: needs.changes.outputs.core == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "npm"
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
 
-      - name: Install (monorepo root)
-        run: npm ci --no-audit --fund=false
+      - name: Install dependencies (root)
+        run: npm ci
 
-      - name: Typecheck (optional)
-        run: npm run -w @zkpip/core -s typecheck || echo "No typecheck script"
+      # Opcionális, ha külön ts typecheck van a core csomagban
+      - name: TypeScript typecheck (non-blocking)
+        working-directory: packages/core
+        run: npm run -s typecheck || echo "Typecheck warnings ignored"
 
       - name: Run tests with coverage (Vitest)
         working-directory: packages/core
         run: npm run -s test:coverage
+
+      - name: Assert LCOV exists
+        if: always()
+        working-directory: packages/core
+        run: test -f coverage/lcov.info || (echo "❌ lcov.info missing"; ls -lah coverage || true; exit 1)
 
       - name: Upload coverage (LCOV)
         if: always()
@@ -54,8 +98,3 @@ jobs:
           name: core-coverage
           path: packages/core/coverage/
           if-no-files-found: error
-
-      - name: Assert LCOV exists
-        if: always()
-        working-directory: packages/core
-        run: test -f coverage/lcov.info || (echo "❌ lcov.info missing"; exit 1)

@@ -1,5 +1,5 @@
 {
-  "$id": "https://zkpip.org/schemas/mvs.ecosystem.schema.json",
+  "$id": "urn:zkpip:mvs.ecosystem.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "ZKPIP MVS — Ecosystem Record",
   "allOf": [{ "$ref": "mvs.core.schema.json" }],

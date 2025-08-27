@@ -1,5 +1,5 @@
 {
-  "$id": "https://zkpip.org/schemas/mvs.issue.schema.json",
+  "$id": "urn:zkpip:mvs.issue.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "ZKPIP MVS — Issue Record",
   "allOf": [{ "$ref": "mvs.core.schema.json" }],

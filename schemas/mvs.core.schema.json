@@ -1,5 +1,5 @@
 {
-  "$id": "https://zkpip.org/schemas/mvs.core.schema.json",
+  "$id": "urn:zkpip:mvs.core.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "ZKPIP MVS — Core",
   "type": "object",

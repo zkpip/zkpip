@@ -1,13 +1,12 @@
 {
+  "extends": "./tsconfig.json",
   "compilerOptions": {
-    "target": "ES2021",
-    "module": "CommonJS",
-    "moduleResolution": "node",
-    "strict": true,
+    "module": "ESNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2022",
+    "types": ["node"],
     "esModuleInterop": true,
-    "resolveJsonModule": true,
-    "skipLibCheck": true,
-    "types": ["node"]
-  },
-  "include": ["scripts/**/*.ts"]
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true
+  }
 }

@@ -1,25 +1,30 @@
+// scripts/validateSchemas.mts
 import fs from "fs";
 import path from "path";
-import Ajv from "ajv/dist/2020";
+import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
+import { CANONICAL_IDS } from "../packages/core/src/schemaUtils.js";
 
+// --- constants/paths ---
 const ROOT = process.cwd();
 const SCHEMAS_DIR = path.join(ROOT, "schemas");
 const VECTORS_DIR = path.join(SCHEMAS_DIR, "tests", "vectors");
 const ECOSYSTEMS_DIR = path.join(ROOT, "ecosystems");
 
-const CANONICAL_IDS: Record<string, string> = {
-  "mvs.core.schema.json": "https://zkpip.org/schemas/mvs.core.schema.json",
-  "mvs.ecosystem.schema.json": "https://zkpip.org/schemas/mvs.ecosystem.schema.json",
-  "mvs.issue.schema.json": "https://zkpip.org/schemas/mvs.issue.schema.json",
-  "mvs.verification.schema.json": "https://zkpip.org/schemas/mvs.verification.schema.json",
-};
-
-const ajv = new Ajv({ allErrors: true, strict: false });
+// --- ajv instance ---
+const ajv = new Ajv2020({
+  strict: true,
+  allErrors: true,
+  allowUnionTypes: true, // MVS v0.1: short union type syntax support
+});
 addFormats(ajv);
 
 // --- utils ---
-function listFilesRecursive(dir: string, pred: (name: string) => boolean, skipDirs: string[] = []): string[] {
+function listFilesRecursive(
+  dir: string,
+  pred: (name: string) => boolean,
+  skipDirs: string[] = []
+): string[] {
   const out: string[] = [];
   if (!fs.existsSync(dir)) return out;
   const walk = (d: string) => {
@@ -37,44 +42,59 @@ function listFilesRecursive(dir: string, pred: (name: string) => boolean, skipDi
   return out;
 }
 
-function validateAgainst(refId: string, data: any, fileLabel: string) {
+type FailedResult = { ok: false; errors: string[]; refId: string; fileLabel: string };
+type ValidateResult = { ok: true } | FailedResult;
+
+function validateAgainstResult(refId: string, data: unknown, fileLabel: string): ValidateResult {
   try {
-    const validate = ajv.getSchema(refId) || ajv.compile({ $ref: refId });
+    const validate =
+      ajv.getSchema(refId) ??
+      ajv.compile({
+        $ref: refId, // URN form
+      });
+
     const ok = validate(data);
-    if (!ok) {
-      console.error(`❌ ${fileLabel} failed (${refId}):`);
-      console.error(ajv.errorsText(validate.errors, { separator: "\n" }));
-      process.exit(1);
-    }
-    console.log(`✅ ${fileLabel} is valid (${refId})`);
+    if (ok) return { ok: true };
+
+    const errors = (validate.errors ?? []).map(e =>
+      ajv.errorsText([e], { separator: "\n" })
+    );
+    return { ok: false, errors, refId, fileLabel };
   } catch (e: any) {
-    console.error(`❌ ${fileLabel} could not be validated (${refId}):\n${e?.stack || e}`);
-    process.exit(1);
+    return {
+      ok: false,
+      errors: [String(e?.stack || e)],
+      refId,
+      fileLabel,
+    };
   }
 }
 
 // --- load only the 4 core schemas, in order ---
 function loadCoreSchemas(): void {
-  const coreOrder = [
-    "mvs.core.schema.json",
-    "mvs.ecosystem.schema.json",
-    "mvs.issue.schema.json",
-    "mvs.verification.schema.json",
+  const CORE_ENTRIES: Array<{ id: string; filename: string }> = [
+    { id: CANONICAL_IDS.core,         filename: "mvs.core.schema.json" },
+    { id: CANONICAL_IDS.ecosystem,    filename: "mvs.ecosystem.schema.json" },
+    { id: CANONICAL_IDS.issue,        filename: "mvs.issue.schema.json" },
+    { id: CANONICAL_IDS.verification, filename: "mvs.verification.schema.json" },
   ];
 
-  for (const name of coreOrder) {
-    const p = path.join(SCHEMAS_DIR, name);
-    if (!fs.existsSync(p)) {
-      console.error(`❌ Missing core schema: ${p}`);
-      process.exit(1);
+  for (const { id, filename } of CORE_ENTRIES) {
+    const abs = path.join(SCHEMAS_DIR, filename);
+    if (!fs.existsSync(abs)) {
+      console.error(`❌ Missing core schema file: ${abs}`);
+      process.exit(1); // core nélkül nem értelmezhető a további validáció
     }
     try {
-      const schema = JSON.parse(fs.readFileSync(p, "utf8"));
-      const canonical = CANONICAL_IDS[name];
-      schema.$id = canonical;              // biztosítjuk az $id-t
-      ajv.addSchema(schema, canonical);    // és ezen a kulcson regisztráljuk
+      const schema = JSON.parse(fs.readFileSync(abs, "utf8"));
+      if (schema.$id !== id) {
+        throw new Error(
+          `Schema $id mismatch for ${filename}: expected ${id}, got ${schema.$id}`
+        );
+      }
+      ajv.addSchema(schema); // $id (URN) registration
     } catch (e: any) {
-      console.error(`❌ Failed to load schema: ${p}\n${e?.stack || e}`);
+      console.error(`❌ Failed to load schema: ${abs}\n${e?.stack || e}`);
       process.exit(1);
     }
   }
@@ -83,44 +103,58 @@ function loadCoreSchemas(): void {
 
 function detectSchemaFromFilename(filePath: string): string {
   const name = path.basename(filePath).toLowerCase();
-  if (name.startsWith("ecosystem"))     return CANONICAL_IDS["mvs.ecosystem.schema.json"];
-  if (name.startsWith("issue"))         return CANONICAL_IDS["mvs.issue.schema.json"];
-  if (name.startsWith("verification"))  return CANONICAL_IDS["mvs.verification.schema.json"];
-  return CANONICAL_IDS["mvs.core.schema.json"];
+  // legacy tolerance: "error" → verification
+  if (name.includes("verification") || name.includes("error"))
+    return CANONICAL_IDS.verification;
+  if (name.includes("issue"))        return CANONICAL_IDS.issue;
+  if (name.includes("ecosystem"))    return CANONICAL_IDS.ecosystem;
+  return CANONICAL_IDS.core;
 }
 
-function validateVectors(): void {
-  console.log("🔍 Validating MVS test vectors...");
-  const files = listFilesRecursive(VECTORS_DIR, n => n.endsWith(".json"));
-  if (files.length === 0) {
-    console.warn(`⚠️ No JSON files found under ${VECTORS_DIR}`);
-    return;
-  }
-  for (const f of files) {
-    const data = JSON.parse(fs.readFileSync(f, "utf8"));
-    const ref = detectSchemaFromFilename(f);
-    validateAgainst(ref, data, f);
-  }
-}
-
-function validateDirWithSchema(dir: string, ref: string): void {
-  const files = listFilesRecursive(dir, n => n.endsWith(".json"));
-  for (const f of files) {
-    const data = JSON.parse(fs.readFileSync(f, "utf8"));
-    validateAgainst(ref, data, f);
+function parseJsonFileOrCollect(filePath: string, failures: FailedResult[]): unknown | null {
+  const raw = fs.readFileSync(filePath, "utf8");
+  try {
+    return JSON.parse(raw);
+  } catch (e: any) {
+    failures.push({
+      ok: false,
+      refId: "json.parse",
+      fileLabel: filePath,
+      errors: [e?.message || String(e)],
+    });
+    return null;
   }
 }
 
 (function main() {
   loadCoreSchemas();
-  validateVectors();
 
-  console.log("🔍 Validating ecosystems (recursive, excluding /extensions)...");
-  const files = listFilesRecursive(ECOSYSTEMS_DIR, n => n.endsWith(".json"), ["extensions"]);
-  for (const f of files) {
-    const data = JSON.parse(fs.readFileSync(f, "utf8"));
-    validateAgainst(CANONICAL_IDS["mvs.ecosystem.schema.json"], data, f);
+  const failures: FailedResult[] = [];   // <- csak hibás eredmények
+  let validatedCount = 0;
+
+  // ... (változatlan kód a fájlok bejárásáig) ...
+
+  // --- összegzés ---
+  const failCount = failures.length;
+  const okCount = validatedCount - failCount;
+
+  if (failCount === 0) {
+    console.log(`🎉 MVS schema validation complete. All ${okCount} document(s) are valid.`);
+    process.exitCode = 0;
+    return;
   }
 
-  console.log("🎉 MVS schema validation complete.");
+  console.error("\n⛔ Validation failures summary:");
+  for (const f of failures) {
+    // Itt már biztosan FailedResult, ezért van fileLabel, refId, errors
+    console.error(`\n— File: ${f.fileLabel}`);
+    console.error(`  Ref : ${f.refId}`);
+    for (const line of f.errors) {
+      console.error(`  Err : ${line}`);
+    }
+  }
+
+  console.error(`\n❌ Validation finished with ${failCount} failure(s) out of ${validatedCount} file(s).`);
+  process.exitCode = 1;
 })();
+

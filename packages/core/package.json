@@ -16,7 +16,10 @@
     "typecheck:test": "tsc -p tsconfig.vitest.json --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "schema:check": "node ./scripts/validate-samples.mjs"
+    "vitest": "vitest",
+    "schema:check": "node ./scripts/validate-samples.mjs",
+    "validate:file": "node dist/cli/validate.js",
+    "test:validate": "vitest run src/__tests__/validate.integration.picker.test.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",

@@ -1,143 +1,117 @@
-# zkpip/zkpip/.github/workflows/reusable-schema-guard.yml
-name: Reusable Schema Guard
+name: Reusable – Schema Guard
 
 on:
   workflow_call:
     inputs:
       include:
+        description: "Glob patterns"
         required: true
         type: string
       exclude:
+        description: "Exclusive glob patterns"
         required: false
         type: string
+        default: ""
       annotate:
+        description: "PR-comment on error"
         required: false
         type: boolean
         default: true
-      core_ref:
+  workflow_dispatch:       # ← Manual start
+    inputs:
+      include:
+        description: "Glob patterns"
+        required: true
+        default: |
+          schemas/**
+          ecosystems/**
+      exclude:
+        description: "Exclusive glob patterns"
         required: false
-        type: string
-        default: main
-      core_repo:
+        default: ""
+      annotate:
+        description: "PR-comment on manual dispatch."
         required: false
-        type: string
-        default: zkpip/zkpip
-      core_path:
-        required: false
-        type: string
-        default: __core
-    secrets:
-      ORG_READ_TOKEN:
-        required: false
+        type: boolean
+        default: true        
 
 jobs:
-  guard:
+  schema-guard:
+    name: Validate JSON Schemas
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    timeout-minutes: 15
 
     steps:
-      # 1) Checkout the caller repository
-      - name: Checkout caller repo
+      - name: Checkout
         uses: actions/checkout@v4
 
-      # 2) Clone core under core_path (public clone first, then token fallback)
-      - name: Prepare core into ${{ inputs.core_path }}
-        shell: bash
-        run: |
-          set -euxo pipefail
-          CORE_PATH="${{ inputs.core_path }}"
-          CORE_REPO="${{ inputs.core_repo }}"
-          CORE_REF="${{ inputs.core_ref }}"
-          rm -rf "$CORE_PATH"
-
-          # Public HTTPS clone (works on forks if the repo is public)
-          git clone --depth 1 --branch "$CORE_REF" "https://github.com/${CORE_REPO}.git" "$CORE_PATH" || true
-
-          # Token fallback (internal runs)
-          if [ ! -d "$CORE_PATH" ] || [ ! -d "$CORE_PATH/schemas" ]; then
-            echo "Public clone missing → retrying with token…"
-            rm -rf "$CORE_PATH"
-            git clone --depth 1 --branch "$CORE_REF" \
-              "https://x-access-token:${{ secrets.ORG_READ_TOKEN || github.token }}@github.com/${CORE_REPO}.git" \
-              "$CORE_PATH"
-          fi
-
-          # Minimal schema presence check (do NOT check for old common.schema.json)
-          ls -la "$CORE_PATH/schemas" || true
-          if ! ls "$CORE_PATH"/schemas/*.schema.json >/dev/null 2>&1; then
-            echo "No *.schema.json files found under $CORE_PATH/schemas"
-            exit 66
-          fi
-
-      # 3) Setup Node with cache (internal runs)     
-      - name: Setup Node (with npm cache)
-        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: npm
+          node-version: '20'
+          cache: 'npm'
           cache-dependency-path: |
-            ${{ inputs.core_path }}/package-lock.json
-            ${{ inputs.core_path }}/packages/**/package-lock.json
+            package-lock.json
 
-      # Fork PRs → no cache
-      - name: Setup Node (no cache on forks)
-        if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == true }}
-        uses: actions/setup-node@v4
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Echo inputs (informative)
+        run: |
+          echo "Included globs (info):"
+          echo "${{ inputs.include }}"
+          echo "Excluded globs (info):"
+          echo "${{ inputs.exclude }}"
+
+      - name: Run schema validation
+        id: validate
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          # Ha a script támogatja: pl. npm run -s validate-schemas -- --include "${{ inputs.include }}" --exclude "${{ inputs.exclude }}"
+          npm run -s validate-schemas | tee schema-guard.log
+          status=${PIPESTATUS[0]}
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+
+      - name: Upload schema-guard log (artifact)
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          node-version: 20
+          name: schema-guard-log
+          path: schema-guard.log
+          if-no-files-found: warn
+          retention-days: 7
 
-      # 4) Force a clean build of the core CLI (avoid stale dist referencing old filenames)
-      - name: Clean & build core CLI
-        shell: bash
+      - name: Annotate PR with failure summary
+        if: ${{ steps.validate.outputs.status != '0' && inputs.annotate && github.event_name == 'pull_request' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const log = fs.readFileSync('schema-guard.log', 'utf8');
+            // cut the log to 200 lines at the end
+            const tail = log.split('\n').slice(-200).join('\n');
+            const body = [
+              '### ❌ Schema validation failed',
+              '',
+              '**Tail of `schema-guard.log` (last ~200 lines):**',
+              '',
+              '```text',
+              tail,
+              '```',
+              '',
+              '_Workflow: Reusable – Schema Guard_'
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });
+
+      - name: Fail if validation failed
+        if: ${{ steps.validate.outputs.status != '0' }}
         run: |
-          set -euxo pipefail
-          CORE_PATH="${{ inputs.core_path }}"
-          rm -rf "$CORE_PATH/packages/core/dist"
-          pushd "$CORE_PATH"
-          npm ci --workspaces=false --no-audit --no-fund
-          npm ci -w packages/core --no-audit --no-fund
-          npm run build -w packages/core
-          popd
-
-      # 5) Safe hotfix: if dist still refers to old 'schemas/common.schema.json', rewrite to 'schemas/mvs.core.schema.json'
-      - name: Patch dist paths if legacy 'common.schema.json' is referenced
-        shell: bash
-        run: |
-          set -euxo pipefail
-          CORE_PATH="${{ inputs.core_path }}"
-          COMMON="$CORE_PATH/schemas/common.schema.json"
-          MVSCORE="$CORE_PATH/schemas/mvs.core.schema.json"
-
-          if [ ! -f "$COMMON" ] && [ -f "$MVSCORE" ]; then
-            if grep -R "schemas/common.schema.json" -n "$CORE_PATH/packages/core/dist" >/dev/null 2>&1; then
-              sed -i 's#schemas/common.schema.json#schemas/mvs.core.schema.json#g' "$CORE_PATH/packages/core/dist/cli/"*.js || true
-            fi
-          fi
-
-      # 6) Export envs for the guard run
-      - name: Export env for guard
-        shell: bash
-        run: |
-          echo "CORE_ROOT=${{ inputs.core_path }}" >> "$GITHUB_ENV"
-          {
-            echo "INCLUDE_GLOBS<<EOF"
-            echo "${{ inputs.include }}"
-            echo "EOF"
-          } >> "$GITHUB_ENV"
-          {
-            echo "EXCLUDE_GLOBS<<EOF"
-            echo "${{ inputs.exclude }}"
-            echo "EOF"
-          } >> "$GITHUB_ENV"
-          echo "ANNOTATE=${{ inputs.annotate }}" >> "$GITHUB_ENV"
-
-      # 7) Run the actual guard (replace with your real command)
-      - name: Run Schema Guard
-        shell: bash
-        run: |
-          set -euxo pipefail
-          echo "Running Schema Guard with CORE_ROOT=$CORE_ROOT"
-          # Example placeholder:
-          node -e "console.log('Schema guard running with', process.env.CORE_ROOT, process.env.INCLUDE_GLOBS)"
+          echo "Schema validation failed with status=${{ steps.validate.outputs.status }}"
+          exit 1
