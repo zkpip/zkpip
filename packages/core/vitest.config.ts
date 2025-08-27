@@ -8,13 +8,7 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text-summary", "lcov"],
       reportsDirectory: "coverage",
-      thresholds: {
-        lines: 80,
-        statements: 80,
-        functions: 70,
-        branches: 60
-      },
-      // 🔽 csak a ténylegesen tesztelt, kritikus utilra mérünk
+      thresholds: { lines: 80, functions: 80, branches: 75, statements: 80 },
       include: ["src/schemaUtils.ts"],
       exclude: ["src/__tests__/**"]
     }
