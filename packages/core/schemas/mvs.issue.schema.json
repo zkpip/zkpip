@@ -1,0 +1,22 @@
+{
+  "$id": "urn:zkpip:mvs.issue.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ZKPIP MVS — Issue Record",
+  "allOf": [{ "$ref": "urn:zkpip:mvs.core.schema.json" }],
+  "type": "object",
+  "required": [
+    "schemaVersion", "recordType", "id", "createdAt", "updatedAt",
+    "symptom", "suspectedLayer", "category", "severity", "occurrence"
+  ],
+  "properties": {
+    "recordType": { "const": "issue" },
+    "symptom": { "type": "string" },
+    "suspectedLayer": { "type": "string", "enum": ["circuit", "prover", "verifier", "tooling", "infra"] },
+    "category": { "type": "string" },
+    "reproSteps": { "type": "array", "items": { "type": "string" } },
+    "knownFix": { "type": ["string", "null"] },
+    "severity": { "type": "string", "enum": ["blocker", "major", "minor"] },
+    "occurrence": { "type": "string", "enum": ["single", "recurrent"] }
+  },
+  "additionalProperties": true
+}

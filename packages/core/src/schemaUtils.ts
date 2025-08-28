@@ -7,12 +7,7 @@ import { readFileSync, existsSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import path from "path";
-import fs from "fs";
-import { createRequire } from "module";
 
-/* ========= ESM/CJS interop, explicit és típusos ========= */
-
-// Az Ajv konstruktor típusát definiáljuk (csak amire szükségünk van).
 type ValidateFunction = ((data: unknown) => boolean) & {
   errors?: ErrorObject[] | null;
 };
@@ -26,16 +21,12 @@ export interface AjvInstance {
   ): string;
 }
 
-// Ajv konstruktor kinyerése default exportból, any nélkül.
 type AjvCtor = new (opts?: AjvOptions) => AjvInstance;
 const Ajv = (AjvNS as unknown as { default: AjvCtor }).default;
 
-// az ajv-formats típusa nem kötődik a konkrét Ajv osztályhoz – általános, biztonságos szignatúra:
 const addFormats: (ajv: unknown) => unknown = addFormatsOrig as unknown as (
   ajv: unknown
 ) => unknown;
-
-/* ========= Publikus konstansok és utilok ========= */
 
 export const CANONICAL_IDS = {
   core: "urn:zkpip:mvs.core.schema.json",
@@ -78,7 +69,6 @@ function findSchemasDir(startDir: string): string | null {
   return null;
 }
 
-/** Resolve the /schemas directory robustly from compiled file location or CWD. */
 function repoSchemasDirFromHere(): string {
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = dirname(__filename);
@@ -174,7 +164,7 @@ function preflightSchemaIdsAndRefs(schema: any, fileTag: string) {
 }
 
 export function addCoreSchemas(ajv: AjvInstance): void {
-  const base = schemasDir(); // ← fontos: ne hívd közvetlenül a repo keresőt
+  const base = schemasDir(); 
 
   const sources: Array<{ id: string; candidates: string[] }> = [
     { id: CANONICAL_IDS.core,         candidates: ["mvs.core.schema.json", "common.schema.json"] },

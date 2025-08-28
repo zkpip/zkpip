@@ -1,6 +1,6 @@
-import { makeAjv } from "./ajv.js";
+import { createAjv } from "./ajv.js";
 
-const ajv = makeAjv();
+const ajv = createAjv();
 
 export function validateError(obj: unknown) {
   const validate = ajv.getSchema("https://zkpip.org/schemas/error.schema.json")!;

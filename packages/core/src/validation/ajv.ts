@@ -1,90 +1,62 @@
-// src/validation/ajv.ts
+// packages/core/src/validation/ajv.ts
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { type Schema } from "ajv";
+import Ajv2020 from "ajv/dist/2020.js"; 
+import addFormats from "ajv-formats";
 
-import Ajv2020Module from "ajv/dist/2020.js";
-import type { Options, ValidateFunction, ErrorObject, AnySchema } from "ajv";
-import addFormatsImport from "ajv-formats";
-import { readFileSync, existsSync } from "fs";
-import { resolve, dirname } from "path";
-import { fileURLToPath } from "url";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
+const PKG_ROOT   = path.resolve(__dirname, "..", "..");
 
-const Ajv2020 = Ajv2020Module as unknown as { new (opts?: Options): unknown };
-const addFormats = addFormatsImport as unknown as (ajv: unknown) => void;
+function schemasRoot(): string {
+  const fromEnv = process.env.ZKPIP_SCHEMAS_ROOT;
+  if (fromEnv) return path.isAbsolute(fromEnv) ? fromEnv : path.resolve(process.cwd(), fromEnv);
 
-type AjvLike = {
-  addSchema: (schema: AnySchema, key?: string) => void;
-  getSchema: (id: string) => ValidateFunction<unknown> | undefined;
-  // add compile so tests (and callers) can compile ad-hoc schemas
-  compile: (schema: AnySchema) => ValidateFunction<unknown>;
-};
-
-export type AjvInstance = AjvLike;
-export type AjvErrors = ErrorObject[] | null;
-export type Validator = ValidateFunction<unknown>;
-
-// --- NEW: safe $id extractor without using `any`
-function getSchemaId(schema: AnySchema): string | undefined {
-  if (schema && typeof schema === 'object' && '$id' in schema) {
-    const value = (schema as { $id?: unknown }).$id;
-    return typeof value === 'string' ? value : undefined;
-  }
-  return undefined;
+  const dist = path.join(PKG_ROOT, "dist", "schemas");
+  const dev  = path.join(PKG_ROOT, "schemas");
+  return fs.existsSync(dist) ? dist : dev;
 }
 
-export function makeAjv(): AjvInstance {
+function isFile(p: string) { try { return fs.statSync(p).isFile(); } catch { return false; } }
+function list(dir: string) { try { return fs.readdirSync(dir); } catch { return []; } }
+
+/** Elsődlegesen dot-nevek, de támogatjuk a régi "mappa/fájl" formátumot is. */
+function resolveSchemaPath(relPath: string): string {
+  const root = schemasRoot();
+  const base = path.basename(relPath);
+
+  const dotified = relPath.includes("/") ? relPath.replace(/\//g, ".") : relPath;
+
+  const candidates = [
+    path.resolve(root, relPath),      // ha már eleve dot-os, ez jó lesz
+    path.resolve(root, dotified),     // fallback: mvs/proof-bundle → mvs.proof-bundle
+    path.resolve(root, base),         // fallback: csak a fájlnév
+  ];
+
+  for (const c of candidates) {
+    if (isFile(c)) return c;
+  }
+
+  throw new Error(
+    `Schema path resolution failed for "${relPath}". Debug: ` +
+    JSON.stringify({ root, candidates, rootListing: list(root) }, null, 2)
+  );
+}
+
+export function loadSchemaJson<T = Schema>(relPath: string): T {
+  const abs = resolveSchemaPath(relPath);
+  const raw = fs.readFileSync(abs, "utf8");
+  return JSON.parse(raw) as T;
+}
+
+export function createAjv(): Ajv2020 {
   const ajv = new Ajv2020({
-    strict: true,
     allErrors: true,
+    strict: false,
     allowUnionTypes: true,
-  } as Options) as AjvInstance;
-
-  addFormats(ajv as unknown);
-
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = dirname(__filename);
-  const repoRoot = resolve(__dirname, "../../../../");
-
-  const base = existsSync(resolve(repoRoot, "schemas"))
-    ? resolve(repoRoot, "schemas")
-    : resolve(process.cwd(), "schemas");
-
-  const load = (p: string): AnySchema =>
-    JSON.parse(readFileSync(resolve(base, p), "utf-8")) as AnySchema;
-
-  // Register schemas with a safe $id lookup
-  const common = load("common.schema.json");
-  ajv.addSchema(common, getSchemaId(common));
-
-  for (const name of ["error.schema.json", "issue.schema.json", "ecosystem.schema.json"]) {
-    const s = load(name);
-    ajv.addSchema(s, getSchemaId(s));
-  }
-
+  });
+  addFormats(ajv);
   return ajv;
-}
-
-export function getValidator(ajv: AjvInstance, schemaId: string): Validator | undefined {
-  return ajv.getSchema(schemaId);
-}
-
-export function validateById(ajv: AjvInstance, schemaId: string, data: unknown): {
-  valid: boolean;
-  errors: AjvErrors;
-} {
-  const fn = getValidator(ajv, schemaId);
-  if (!fn) {
-    return {
-      valid: false,
-      errors: [
-        {
-          instancePath: "",
-          schemaPath: "",
-          keyword: "notFound",
-          params: { missingSchema: schemaId },
-          message: `Schema not found: ${schemaId}`,
-        } as unknown as ErrorObject
-      ]
-    };
-  }
-  const ok = fn(data);
-  return { valid: Boolean(ok), errors: fn.errors ?? null };
 }

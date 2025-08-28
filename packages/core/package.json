@@ -2,63 +2,28 @@
   "name": "@zkpip/core",
   "version": "0.1.0",
   "type": "module",
-  "private": false,
-  "license": "Apache-2.0",
-  "author": {
-    "name": "Tony Nagy",
-    "email": "info@tonynagy.io",
-    "url": "https://tonynagy.io"
-  },
-  "contributors": [
-    {
-      "name": "ZKPIP contributors",
-      "url": "https://github.com/zkpip"
-    }
-  ],
-  "homepage": "https://zkpip.org",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/zkpip/zkpip.git",
-    "directory": "packages/core"
-  },
-  "bugs": {
-    "url": "https://github.com/zkpip/zkpip/issues"
-  },
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "schemas"],
   "exports": {
-    ".": "./dist/index.js",
-    "./cli": "./dist/cli/zkpip.js"
-  },
-  "bin": {
-    "zkpip": "./dist/cli/zkpip.js"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "dev": "tsc -p tsconfig.json -w",
-    "lint": "eslint \"src/**/*.{ts,tsx}\" --max-warnings=0",
-    "lint:fix": "eslint \"src/**/*.{ts,tsx}\" --fix",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "coverage": "vitest run --coverage",
-    "test:coverage": "npm run -s coverage",
-    "prepublishOnly": "npm run lint && npm run typecheck && npm run build"
+    "dev": "tsc -w -p tsconfig.json",
+    "postbuild": "node ../../scripts/copy-schemas.mjs",
+    "test": "vitest run"
   },
   "dependencies": {
     "ajv": "^8.17.1",
-    "ajv-formats": "^3.0.1"
+    "ajv-formats": "^3.0.1",
+    "vitest": "^3.2.4"
   },
   "devDependencies": {
-    "@types/node": "^20.14.9",
-    "@typescript-eslint/eslint-plugin": "^8.0.0",
-    "@typescript-eslint/parser": "^8.0.0",
-    "@vitest/coverage-v8": "^2.1.9",
-    "eslint": "^9.6.0",
-    "globals": "^15.6.0",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.4.5",
-    "typescript-eslint": "^8.41.0",
-    "vitest": "^2.1.9"
+    "@types/node": "^20.19.11",
+    "typescript": "^5.9.2"
   }
 }

@@ -5,7 +5,7 @@ import { tmpdir } from "os";
 import { join, resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { describe, it, expect } from "vitest";
-import { validatePath } from "../cli/validate.js";
+import { validatePath } from "../validate/vectors.js";
 
 // Locate <repo>/schemas from this test file location
 function findRootSchemasDir(): string {

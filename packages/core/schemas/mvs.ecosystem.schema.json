@@ -1,0 +1,35 @@
+{
+  "$id": "urn:zkpip:mvs.ecosystem.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ZKPIP MVS — Ecosystem Record",
+  "allOf": [{ "$ref": "urn:zkpip:mvs.core.schema.json" }],
+  "type": "object",
+  "required": [
+    "schemaVersion", "recordType", "id", "createdAt", "updatedAt",
+    "project", "category", "proofSystem", "curve", "commitmentScheme", "hashes", "languages"
+  ],
+  "properties": {
+    "recordType": { "const": "ecosystem" },
+    "project": { "type": "string" },
+    "category": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+    "proofSystem": { "type": "string" },
+    "curve": { "type": "string" },
+    "commitmentScheme": { "type": "string" },
+    "hashes": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+    "languages": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+    "toolchain": {
+      "type": "object",
+      "properties": {
+        "prover": { "type": ["string", "null"] },
+        "verifierLib": { "type": ["string", "null"] },
+        "cli": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": [],
+      "additionalProperties": true
+    },
+    "docs": { "type": ["string", "null"] },
+    "repos": { "type": "array", "items": { "type": "string" } },
+    "notes": { "type": ["string", "null"] }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,13 @@
+{
+  "type": "proofBundle",
+  "version": "0.1",
+  "id": "bundle-long",
+  "proof": {
+    "scheme": "groth16",
+    "curve": "bn254",
+    "pi_a": ["0x11", "0x22"],
+    "pi_b": [["0x33", "0x44"], ["0x55", "0x66"]],
+    "pi_c": ["0x77", "0x88"]
+  },
+  "publicSignals": ["0xaa", "0xbb", "0xcc"]
+}
