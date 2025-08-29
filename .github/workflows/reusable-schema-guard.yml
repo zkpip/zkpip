@@ -4,27 +4,26 @@ on:
   workflow_call:
     inputs:
       include:
-        description: "Glob patterns"
+        description: "Glob patterns (informational only)"
         required: true
         type: string
       exclude:
-        description: "Exclusive glob patterns"
+        description: "Exclusive glob patterns (informational only)"
         required: false
         type: string
         default: ""
       annotate:
-        description: "PR-comment on error"
+        description: "PR comment on error"
         required: false
         type: boolean
         default: true
-  workflow_dispatch:       # ← Manual start
+  workflow_dispatch:
     inputs:
       include:
-        description: "Glob patterns"
+        description: "Glob patterns (informational only)"
         required: true
         default: |
-          schemas/**
-          ecosystems/**
+          packages/core/schemas/**
       exclude:
         description: "Exclusive glob patterns"
         required: false
@@ -33,13 +32,19 @@ on:
         description: "PR-comment on manual dispatch."
         required: false
         type: boolean
-        default: true        
+        default: true
 
 jobs:
   schema-guard:
     name: Validate JSON Schemas
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: write
+    defaults:
+      run:
+        working-directory: packages/core   
 
     steps:
       - name: Validate inputs
@@ -60,9 +65,16 @@ jobs:
           cache: 'npm'
           cache-dependency-path: |
             package-lock.json
+            packages/core/package-lock.json
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Install root deps (npm ci)
+        if: hashFiles('package-lock.json') != ''
+        working-directory: .
+        run: npm ci --no-audit --fund=false
+
+      - name: Install core deps (npm ci)
+        if: hashFiles('packages/core/package-lock.json') != ''
+        run: npm ci --no-audit --fund=false
 
       - name: Echo inputs (informative)
         shell: bash
@@ -73,19 +85,16 @@ jobs:
           echo "Excluded globs (info):"
           printf '%s\n' "${{ inputs.exclude }}"
 
-      - name: Run schema validation
+      - name: Run schema validation (core)
         id: validate
         shell: bash
         run: |
           set -o pipefail
-
           npm run -s validate-schemas | tee schema-guard.log
           status=${PIPESTATUS[0]}
-
           if [ ! -s schema-guard.log ]; then
-            echo "validate-schemas did not produce output (possible quoting/indent issue)" > schema-guard.log
+            echo "validate-schemas did not produce output" > schema-guard.log
           fi
-
           echo "status=$status" >> "$GITHUB_OUTPUT"
 
       - name: Upload schema-guard log (artifact)
@@ -104,7 +113,6 @@ jobs:
           script: |
             const fs = require('fs');
             const log = fs.readFileSync('schema-guard.log', 'utf8');
-            // cut the log to 200 lines at the end
             const tail = log.split('\n').slice(-200).join('\n');
             const body = [
               '### ❌ Schema validation failed',

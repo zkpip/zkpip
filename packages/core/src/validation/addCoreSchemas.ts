@@ -19,7 +19,6 @@ export type CanonicalId =
 
 function addAlias(ajv: Ajv2020, alias: string, targetUrn: string) {
   if (ajv.getSchema(alias)) return;
-  // Vékony alias séma: saját $id = alias, és $ref a kanonikus URN-re
   ajv.addSchema({ $id: alias, $ref: targetUrn });
 }
 
@@ -27,18 +26,16 @@ function register(
   ajv: Ajv2020,
   shortId: "mvs.proof-bundle" | "mvs.cir" | "mvs.verification" | "mvs.issue" | "mvs.ecosystem" | "mvs.core",
   urn: string,
-  raw: Record<string, unknown>
+  raw: Record<string, unknown> & { $id?: string }
 ) {
-  // 1) Kanonikus séma a saját URN-jével
-  const base = (raw as any).$id === urn ? raw : { ...raw, $id: urn };
+  const base = raw.$id === urn ? raw : { ...raw, $id: urn };
   if (!ajv.getSchema(urn)) {
-    ajv.addSchema(base); // $id = urn alapján regisztráljuk
+    ajv.addSchema(base); 
   }
 
-  // 2) Aliasok: rövid (pont), rövid (perjel), fájlnév, https
-  const shortDot   = shortId;                     // pl. "mvs.proof-bundle"
-  const shortSlash = shortId.replace(".", "/");   // pl. "mvs/proof-bundle"
-  const file       = urn.split(":").pop()!;       // pl. "mvs.proof-bundle.schema.json"
+  const shortDot   = shortId;                     // "mvs.proof-bundle"
+  const shortSlash = shortId.replace(".", "/");   // "mvs/proof-bundle"
+  const file       = urn.split(":").pop()!;       // "mvs.proof-bundle.schema.json"
   const https      = `https://zkpip.org/schemas/${file}`;
 
   addAlias(ajv, shortDot,   urn);

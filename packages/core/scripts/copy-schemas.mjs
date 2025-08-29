@@ -21,7 +21,7 @@ function copyDirSync(src, dest) {
 }
 
 function main() {
-  const coreRoot = path.resolve(__dirname, "../packages/core");
+  const coreRoot = path.resolve(__dirname, "..");
   const src = path.join(coreRoot, "schemas");
   const dest = path.join(coreRoot, "dist/schemas");
   copyDirSync(src, dest);

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { ErrorObject } from "ajv";
-import { addCoreSchemas, CanonicalId } from "../validation/addCoreSchemas";
+import { addCoreSchemas, type CanonicalId } from "../validation/addCoreSchemas";
 import { createAjv } from "../validation/ajv";
 import { CANONICAL_IDS } from "../schemaUtils";
 
