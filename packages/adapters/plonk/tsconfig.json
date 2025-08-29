@@ -3,15 +3,22 @@
   "compilerOptions": {
     "outDir": "dist",
     "rootDir": "src",
-    "composite": true,          // needed for project references
+    "composite": true,
     "declaration": true,
-    "declarationMap": true
+    "declarationMap": true,
+
+    "module": "ESNext",
+    "target": "ES2022",
+    "moduleResolution": "Bundler",
+
+    "paths": {} // override: do not inherit root paths aliases during build
   },
-  "scripts": {
-    "test": "vitest run",
-    "test:watch": "vitest"
-  },  
-  "include": ["src"],
+  "include": ["src/**/*.ts"],
+  "exclude": [
+    "src/**/__tests__/**",
+    "src/**/*.test.ts",
+    "src/**/*.spec.ts"
+  ],
   "references": [
     { "path": "../../core" }
   ]

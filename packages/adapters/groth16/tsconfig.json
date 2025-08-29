@@ -1,14 +1,24 @@
 {
   "extends": "../../../tsconfig.json",
   "compilerOptions": {
-    "outDir": "dist",             // compiled .js/.d.ts output
-    "rootDir": "src",             // sources live in src/
-    "composite": true,            // required for project references
+    "outDir": "dist",
+    "rootDir": "src",
+    "composite": true,
     "declaration": true,
     "declarationMap": true,
-    "emitDeclarationOnly": false  // make sure .js is emitted, not just .d.ts
+
+    "module": "ESNext",
+    "target": "ES2022",
+    "moduleResolution": "Bundler",
+
+    "paths": {} // override: do not inherit root paths aliases during build
   },
-  "include": ["src"],
+  "include": ["src/**/*.ts"],
+  "exclude": [
+    "src/**/__tests__/**",
+    "src/**/*.test.ts",
+    "src/**/*.spec.ts"
+  ],
   "references": [
     { "path": "../../core" }
   ]

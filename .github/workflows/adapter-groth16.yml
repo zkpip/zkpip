@@ -3,22 +3,28 @@ on:
   push:
     paths:
       - "packages/adapters/groth16/**"
+      - "packages/core/**"
       - ".github/workflows/adapter-groth16.yml"
   pull_request:
     paths:
       - "packages/adapters/groth16/**"
+      - "packages/core/**"
+
 jobs:
   build-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: '20', cache: 'npm' }
+        with:
+          node-version: '20'
+          cache: 'npm'
 
-
+      # Root toolchain
       - run: npm ci
-      - run: npm --prefix packages/core ci
-      - run: npm --prefix packages/adapters/groth16 ci
+
+      - run: npm --prefix packages/core install --no-audit --no-fund
+      - run: npm --prefix packages/adapters/groth16 install --no-audit --no-fund
 
       - run: npm --prefix packages/core run build
       - run: npm --prefix packages/adapters/groth16 run build

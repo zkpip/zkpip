@@ -3,23 +3,29 @@ on:
   push:
     paths:
       - "packages/adapters/plonk/**"
+      - "packages/core/**"
       - ".github/workflows/adapter-plonk.yml"
   pull_request:
     paths:
       - "packages/adapters/plonk/**"
+      - "packages/core/**"
+
 jobs:
   build-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: '20', cache: 'npm' }
+        with:
+          node-version: '20'
+          cache: 'npm'
 
-
+      # Root toolchain (Vitest)
       - run: npm ci
-      - run: npm --prefix packages/core ci
-      - run: npm --prefix packages/adapters/plonk ci
+
+      - run: npm --prefix packages/core install --no-audit --no-fund
+      - run: npm --prefix packages/adapters/plonk install --no-audit --no-fund
 
       - run: npm --prefix packages/core run build
       - run: npm --prefix packages/adapters/plonk run build
-      - run: npm --prefix packages/adapters/plonk run test        
+      - run: npm --prefix packages/adapters/plonk run test
