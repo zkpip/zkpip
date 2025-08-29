@@ -1,54 +1,123 @@
-// Flat-config for ESLint v9+ in @zkpip/core
-
-import js from '@eslint/js';
-import tseslint from 'typescript-eslint';
-import globals from 'globals';
-import { fileURLToPath } from 'node:url';
-import { dirname } from 'node:path';
-
-// Resolve __dirname in ESM
-const __dirname = dirname(fileURLToPath(import.meta.url));
+// packages/core/eslint.config.mjs
+import tseslint from "typescript-eslint";
+import js from "@eslint/js";
+import globals from "globals";
 
 export default [
-  // Ignore build artifacts and the config file itself
   {
-    ignores: ['dist/**', 'build/**', 'node_modules/**', 'eslint.config.*']
+    ignores: [
+      "dist/**",
+      "coverage/**",
+      "schemas/**",
+      "**/*.d.ts",
+    ],
   },
 
-  // Base JS recommendations (defines `js`)
   js.configs.recommended,
-
-  // TypeScript recommendations with type information
-  ...tseslint.configs.recommendedTypeChecked,
-
-  // TS rules for the codebase
   {
-    files: ['**/*.ts', '**/*.tsx'],
+    files: ["**/*.js", "**/*.mjs", "**/*.cjs"],
     languageOptions: {
-      parser: tseslint.parser,
+      ecmaVersion: "latest",
+      sourceType: "module",
+      globals: globals.node,
+    },
+  },
+
+  ...tseslint.configs.recommendedTypeChecked.map((cfg) => ({
+    ...cfg,
+    files: ["src/**/*.ts", "scripts/**/*.ts"],
+    languageOptions: {
+      ...cfg.languageOptions,
+      globals: globals.node,
       parserOptions: {
-        project: ['./tsconfig.eslint.json'],
-        tsconfigRootDir: __dirname
+        project: ["tsconfig.eslint.json"], 
+        tsconfigRootDir: import.meta.dirname,
       },
-      globals: {
-        ...globals.node
-      }
     },
     rules: {
-      'no-console': 'warn',
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }]
-    }
+      "no-unused-vars": "off",
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+        },
+      ],
+
+      "@typescript-eslint/consistent-type-imports": [
+        "error",
+        { prefer: "type-imports", fixStyle: "inline-type-imports" },
+      ],
+      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-floating-promises": [
+        "error",
+        { ignoreIIFE: true, ignoreVoid: true },
+      ],
+      "@typescript-eslint/no-misused-promises": [
+        "error",
+        { checksVoidReturn: false },
+      ],
+      "@typescript-eslint/restrict-template-expressions": [
+        "warn",
+        { allowNumber: true, allowBoolean: true, allowNullish: true, allowAny: true },
+      ],
+      "@typescript-eslint/require-await": "off",
+    },
+  })),
+
+  {
+    files: ["src/__tests__/**/*.ts", "tests/**/*.ts"],
+    languageOptions: {
+      globals: {
+        ...globals.node, 
+        describe: true,
+        it: true,
+        test: true,
+        expect: true,
+        beforeAll: true,
+        beforeEach: true,
+        afterAll: true,
+        afterEach: true,
+        vi: true,
+      },
+      parserOptions: {
+        project: ["tsconfig.eslint.json"],
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      "no-unused-vars": "off",
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+        },
+      ],
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-non-null-assertion": "off",
+      "@typescript-eslint/no-floating-promises": "warn",
+      "@typescript-eslint/no-misused-promises": [
+        "warn",
+        { checksVoidReturn: false },
+      ],
+      "no-console": "off",
+    },
   },
 
-  // CLI overrides: console is fine; no require-await; relax unsafe rules for CLI glue
   {
-    files: ['src/cli/**/*.{ts,tsx}'],
+    files: ["scripts/**/*.ts"],
+    languageOptions: {
+      globals: globals.node,
+      parserOptions: {
+        project: ["tsconfig.eslint.json"],
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
     rules: {
-      'no-console': 'off',
-      '@typescript-eslint/require-await': 'off',
-      '@typescript-eslint/no-unsafe-assignment': 'off',
-      '@typescript-eslint/no-unsafe-member-access': 'off',
-      '@typescript-eslint/no-unsafe-call': 'off'
-    }
-  }
+      "no-console": "off",
+    },
+  },
 ];

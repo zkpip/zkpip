@@ -4,19 +4,21 @@ on:
   push:
     branches: [ main ]
     paths:
-      - "schemas/**"
-      - "ecosystems/**"
-      - "scripts/validateSchemas.ts"
-      - "tsconfig.scripts.json"
+      - "packages/core/schemas/**"
+      - "packages/core/scripts/validateSchemas.ts"
+      - "packages/core/src/**"
+      - "packages/core/package.json"
+      - "packages/core/package-lock.json"
       - "package.json"
       - "package-lock.json"
   pull_request:
     branches: [ main ]
     paths:
-      - "schemas/**"
-      - "ecosystems/**"
-      - "scripts/validateSchemas.ts"
-      - "tsconfig.scripts.json"
+      - "packages/core/schemas/**"
+      - "packages/core/scripts/validateSchemas.ts"
+      - "packages/core/src/**"
+      - "packages/core/package.json"
+      - "packages/core/package-lock.json"
       - "package.json"
       - "package-lock.json"
   workflow_dispatch:
@@ -29,25 +31,28 @@ jobs:
     concurrency:
       group: schema-validation-${{ github.ref }}
       cancel-in-progress: true
+    defaults:
+      run:
+        working-directory: packages/core
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node 20.x
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
 
-      # Prefer npm ci if a lockfile exists; fall back to npm install otherwise.
-      - name: Install deps (npm ci)
+      - name: Install root deps (npm ci)
         if: hashFiles('package-lock.json') != ''
+        working-directory: .
         run: npm ci --no-audit --fund=false
 
-      - name: Install deps (npm install fallback)
-        if: hashFiles('package-lock.json') == ''
-        run: npm install --no-audit --fund=false
+      - name: Install core deps (npm ci)
+        if: hashFiles('packages/core/package-lock.json') != ''
+        run: npm ci --no-audit --fund=false
 
-      - name: Run schema validation
+      - name: Validate MVS schemas (core)
         run: npm run validate-schemas

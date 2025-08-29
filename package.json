@@ -3,5 +3,11 @@
   "private": true,
   "scripts": {
     "build": "npm -w @zkpip/core run build && npm -w @zkpip/cli run build"
+  },
+  "dependencies": {
+    "tsx": "^4.20.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0"
   }
 }

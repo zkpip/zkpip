@@ -8,6 +8,8 @@ import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import path from "path";
 
+type JSONSchemaLike = Record<string, unknown> & { $id?: string; $schema?: string };
+
 type ValidateFunction = ((data: unknown) => boolean) & {
   errors?: ErrorObject[] | null;
 };
@@ -37,24 +39,8 @@ export const CANONICAL_IDS = {
   cir: "urn:zkpip:mvs.cir.schema.json",
 } as const;
 
-type CanonicalKey = keyof typeof CANONICAL_IDS;
-
-function isCanonicalKey(x: string): x is CanonicalKey {
-  return x in CANONICAL_IDS;
-}
-
-function getCanonicalId(idKey: string) {
-  if (!isCanonicalKey(idKey)) {
-    throw new Error(`Unknown canonical key: ${idKey}`);
-  }
-  return CANONICAL_IDS[idKey]; // OK
-}
-
 export function vectorsDir(): string {
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = path.dirname(__filename);
-  const repoRoot = path.resolve(__dirname, "../../..");
-  return path.join(repoRoot, "schemas", "tests", "vectors", "mvs");
+  return path.join(schemasDir(), "tests", "vectors", "mvs");
 }
 
 function findSchemasDir(startDir: string): string | null {
@@ -149,15 +135,15 @@ function* walkRefs(obj: unknown, path: string[] = []): Generator<{ref:string; wh
   }
 }
 
-function preflightSchemaIdsAndRefs(schema: any, fileTag: string) {
+function preflightSchemaIdsAndRefs(schema: JSONSchemaLike, fileTag: string) {
   if (typeof schema.$schema === "string" && schema.$schema.startsWith("urn:")) {
     throw new Error(`$schema must be a draft URL, not URN. Found at ${fileTag}: ${schema.$schema}`);
   }
-  
+
   if (typeof schema.$id === "string" && schema.$id.startsWith("urn:")) {
     assertValidUrn(schema.$id, `${fileTag}.$id`);
   }
-  
+
   for (const { ref, where } of walkRefs(schema)) {
     if (ref.startsWith("urn:")) assertValidUrn(ref, `${fileTag}:${where}`);
   }
@@ -180,11 +166,10 @@ export function addCoreSchemas(ajv: AjvInstance): void {
     try {
       schema = loadFirstExistingSchema(base, candidates);
     } catch {
-      // ezt várja a teszt:
       throw new Error(`Missing core schema: ${candidates.join(" | ")} in ${base}`);
     }
 
-    (schema as any).$id = id;
+    (schema as Record<string, unknown>)["$id"] = id;
     assertValidUrn(id, `addCoreSchemas:$id(${candidates[0] ?? "unknown"})`);
     preflightSchemaIdsAndRefs(schema, `schema:${id}`);
     ajv.addSchema(schema, id);

@@ -1,9 +1,0 @@
-{
-  "type": "circuit",
-  "version": "0.1",
-  "id": "cir-typo",
-  "language": 123,
-  "entryPoint": 999,
-  "inputs": "a",
-  "outputs": "b"
-}

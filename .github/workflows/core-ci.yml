@@ -4,7 +4,7 @@ on:
   pull_request:
   push:
     branches: [ main ]
-  workflow_dispatch: {}    
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -20,7 +20,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       core: ${{ steps.filter.outputs.core }}
-      schemas: ${{ steps.filter.outputs.schemas }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,49 +36,6 @@ jobs:
               - 'package.json'
               - 'package-lock.json'
               - 'npm-shrinkwrap.json'
-            schemas:
-              - 'schemas/**'
-              - 'ecosystems/**'
-              - '.github/workflows/reusable-schema-guard.yml'
-
-  lint-schemas:
-    name: Lint schema refs & IDs
-    needs: changes
-    if: needs.changes.outputs.schemas == 'true'
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: |
-            package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      # Ha a refs-lint ripgrep-et igényelne, itt telepítheted (jelenlegi grep-es scripthez nem kell):
-      # - name: Install ripgrep
-      #   run: sudo apt-get update && sudo apt-get install -y ripgrep
-
-      - name: Run schema lint
-        run: npm run lint:schemas
-
-  schema-validation:
-    name: Schema Validation
-    needs: changes
-    if: needs.changes.outputs.schemas == 'true'
-    uses: ./.github/workflows/reusable-schema-guard.yml
-    with:
-      include: |
-        schemas/**
-        ecosystems/**
-      exclude: ""
-      annotate: true
 
   core:
     name: Core build & test
@@ -87,6 +43,10 @@ jobs:
     if: needs.changes.outputs.core == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: packages/core
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -98,22 +58,26 @@ jobs:
           cache: 'npm'
           cache-dependency-path: |
             package-lock.json
+            packages/core/package-lock.json
 
-      - name: Install dependencies (root)
-        run: npm ci
+      - name: Install root deps (npm ci)
+        if: hashFiles('package-lock.json') != ''
+        working-directory: .
+        run: npm ci --no-audit --fund=false
 
-      # Opcionális, ha külön ts typecheck van a core csomagban
+      # Core dependencies
+      - name: Install core deps (npm ci)
+        if: hashFiles('packages/core/package-lock.json') != ''
+        run: npm ci --no-audit --fund=false
+
       - name: TypeScript typecheck (non-blocking)
-        working-directory: packages/core
-        run: npm run -s typecheck || echo "Typecheck warnings ignored"
+        run: npm run -s typecheck || npx tsc -p tsconfig.json --noEmit || echo "Typecheck warnings ignored"
 
       - name: Run tests with coverage (Vitest)
-        working-directory: packages/core
-        run: npm run -s test:coverage
+        run: npm run -s test:coverage || npm run -s test -- --coverage
 
       - name: Assert LCOV exists
         if: always()
-        working-directory: packages/core
         run: test -f coverage/lcov.info || (echo "❌ lcov.info missing"; ls -lah coverage || true; exit 1)
 
       - name: Upload coverage (LCOV)

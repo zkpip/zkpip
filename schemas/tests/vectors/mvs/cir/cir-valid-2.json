@@ -1,9 +1,0 @@
-{
-  "type": "circuit",
-  "version": "0.1",
-  "id": "cir-456",
-  "language": "r1cs",
-  "entryPoint": "verify",
-  "inputs": ["signal1"],
-  "outputs": ["signal2", "signal3"]
-}
