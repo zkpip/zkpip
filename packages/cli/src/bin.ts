@@ -145,8 +145,8 @@ async function main(): Promise<void> {
     const patternsNorm = patterns.map(normalizePattern);
 
     // If a pattern points to an existing file, add it directly; otherwise let glob resolve it
-    const fileCandidates = await Promise.all(
-      patternsNorm.map(async (p) => {
+    const fileCandidates: string[][] = await Promise.all(
+      patternsNorm.map(async (p): Promise<string[]> => {
         try {
           const st = statSync(p);
           return st.isFile() ? [p] : await glob(p);
@@ -157,7 +157,7 @@ async function main(): Promise<void> {
       }),
     );
 
-    const files = Array.from(new Set(fileCandidates.flat()));
+    const files: string[] = Array.from(new Set(fileCandidates.flat()));
     if (files.length === 0) {
       fail(errAdapter, 'No files matched the given patterns.');
       return;

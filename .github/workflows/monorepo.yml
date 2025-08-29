@@ -20,12 +20,12 @@ jobs:
       # Linting
       - run: npm run lint:types
 
-      - run: npm --prefix packages/core install --no-audit --no-fund
-      - run: npm --prefix packages/adapters/groth16 install --no-audit --no-fund
-      - run: npm --prefix packages/adapters/plonk install --no-audit --no-fund
-      - run: npm --prefix packages/adapters/stark install --no-audit --no-fund
-      - run: npm --prefix packages/batchseal install --no-audit --no-fund
-      - run: npm --prefix packages/cli install --no-audit --no-fund
+      - run: npm --prefix packages/core install --no-audit --no-fund --ignore-scripts
+      - run: npm --prefix packages/adapters/groth16 install --no-audit --no-fund --ignore-scripts
+      - run: npm --prefix packages/adapters/plonk install --no-audit --no-fund --ignore-scripts
+      - run: npm --prefix packages/adapters/stark install --no-audit --no-fund --ignore-scripts
+      - run: npm --prefix packages/batchseal install --no-audit --no-fund --ignore-scripts
+      - run: npm --prefix packages/cli install --no-audit --no-fund --ignore-scripts
 
       - run: npm --prefix packages/core run build
       - run: npm --prefix packages/adapters/groth16 run build

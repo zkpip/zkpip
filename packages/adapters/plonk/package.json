@@ -12,7 +12,6 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "prepare": "npm run build",
     "test": "vitest run",
     "test:watch": "vitest"
   },

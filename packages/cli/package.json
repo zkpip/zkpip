@@ -15,9 +15,8 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "prepare": "npm run build",
     "test": "vitest run",
-    "pretest": "npm --prefix ../core install --no-audit --no-fund && npm --prefix ../core run build && npm --prefix ../adapters/groth16 install --no-audit --no-fund && npm --prefix ../adapters/groth16 run build && npm --prefix ../adapters/plonk install --no-audit --no-fund && npm --prefix ../adapters/plonk run build && npm --prefix ../adapters/stark install --no-audit --no-fund && npm --prefix ../adapters/stark run build && npm --prefix ../batchseal install --no-audit --no-fund && npm --prefix ../batchseal run build && npm run build"
+    "pretest": "npm --prefix ../core install --no-audit --no-fund --ignore-scripts && npm --prefix ../core run build && npm --prefix ../adapters/groth16 install --no-audit --no-fund --ignore-scripts && npm --prefix ../adapters/groth16 run build && npm --prefix ../adapters/plonk install --no-audit --no-fund --ignore-scripts && npm --prefix ../adapters/plonk run build && npm --prefix ../adapters/stark install --no-audit --no-fund --ignore-scripts && npm --prefix ../adapters/stark run build && npm --prefix ../batchseal install --no-audit --no-fund --ignore-scripts && npm --prefix ../batchseal run build && npm run build"
   },
   "dependencies": {
     "@zkpip/adapters-groth16": "file:../adapters/groth16",
