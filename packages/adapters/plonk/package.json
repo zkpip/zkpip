@@ -17,6 +17,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@zkpip/cli": "file:../../cli",
     "@zkpip/core": "file:../../core"
   }
 }

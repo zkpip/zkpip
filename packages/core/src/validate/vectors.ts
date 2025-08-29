@@ -1,10 +1,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { ErrorObject } from "ajv";
-import { addCoreSchemas, type CanonicalId } from "../validation/addCoreSchemas";
-import { createAjv } from "../validation/ajv";
-import { CANONICAL_IDS } from "../schemaUtils";
+import { addCoreSchemas, type CanonicalId } from "../validation/addCoreSchemas.js";
+import { createAjv } from "../validation/ajv.js";
+import { CANONICAL_IDS } from "../schemaUtils.js";
 
+// --- Types ---
+type VectorCanonicalId = Exclude<CanonicalId, "mvs.core">;
+
+// --- IO helpers ---
 function listJsonFiles(inputPath: string): string[] {
   const st = fs.statSync(inputPath);
   if (st.isFile()) return inputPath.toLowerCase().endsWith(".json") ? [inputPath] : [];
@@ -21,35 +25,43 @@ function listJsonFiles(inputPath: string): string[] {
   return out.sort((a, b) => a.localeCompare(b));
 }
 
-const SHORT_CANDIDATES: CanonicalId[] = [
+// Only vector-related schema IDs (no "mvs.core" here)
+const SHORT_CANDIDATES: readonly VectorCanonicalId[] = [
   "mvs.proof-bundle",
   "mvs.cir",
   "mvs.verification",
   "mvs.issue",
   "mvs.ecosystem",
-];
+] as const;
 
-const SHORT_TO_URN: Record<CanonicalId, string> = {
-  "mvs.proof-bundle": CANONICAL_IDS.proofBundle,
-  "mvs.cir":          CANONICAL_IDS.cir,
+/** Type guard for narrowing arbitrary string to VectorCanonicalId */
+function isVectorCanonicalIdStr(s: string): s is VectorCanonicalId {
+  return (SHORT_CANDIDATES as readonly string[]).includes(s);
+}
+
+/**
+ * Map short IDs to their canonical URNs for vector-related schemas only.
+ * Using `satisfies` ensures we cover all VectorCanonicalId keys at compile time.
+ */
+const SHORT_TO_URN = {
   "mvs.verification": CANONICAL_IDS.verification,
   "mvs.issue":        CANONICAL_IDS.issue,
   "mvs.ecosystem":    CANONICAL_IDS.ecosystem,
-};
+  "mvs.proof-bundle": CANONICAL_IDS.proofBundle,
+  "mvs.cir":          CANONICAL_IDS.cir,
+} as const satisfies Record<VectorCanonicalId, string>;
 
-function toShortId(schemaRef?: string): CanonicalId | undefined {
+/** Normalize incoming $schema ref to a VectorCanonicalId (if applicable) */
+function toShortId(schemaRef?: string): VectorCanonicalId | undefined {
   if (!schemaRef) return undefined;
   const s = schemaRef.trim().toLowerCase();
 
-  // eleve rövid alias?
-  if ((SHORT_CANDIDATES as readonly string[]).includes(s)) {
-    return s as CanonicalId;
-  }
-  // URN pontos egyezés?
-  for (const [shortId, urn] of Object.entries(SHORT_TO_URN) as [CanonicalId, string][]) {
+  if (isVectorCanonicalIdStr(s)) return s;
+
+  for (const [shortId, urn] of Object.entries(SHORT_TO_URN) as [VectorCanonicalId, string][]) {
     if (urn.toLowerCase() === s) return shortId;
   }
-  // fájlnév / URL utolsó komponense alapján
+
   const tail = s.split("/").pop() || s;
   if (tail === "mvs.proof-bundle.schema.json") return "mvs.proof-bundle";
   if (tail === "mvs.cir.schema.json")          return "mvs.cir";
@@ -66,27 +78,26 @@ function formatAjvErrors(errors?: ErrorObject[] | null): string {
 
 export async function validatePath(inputPath: string): Promise<void> {
   const files = listJsonFiles(inputPath);
-  const ajv   = createAjv(); 
+  const ajv   = createAjv();
   addCoreSchemas(ajv);
 
   for (const file of files) {
     const raw  = fs.readFileSync(file, "utf8");
     const data = JSON.parse(raw);
 
-    // $schema alapján preferált rövid ID
+    // Prefer vector schema hinted by $schema, then fall back to the rest
     const preferredShort = toShortId(data?.$schema);
-    const candidates: CanonicalId[] = preferredShort
+    const candidates: VectorCanonicalId[] = preferredShort
       ? [preferredShort, ...SHORT_CANDIDATES.filter(x => x !== preferredShort)]
-      : SHORT_CANDIDATES;
+      : [...SHORT_CANDIDATES];
 
     let anyOk = false;
     const errs: Record<string, string> = {};
 
     for (const shortId of candidates) {
-      // 1) próbáljuk rövid azonosítóval
-      let v = ajv.getSchema(shortId);
-      // 2) ha nincs regisztrálva a rövid alias, próbáljuk az URN-nel (fallback)
-      if (!v) v = ajv.getSchema(SHORT_TO_URN[shortId]);
+      let v = ajv.getSchema(shortId); // short alias
+
+      if (!v) v = ajv.getSchema(SHORT_TO_URN[shortId]); // canonical URN
 
       if (!v) {
         errs[shortId] = "(schema not registered: short alias and URN missing)";

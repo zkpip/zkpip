@@ -10,7 +10,19 @@
     "test:adp:groth16": "npm --prefix packages/adapters/groth16 test",
     "test:adp:plonk": "npm --prefix packages/adapters/plonk test",
     "test:adp:stark": "npm --prefix packages/adapters/stark test",
-    "test:all": "npm run test:core && npm run test:batchseal && npm run test:adp:groth16 && npm run test:adp:plonk && npm run test:adp:stark"
+    "cli:run:g16": "node packages/cli/dist/bin.js batchseal --adapter groth16 samples/*.json",
+    "cli:run:plonk": "node packages/cli/dist/bin.js batchseal --adapter plonk samples/*.json",
+    "cli:run:stark": "node packages/cli/dist/bin.js batchseal --adapter stark samples/*.json",
+    "lint:types": "npm run lint:types:core && npm run lint:types:adp:groth16 && npm run lint:types:adp:plonk && npm run lint:types:adp:stark && npm run lint:types:batchseal && npm run lint:types:cli",
+    "lint:types:core": "tsc -p packages/core/tsconfig.json --noEmit",
+    "lint:types:batchseal": "tsc -p packages/batchseal/tsconfig.json --noEmit",
+    "lint:types:adp:groth16": "tsc -p packages/adapters/groth16/tsconfig.json --noEmit",
+    "lint:types:adp:plonk": "tsc -p packages/adapters/plonk/tsconfig.json --noEmit",
+    "lint:types:adp:stark": "tsc -p packages/adapters/stark/tsconfig.json --noEmit",
+    "lint:types:cli": "tsc -p packages/cli/tsconfig.json --noEmit",
+    "build:all": "npm --prefix packages/core run build && npm --prefix packages/adapters/groth16 run build && npm --prefix packages/adapters/plonk run build && npm --prefix packages/adapters/stark run build && npm --prefix packages/batchseal run build && npm --prefix packages/cli run build",
+    "test:all": "npm run test:core && npm run test:batchseal && npm run test:adp:groth16 && npm run test:adp:plonk && npm run test:adp:stark && npm --prefix packages/cli test",
+    "ci:local": "npm ci || npm install --no-audit --no-fund && npm --prefix packages/core install --no-audit --no-fund && npm --prefix packages/adapters/groth16 install --no-audit --no-fund && npm --prefix packages/adapters/plonk install --no-audit --no-fund && npm --prefix packages/adapters/stark install --no-audit --no-fund && npm --prefix packages/batchseal install --no-audit --no-fund && npm --prefix packages/cli install --no-audit --no-fund && npm run build:all && npm run test:all"    
   },
   "dependencies": {
     "tsx": "^4.20.5"

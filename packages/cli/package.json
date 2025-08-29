@@ -3,26 +3,33 @@
   "version": "0.1.0",
   "type": "module",
   "bin": {
-    "zkpip": "dist/index.js"
+    "zkpip": "dist/bin.js"
   },
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "files": [
-    "dist"
-  ],
+  "main": "dist/bin.js",
+  "types": "dist/bin.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/bin.js",
+      "types": "./dist/bin.d.ts"
+    }
+  },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "dev": "tsx src/index.ts"
+    "build": "tsc -b",
+    "prepare": "npm run build",
+    "test": "vitest run",
+    "pretest": "npm --prefix ../core install --no-audit --no-fund && npm --prefix ../core run build && npm --prefix ../adapters/groth16 install --no-audit --no-fund && npm --prefix ../adapters/groth16 run build && npm --prefix ../adapters/plonk install --no-audit --no-fund && npm --prefix ../adapters/plonk run build && npm --prefix ../adapters/stark install --no-audit --no-fund && npm --prefix ../adapters/stark run build && npm --prefix ../batchseal install --no-audit --no-fund && npm --prefix ../batchseal run build && npm run build"
   },
   "dependencies": {
-    "@zkpip/core": "file:/C:/Users/tony/programming/zkpip/zkpip/packages/core",
-    "commander": "^14.0.0",
-    "yargs": "^17.7.2"
+    "@zkpip/adapters-groth16": "file:../adapters/groth16",
+    "@zkpip/adapters-plonk": "file:../adapters/plonk",
+    "@zkpip/adapters-stark": "file:../adapters/stark",
+    "@zkpip/batchseal": "file:../batchseal",
+    "@zkpip/core": "file:../core",
+    "glob": "^10.4.5"
   },
   "devDependencies": {
-    "@types/node": "^20.19.11",
-    "@types/yargs": "^17.0.33",
-    "tsx": "^4.20.0",
-    "typescript": "^5.9.2"
+    "@types/node": "^20.14.12",
+    "typescript": "^5.5.4",
+    "vitest": "^3.2.4"
   }
 }

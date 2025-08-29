@@ -1,18 +1,32 @@
 {
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "rootDir": "src",
     "outDir": "dist",
+    "rootDir": "src",
+    "composite": true,
     "declaration": true,
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "types": ["node"],
-    "resolveJsonModule": true,
-    "verbatimModuleSyntax": true
-  },
-  "include": ["src"]
-}
+    "declarationMap": true,
 
+    "module": "ESNext",
+    "target": "ES2022",
+    "moduleResolution": "Bundler",
+
+    "skipLibCheck": true,   // ← do not type-check node_modules d.ts (fixes lru-cache mismatch)
+    "paths": {}             // ← prevent inheriting root aliases during build
+  },
+  "include": ["src/bin.ts"],          // ← only compile the minimal CLI entry
+  "exclude": [
+    "src/**/__tests__/**",
+    "src/**/*.test.ts",
+    "src/**/*.spec.ts",
+    "src/commands/**",               // ← exclude yargs-based commands for now
+    "src/index.ts"                   // ← exclude old yargs entry
+  ],
+  "references": [
+    { "path": "../core" },
+    { "path": "../batchseal" },
+    { "path": "../adapters/groth16" },
+    { "path": "../adapters/plonk" },
+    { "path": "../adapters/stark" }
+  ]
+}

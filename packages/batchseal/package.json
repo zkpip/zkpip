@@ -5,8 +5,9 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "dependencies": {
-    "@zkpip/core": "file:../core",
-    "@zkpip/adapters-groth16": "file:../adapters/groth16"
+    "@zkpip/adapters-groth16": "file:../adapters/groth16",
+    "@zkpip/cli": "file:../cli",
+    "@zkpip/core": "file:../core"
   },
   "scripts": {
     "build": "tsc -b",

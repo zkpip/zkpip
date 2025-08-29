@@ -27,6 +27,7 @@
     "prepare": "npm run build"
   },
   "dependencies": {
+    "@zkpip/cli": "file:../cli",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
     "tsx": "^4.20.5",
