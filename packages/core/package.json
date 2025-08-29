@@ -10,8 +10,8 @@
   ],
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
     }
   },
   "scripts": {
@@ -21,8 +21,10 @@
     "validate-schemas": "tsx ./scripts/validateSchemas.ts",
     "test:coverage": "vitest run --coverage",
     "test": "vitest run",
+    "test:watch": "vitest",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "prepare": "npm run build"
   },
   "dependencies": {
     "ajv": "^8.17.1",

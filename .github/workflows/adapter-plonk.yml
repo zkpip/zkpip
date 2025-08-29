@@ -1,0 +1,20 @@
+name: adapter-plonk
+on:
+  push:
+    paths:
+      - "packages/adapters/plonk/**"
+      - ".github/workflows/adapter-plonk.yml"
+  pull_request:
+    paths:
+      - "packages/adapters/plonk/**"
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20', cache: 'npm' }
+      - run: npm ci
+      - run: npm --prefix packages/core run build
+      - run: npm --prefix packages/adapters/plonk run build
+      - run: npm --prefix packages/adapters/plonk run test

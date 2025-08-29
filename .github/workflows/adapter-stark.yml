@@ -1,0 +1,20 @@
+name: adapter-stark
+on:
+  push:
+    paths:
+      - "packages/adapters/stark/**"
+      - ".github/workflows/adapter-stark.yml"
+  pull_request:
+    paths:
+      - "packages/adapters/stark/**"
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20', cache: 'npm' }
+      - run: npm ci
+      - run: npm --prefix packages/core run build
+      - run: npm --prefix packages/adapters/stark run build
+      - run: npm --prefix packages/adapters/stark run test

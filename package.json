@@ -2,12 +2,21 @@
   "name": "zkpip",
   "private": true,
   "scripts": {
-    "build": "npm -w @zkpip/core run build && npm -w @zkpip/cli run build"
+    "build": "npm -w @zkpip/core run build && npm -w @zkpip/cli run build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:core": "npm --prefix packages/core test",
+    "test:batchseal": "npm --prefix packages/batchseal test",
+    "test:adp:groth16": "npm --prefix packages/adapters/groth16 test",
+    "test:adp:plonk": "npm --prefix packages/adapters/plonk test",
+    "test:adp:stark": "npm --prefix packages/adapters/stark test",
+    "test:all": "npm run test:core && npm run test:batchseal && npm run test:adp:groth16 && npm run test:adp:plonk && npm run test:adp:stark"
   },
   "dependencies": {
     "tsx": "^4.20.5"
   },
   "devDependencies": {
-    "@types/node": "^24.3.0"
+    "@types/node": "^24.3.0",
+    "vitest": "^3.2.4"
   }
 }

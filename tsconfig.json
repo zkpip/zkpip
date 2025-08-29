@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@zkpip/core": ["packages/core/src/index.ts"],
+      "@zkpip/adapters-groth16": ["packages/adapters/groth16/src/index.ts"],
+      "@zkpip/adapters-plonk": ["packages/adapters/plonk/src/index.ts"],
+      "@zkpip/adapters-stark": ["packages/adapters/stark/src/index.ts"]
+    },
+    "moduleResolution": "Bundler",
+    "module": "ESNext",
+    "target": "ES2022",
+    "strict": true
+  },
+  "files": [],
+  "references": [
+    { "path": "packages/core" },
+    { "path": "packages/batchseal" },
+    { "path": "packages/adapters/groth16" },
+    { "path": "packages/adapters/plonk" },
+    { "path": "packages/adapters/stark" }
+  ]
+}

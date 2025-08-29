@@ -1,0 +1,15 @@
+{
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dist",             // compiled .js/.d.ts output
+    "rootDir": "src",             // sources live in src/
+    "composite": true,            // required for project references
+    "declaration": true,
+    "declarationMap": true,
+    "emitDeclarationOnly": false  // make sure .js is emitted, not just .d.ts
+  },
+  "include": ["src"],
+  "references": [
+    { "path": "../../core" }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "composite": true,          // needed for project references
+    "declaration": true,
+    "declarationMap": true
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },  
+  "include": ["src"],
+  "references": [
+    { "path": "../../core" }
+  ]
+}

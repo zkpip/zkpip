@@ -1,0 +1,17 @@
+{
+  "name": "@zkpip/batchseal",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "dependencies": {
+    "@zkpip/core": "file:../core",
+    "@zkpip/adapters-groth16": "file:../adapters/groth16"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rimraf dist",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  }
+}
