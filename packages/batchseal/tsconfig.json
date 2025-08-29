@@ -5,10 +5,21 @@
     "rootDir": "src",
     "composite": true,
     "declaration": true,
-    "declarationMap": true
+    "declarationMap": true,
+
+    "module": "ESNext",
+    "target": "ES2022",
+    "moduleResolution": "Bundler",
+
+    "paths": {}        
   },
-  "include": ["src"],
+  "include": ["src/**/*.ts"],
+  "exclude": [
+    "src/**/__tests__/**",
+    "src/**/*.test.ts",
+    "src/**/*.spec.ts"
+  ],
   "references": [
-    { "path": "../core" } 
+    { "path": "../core" }
   ]
 }
