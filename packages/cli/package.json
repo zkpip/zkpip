@@ -15,7 +15,7 @@
     "dev": "tsx src/index.ts"
   },
   "dependencies": {
-    "@zkpip/core": "file:/C:/Users/tony/programming/zkpip/zkpip/packages/core",
+    "@zkpip/core": "^0.1.0",
     "commander": "^14.0.0",
     "yargs": "^17.7.2"
   },

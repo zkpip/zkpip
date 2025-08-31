@@ -2,12 +2,19 @@
   "name": "zkpip",
   "private": true,
   "scripts": {
-    "build": "npm -w @zkpip/core run build && npm -w @zkpip/cli run build"
+    "build": "npm -w @zkpip/core run build && npm -w @zkpip/cli run build",
+    "test": "npm -w @zkpip/core run test"
   },
   "dependencies": {
     "tsx": "^4.20.5"
   },
   "devDependencies": {
     "@types/node": "^24.3.0"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=18"
   }
 }
