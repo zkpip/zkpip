@@ -1,7 +1,0 @@
-{
-  "type": "circuit",
-  "version": "0.1",
-  "id": 777,
-  "language": "r1cs",
-  "entryPoint": "verify"
-}

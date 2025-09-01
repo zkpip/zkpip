@@ -1,21 +1,22 @@
+// packages/core/src/__tests__/verificationVector.valid.test.ts
 import { describe, it, expect } from "vitest";
-import path from "path";
-import fs from "fs";
-import { createAjv, addCoreSchemas, CANONICAL_IDS, vectorsDir } from "../schemaUtils.js";
+import { createAjv, addCoreSchemas, CANONICAL_IDS } from "../schemaUtils.js";
 import { validateAgainstResult } from "../testing/ajv-helpers.js";
+import { vectors, readJson } from "../test-helpers/vectorPaths.js";
 
 function isObject(x: unknown): x is Record<string, unknown> {
   return typeof x === "object" && x !== null;
 }
 
-describe("Vector: verification-groth16-evm.json", () => {
+describe("Vector: verification/groth16-evm.valid.json", () => {
   it("should validate against mvs.verification.schema.json", () => {
     const ajv = createAjv();
     addCoreSchemas(ajv);
 
-    const vecPath = path.join(vectorsDir(), "verification-groth16-evm.json");
-    const raw = fs.readFileSync(vecPath, "utf8");
-    const parsed: unknown = JSON.parse(raw);
+    // Use centralized helper (new path with legacy fallback)
+    const vecPath = vectors.groth16Valid();
+    const parsed: unknown = readJson(vecPath);
+
     expect(isObject(parsed)).toBe(true);
     const data = parsed as Record<string, unknown>;
 

@@ -1,8 +1,7 @@
 import { describe, it, expect } from "vitest";
-import path from "path";
-import fs from "fs";
-import { createAjv, addCoreSchemas, CANONICAL_IDS, vectorsDir } from "../schemaUtils.js";
+import { createAjv, addCoreSchemas, CANONICAL_IDS } from "../schemaUtils.js";
 import { validateAgainstResult } from "../testing/ajv-helpers.js";
+import { vectors, readJson } from "../test-helpers/vectorPaths.js";
 
 type EcosystemLike = { languages?: unknown; hashes?: unknown };
 
@@ -15,9 +14,8 @@ describe("Negative: ecosystem arrays must have at least 1 element", () => {
     const ajv = createAjv();
     addCoreSchemas(ajv);
 
-    const p = path.join(vectorsDir(), "ecosystem-aztec.json");
-    const raw = fs.readFileSync(p, "utf8");
-    const parsed: unknown = JSON.parse(raw);
+    const p = vectors.ecosystemAztec();
+    const parsed: unknown = readJson(p);
 
     expect(isEcosystemLike(parsed)).toBe(true);
     const data = parsed as Record<string, unknown>;

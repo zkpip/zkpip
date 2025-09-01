@@ -1,9 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { ErrorObject } from "ajv";
-import { addCoreSchemas, type CanonicalId } from "../validation/addCoreSchemas";
-import { createAjv } from "../validation/ajv";
-import { CANONICAL_IDS } from "../schemaUtils";
+import { addCoreSchemas, type CanonicalId } from "../validation/addCoreSchemas.js";
+import { createAjv } from "../validation/ajv.js";
+import { CANONICAL_IDS } from "../schemaUtils.js";
 
 function listJsonFiles(inputPath: string): string[] {
   const st = fs.statSync(inputPath);

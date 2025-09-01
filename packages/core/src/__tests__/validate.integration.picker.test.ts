@@ -1,38 +1,34 @@
+// packages/core/src/__tests__/validate.integration.picker.test.ts
 // Integration tests for validate.ts using filename-based routing via pickSchemaId.
 // Exercises: createAjv + addCoreSchemas + pickSchemaId + AJV validate.
-import { existsSync, writeFileSync, mkdtempSync } from "fs";
-import { tmpdir } from "os";
-import { join, resolve, dirname } from "path";
-import { fileURLToPath } from "url";
+
+import { existsSync, writeFileSync, mkdtempSync, readdirSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, dirname } from "node:path";
 import { describe, it, expect } from "vitest";
 import { validatePath } from "../validate/vectors.js";
+import { MVS_ROOT } from "../test-helpers/vectorPaths.js";
 
-// Locate <repo>/schemas from this test file location
-function findRootSchemasDir(): string {
-  const __filename = fileURLToPath(import.meta.url);
-  let dir = dirname(__filename);
-  for (let i = 0; i < 8; i++) {
-    const candidate = resolve(dir, "../../../../schemas");
-    if (existsSync(candidate)) return candidate;
-    const direct = resolve(dir, "schemas");
-    if (existsSync(direct)) return direct;
-    const parent = dirname(dir);
-    if (parent === dir) break;
-    dir = parent;
+// Updated vector paths (new layout via helper root)
+const VERIF_VECTOR = join(MVS_ROOT, "verification/groth16-evm.valid.json");
+const ISSUE_VECTOR = join(MVS_ROOT, "issue/public-input-order.json");
+const ECO_VECTOR   = join(MVS_ROOT, "ecosystem/aztec.json");
+
+// Pre-flight: ensure vectors exist (helps with CI diagnostics)
+for (const p of [VERIF_VECTOR, ISSUE_VECTOR, ECO_VECTOR]) {
+  if (!existsSync(p)) {
+    const dir = dirname(p);
+    const listing = existsSync(dir) ? readdirSync(dir).join(", ") : "<missing dir>";
+    throw new Error(`Vector not found: ${p}\nDir listing (${dir}): ${listing}`);
   }
-  return resolve(process.cwd(), "schemas");
 }
 
-const SCHEMAS_DIR = findRootSchemasDir();
-const VERIF_VECTOR = resolve(SCHEMAS_DIR, "tests/vectors/mvs/verification-groth16-evm.json");
-const ISSUE_VECTOR = resolve(SCHEMAS_DIR, "tests/vectors/mvs/issue-public-input-order.json");
-const ECO_VECTOR   = resolve(SCHEMAS_DIR, "tests/vectors/mvs/ecosystem-aztec.json");
-
+// Top-level smoke checks to fail fast if routing is broken
 await expect(validatePath(VERIF_VECTOR)).resolves.toBeUndefined();
 await expect(validatePath(ISSUE_VECTOR)).resolves.toBeUndefined();
 await expect(validatePath(ECO_VECTOR)).resolves.toBeUndefined();
 
-/** Helper: create a temp JSON file with the given name and object payload. */
+/** Create a temporary JSON file with the given name and payload. */
 function tmpJsonFile(name: string, obj: unknown): string {
   const dir = mkdtempSync(join(tmpdir(), "zkpip-validate-"));
   const p = join(dir, name);
@@ -40,7 +36,7 @@ function tmpJsonFile(name: string, obj: unknown): string {
   return p;
 }
 
-describe("validate.ts + pickSchemaId integration", () => {
+describe("validate.ts + pickSchemaId integration (picker)", () => {
   it("routes verification vectors to the verification schema (legacy 'error' filenames tolerated)", async () => {
     await expect(validatePath(VERIF_VECTOR)).resolves.toBeUndefined();
   });
@@ -57,14 +53,14 @@ describe("validate.ts + pickSchemaId integration", () => {
     const valid = {
       schemaVersion: "0.1.0",
       bundleId: "bndl-001",
-      prover: "snarkjs",             
+      prover: "snarkjs",
       proofSystem: "groth16",
       curve: "bn128",
       program: { language: "circom", entry: "circuits/main.circom" },
       artifacts: {
         wasm: { path: "build/main.wasm" },
         zkey: { path: "build/main.zkey" }
-      },
+      }
     };
     const p = tmpJsonFile("my.proof-bundle.manifest.json", valid);
     await expect(validatePath(p)).resolves.toBeUndefined();
@@ -96,14 +92,12 @@ describe("validate.ts + pickSchemaId integration", () => {
       circuits: [
         {
           id: "main",
-          hash:
-            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           nConstraints: 3,
           nSignalsPublic: 1,
           nSignalsPrivate: 2
         }
       ]
-      // extensions: { "urn:zkpip:ext.example": { note: "opaque payload" } }
     };
     const p = tmpJsonFile("circuit-spec.cir.json", valid);
     await expect(validatePath(p)).resolves.toBeUndefined();
@@ -119,8 +113,7 @@ describe("validate.ts + pickSchemaId integration", () => {
       circuits: [
         {
           id: "main",
-          hash:
-            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           nConstraints: 0,
           nSignalsPublic: 1,
           nSignalsPrivate: 2
@@ -132,17 +125,16 @@ describe("validate.ts + pickSchemaId integration", () => {
   });
 
   it("defaults to core schema when filename does not match any known pattern", async () => {
-    // Minimal 'core' payload; adjust if your core schema is stricter.
     const minimalCore = {
-      $schema: "https://json-schema.org/draft/2020-12/schema",  
-      $id: "urn:zkpip:mvs:core.payload:0.1",                   
+      $schema: "https://json-schema.org/draft/2020-12/schema",
+      $id: "urn:zkpip:mvs:core.payload:0.1",
       type: "object"
     };
     const p = tmpJsonFile("random.json", minimalCore);
 
     try {
       await validatePath(p);
-      expect(true).toBe(true); // passed under current core schema
+      expect(true).toBe(true);
     } catch (e) {
       expect(String(e)).toMatch(/Validation failed|Schema:/);
     }

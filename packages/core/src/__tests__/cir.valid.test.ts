@@ -1,26 +1,19 @@
+// packages/core/src/__tests__/cir.valid.test.ts
 import { describe, it, expect } from "vitest";
-import { readdirSync, readFileSync, existsSync } from "fs";
-import path from "path";
-import {
-  createAjv,
-  addCoreSchemas,
-  CANONICAL_IDS,
-  vectorsDir,
-} from "../schemaUtils.js";
+import { createAjv, addCoreSchemas, CANONICAL_IDS } from "../schemaUtils.js";
 import { validateAgainstResult } from "../testing/ajv-helpers.js";
-
-function loadJson(p: string): Record<string, unknown> {
-  return JSON.parse(readFileSync(p, "utf8")) as Record<string, unknown>;
-}
+import { MVS_ROOT, readJson } from "../test-helpers/vectorPaths.js";
+import * as path from "node:path";
+import * as fs from "node:fs";
 
 describe("CIR — VALID vectors", () => {
   const ajv = createAjv();
   addCoreSchemas(ajv);
 
-  const dir = vectorsDir();
-  const pattern = /^cir\..*\.valid\.json$/i;
-  const files = existsSync(dir)
-    ? readdirSync(dir).filter((f) => pattern.test(f))
+  const cirDir = path.join(MVS_ROOT, "verification/cir");
+
+  const files = fs.existsSync(cirDir)
+    ? fs.readdirSync(cirDir).filter((f) => f.endsWith(".valid.json"))
     : [];
 
   if (files.length === 0) {
@@ -32,7 +25,8 @@ describe("CIR — VALID vectors", () => {
 
   for (const f of files) {
     it(`should accept ${f}`, () => {
-      const data = loadJson(path.join(dir, f));
+      const abs = path.join(cirDir, f);
+      const data = readJson(abs) as Record<string, unknown>;
       const res = validateAgainstResult(ajv, CANONICAL_IDS.cir, data);
       if (!res.ok) throw new Error(res.text);
       expect(res.ok).toBe(true);

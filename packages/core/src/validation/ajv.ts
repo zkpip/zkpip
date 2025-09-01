@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { type Schema } from "ajv";
-import Ajv2020 from "ajv/dist/2020.js"; 
+import Ajv from "ajv/dist/2020.js"; 
 import addFormats from "ajv-formats";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -51,8 +51,8 @@ export function loadSchemaJson<T = Schema>(relPath: string): T {
   return JSON.parse(raw) as T;
 }
 
-export function createAjv(): Ajv2020 {
-  const ajv = new Ajv2020({
+export function createAjv(): Ajv {
+  const ajv = new Ajv({
     allErrors: true,
     strict: false,
     allowUnionTypes: true,
