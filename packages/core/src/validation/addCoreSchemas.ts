@@ -4,6 +4,7 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AnySchemaObject, ValidateFunction } from "ajv";
 import { CANONICAL_IDS } from "../schemaUtils.js";
+import { ALIASES, httpsAliasOf } from "./aliases.js";
 
 interface AjvLike {
   addSchema(schema: AnySchemaObject): unknown;
@@ -37,17 +38,37 @@ function loadSchema(dir: string, names: string | string[]): AnySchemaObject {
   throw new Error(`Schema file not found. Tried: ${list.join(" | ")}`);
 }
 
-function registerAliases(ajv: AjvLike, canonicalId: string, aliases: readonly string[]): void {
+/** Add schema only if not already present (by known/canonical id). */
+function safeAddCanonicalSchema(
+  ajv: AjvLike,
+  canonicalId: string,
+  schema: AnySchemaObject
+): void {
+  // If already registered, skip
+  if (ajv.getSchema(canonicalId)) return;
+  ajv.addSchema(schema);
+}
+
+/** Add aliases only if not already present. */
+function registerAliasesIdempotent(
+  ajv: AjvLike,
+  canonicalId: string,
+  aliases: readonly string[]
+): void {
   for (const id of aliases) {
-    ajv.addSchema({ $id: id, $ref: canonicalId } as AnySchemaObject);
+    if (!ajv.getSchema(id)) {
+      ajv.addSchema({ $id: id, $ref: canonicalId } as AnySchemaObject);
+    }
   }
 }
 
 export function addCoreSchemas(ajv: AjvLike, opts?: { schemasDir?: string }): void {
   const dir = resolveSchemasDir(opts?.schemasDir);
 
-  // 🔧 Include 'core' as well; try both filename variants if needed.
-  const FILES: Record<"core" | "verification" | "proofBundle" | "cir" | "issue" | "ecosystem", string | string[]> = {
+  const FILES: Record<
+    "core" | "verification" | "proofBundle" | "cir" | "issue" | "ecosystem",
+    string | string[]
+  > = {
     core:         ["mvs.core.schema.json", "mvs.core.payload.schema.json"],
     verification: "mvs.verification.schema.json",
     proofBundle:  "mvs.proof-bundle.schema.json",
@@ -56,55 +77,18 @@ export function addCoreSchemas(ajv: AjvLike, opts?: { schemasDir?: string }): vo
     ecosystem:    "mvs.ecosystem.schema.json",
   };
 
-  // 1) Add canonical schemas FIRST
-  ajv.addSchema(loadSchema(dir, FILES.core));
-  ajv.addSchema(loadSchema(dir, FILES.verification));
-  ajv.addSchema(loadSchema(dir, FILES.proofBundle));
-  ajv.addSchema(loadSchema(dir, FILES.cir));
-  ajv.addSchema(loadSchema(dir, FILES.issue));
-  ajv.addSchema(loadSchema(dir, FILES.ecosystem));
+  // 1) Canonical schemas — add only once
+  safeAddCanonicalSchema(ajv, CANONICAL_IDS.core,         loadSchema(dir, FILES.core));
+  safeAddCanonicalSchema(ajv, CANONICAL_IDS.verification, loadSchema(dir, FILES.verification));
+  safeAddCanonicalSchema(ajv, CANONICAL_IDS.proofBundle,  loadSchema(dir, FILES.proofBundle));
+  safeAddCanonicalSchema(ajv, CANONICAL_IDS.cir,          loadSchema(dir, FILES.cir));
+  safeAddCanonicalSchema(ajv, CANONICAL_IDS.issue,        loadSchema(dir, FILES.issue));
+  safeAddCanonicalSchema(ajv, CANONICAL_IDS.ecosystem,    loadSchema(dir, FILES.ecosystem));
 
-  // 2) Aliases (legacy + new subpaths)
-  registerAliases(ajv, CANONICAL_IDS.proofBundle, [
-    "mvs.proof-bundle",
-    "mvs/proof-bundle",
-    "mvs.proof-bundle.schema.json",
-    "mvs/verification/proofBundle",
-  ]);
-  registerAliases(ajv, CANONICAL_IDS.cir, [
-    "mvs.cir",
-    "mvs/cir",
-    "mvs.cir.schema.json",
-    "mvs/verification/cir",
-  ]);
-  registerAliases(ajv, CANONICAL_IDS.verification, [
-    "mvs.verification",
-    "mvs/verification",
-    "mvs.verification.schema.json",
-  ]);
-  registerAliases(ajv, CANONICAL_IDS.issue, [
-    "mvs.issue",
-    "mvs/issue",
-    "mvs.issue.schema.json",
-  ]);
-  registerAliases(ajv, CANONICAL_IDS.ecosystem, [
-    "mvs.ecosystem",
-    "mvs/ecosystem",
-    "mvs.ecosystem.schema.json",
-  ]);
-  // (Optional but recommended) Core aliases as well
-  if (CANONICAL_IDS.core) {
-    registerAliases(ajv, CANONICAL_IDS.core, [
-      "mvs.core",
-      "mvs/core",
-      "mvs.core.schema.json",
-      "mvs.core.payload.schema.json",
-    ]);
-  }
-
-  // 3) HTTPS aliases derived from canonical URNs
-  for (const id of Object.values(CANONICAL_IDS)) {
-    const tail = id.split(":").pop()!;
-    registerAliases(ajv, id, [`https://zkpip.org/schemas/${tail}`]);
+  // 2) Aliases — add only if missing
+  for (const [canonicalId, aliasList] of Object.entries(ALIASES)) {
+    registerAliasesIdempotent(ajv, canonicalId, aliasList);
+    const https = httpsAliasOf(canonicalId);
+    registerAliasesIdempotent(ajv, canonicalId, [https]);
   }
 }

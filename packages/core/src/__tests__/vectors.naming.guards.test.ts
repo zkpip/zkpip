@@ -6,7 +6,19 @@ import { MVS_ROOT } from "../test-helpers/vectorPaths.js";
 
 const VERIF = path.join(MVS_ROOT, "verification");
 
-function list(dir: string) { return fs.existsSync(dir) ? fs.readdirSync(dir) : []; }
+function list(dir: string): string[] {
+  return fs.existsSync(dir) ? fs.readdirSync(dir) : [];
+}
+
+/** Assert that all JSON files under `dir` end with .valid.json or .invalid.json. */
+function mustHaveValidInvalidSuffix(dir: string): void {
+  const files = list(dir).filter((f) => f.toLowerCase().endsWith(".json"));
+  const offenders = files.filter((f) => !/\.valid\.json$|\.invalid\.json$/i.test(f));
+  expect(
+    offenders,
+    `Files violating suffix rule in ${dir}: ${offenders.join(", ")}`
+  ).toEqual([]);
+}
 
 describe("Vectors layout guards", () => {
   it("has no duplicated folder names (e.g., cir/cir)", () => {
@@ -19,18 +31,18 @@ describe("Vectors layout guards", () => {
   });
 
   it("CIR vectors use .valid.json / .invalid.json suffixes", () => {
-    const dir = path.join(VERIF, "cir");
-    const files = list(dir).filter(f => f.endsWith(".json"));
-    for (const f of files) {
-      expect(/\.valid\.json$|\.invalid\.json$/.test(f)).toBe(true);
-    }
+    mustHaveValidInvalidSuffix(path.join(VERIF, "cir"));
   });
 
   it("ProofBundle vectors use .valid.json / .invalid.json suffixes", () => {
-    const dir = path.join(VERIF, "proofBundle");
-    const files = list(dir).filter(f => f.endsWith(".json"));
-    for (const f of files) {
-      expect(/\.valid\.json$|\.invalid\.json$/.test(f)).toBe(true);
-    }
+    mustHaveValidInvalidSuffix(path.join(VERIF, "proofBundle"));
+  });
+
+  it("Issue vectors use .valid.json / .invalid.json suffixes", () => {
+    mustHaveValidInvalidSuffix(path.join(MVS_ROOT, "issue"));
+  });
+
+  it("Ecosystem vectors use .valid.json / .invalid.json suffixes", () => {
+    mustHaveValidInvalidSuffix(path.join(MVS_ROOT, "ecosystem"));
   });
 });

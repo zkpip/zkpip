@@ -1,42 +1,34 @@
-name: Schema Validation & Core Tests
+name: Core & CLI — Lint, Schemas, Tests
 
 on:
   push:
     branches: [ main ]
     paths:
-      - "packages/core/schemas/**"
-      - "packages/core/scripts/validateSchemas.ts"
-      - "packages/core/src/**"
-      - "packages/core/package.json"
-      - "packages/core/package-lock.json"
+      - "packages/core/**"
+      - "packages/cli/**"
       - "package.json"
       - "package-lock.json"
   pull_request:
     branches: [ main ]
     paths:
-      - "packages/core/schemas/**"
-      - "packages/core/scripts/validateSchemas.ts"
-      - "packages/core/src/**"
-      - "packages/core/package.json"
-      - "packages/core/package-lock.json"
+      - "packages/core/**"
+      - "packages/cli/**"
       - "package.json"
       - "package-lock.json"
   workflow_dispatch:
 
 jobs:
-  core-validate-and-test:
-    name: Validate schemas and run core tests
+  core:
+    name: Core — Lint, Schemas, Tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
     concurrency:
       group: core-ci-${{ github.ref }}
       cancel-in-progress: true
-    # Default working dir for most steps
     defaults:
       run:
         working-directory: packages/core
     env:
-      # Ensure the FS-based loader in addCoreSchemas finds schemas in CI
       ZKPIP_SCHEMAS_DIR: ${{ github.workspace }}/packages/core/schemas
       CI: "true"
 
@@ -47,49 +39,95 @@ jobs:
       - name: Setup Node 20.x
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-          # Cache both root and core lockfiles
+          node-version: "20"
+          cache: "npm"
           cache-dependency-path: |
             package-lock.json
             packages/core/package-lock.json
 
-      # Install root deps (if present)
-      - name: Install root deps (npm ci)
+      - name: Install root deps
         if: hashFiles('package-lock.json') != ''
         working-directory: .
         run: npm ci --no-audit --fund=false
 
-      # Install core deps
-      - name: Install core deps (npm ci)
+      - name: Install core deps
         if: hashFiles('packages/core/package-lock.json') != ''
         run: npm ci --no-audit --fund=false
 
-      # Optional: quick sanity listing to help future diagnostics
-      - name: List schema & vector dirs
-        run: |
-          echo "Schemas dir: $ZKPIP_SCHEMAS_DIR"
-          ls -la "$ZKPIP_SCHEMAS_DIR" || true
-          echo "Vectors (mvs):"
-          ls -la "$ZKPIP_SCHEMAS_DIR/tests/vectors/mvs" || true
+      - name: Lint (core)
+        run: npm run lint
 
-      # Keep your existing schema validation script
+      - name: Typecheck (core)
+        run: npm run typecheck
+
       - name: Validate MVS schemas (core)
         run: npm run validate-schemas
 
-      # Run unit/integration tests (Vitest)
-      - name: Run core tests
+      - name: Tests (core)
         run: npm test -- --run
 
-      # Upload helpful artifacts on failure
-      - name: Upload debug artifacts (on failure)
+      - name: Upload artifacts (on failure)
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: core-debug-artifacts
+          name: core-debug
           if-no-files-found: ignore
           path: |
-            packages/core/schemas/*.json
             packages/core/schemas/tests/vectors/mvs/**/*
             packages/core/src/__tests__/**/*.ts
             packages/core/junit*.xml
+
+  cli:
+    name: CLI — Lint & Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: core
+    defaults:
+      run:
+        working-directory: packages/cli
+    env:
+      CI: "true"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: |
+            package-lock.json
+            packages/cli/package-lock.json
+
+      - name: Install root deps
+        if: hashFiles('package-lock.json') != ''
+        working-directory: .
+        run: npm ci --no-audit --fund=false
+
+      - name: Install CLI deps
+        if: hashFiles('packages/cli/package-lock.json') != ''
+        run: npm ci --no-audit --fund=false
+
+      - name: Lint (cli)
+        run: npm run lint
+
+      - name: Typecheck (cli)
+        run: npm run typecheck
+
+      - name: Tests (cli)
+        run: npm test -- --run
+
+      - name: Integration tests (core)
+        run: npm run test:integration
+
+      - name: Upload artifacts (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli-debug
+          if-no-files-found: ignore
+          path: |
+            packages/cli/src/__tests__/**/*.ts
+            packages/cli/junit*.xml
