@@ -1,4 +1,4 @@
-name: Schema Validation
+name: Schema Validation & Core Tests
 
 on:
   push:
@@ -24,16 +24,21 @@ on:
   workflow_dispatch:
 
 jobs:
-  validate-schemas:
-    name: Validate JSON Schemas
+  core-validate-and-test:
+    name: Validate schemas and run core tests
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     concurrency:
-      group: schema-validation-${{ github.ref }}
+      group: core-ci-${{ github.ref }}
       cancel-in-progress: true
+    # Default working dir for most steps
     defaults:
       run:
         working-directory: packages/core
+    env:
+      # Ensure the FS-based loader in addCoreSchemas finds schemas in CI
+      ZKPIP_SCHEMAS_DIR: ${{ github.workspace }}/packages/core/schemas
+      CI: "true"
 
     steps:
       - name: Checkout
@@ -44,15 +49,47 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
+          # Cache both root and core lockfiles
+          cache-dependency-path: |
+            package-lock.json
+            packages/core/package-lock.json
 
+      # Install root deps (if present)
       - name: Install root deps (npm ci)
         if: hashFiles('package-lock.json') != ''
         working-directory: .
         run: npm ci --no-audit --fund=false
 
+      # Install core deps
       - name: Install core deps (npm ci)
         if: hashFiles('packages/core/package-lock.json') != ''
         run: npm ci --no-audit --fund=false
 
+      # Optional: quick sanity listing to help future diagnostics
+      - name: List schema & vector dirs
+        run: |
+          echo "Schemas dir: $ZKPIP_SCHEMAS_DIR"
+          ls -la "$ZKPIP_SCHEMAS_DIR" || true
+          echo "Vectors (mvs):"
+          ls -la "$ZKPIP_SCHEMAS_DIR/tests/vectors/mvs" || true
+
+      # Keep your existing schema validation script
       - name: Validate MVS schemas (core)
         run: npm run validate-schemas
+
+      # Run unit/integration tests (Vitest)
+      - name: Run core tests
+        run: npm test -- --run
+
+      # Upload helpful artifacts on failure
+      - name: Upload debug artifacts (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-debug-artifacts
+          if-no-files-found: ignore
+          path: |
+            packages/core/schemas/*.json
+            packages/core/schemas/tests/vectors/mvs/**/*
+            packages/core/src/__tests__/**/*.ts
+            packages/core/junit*.xml
