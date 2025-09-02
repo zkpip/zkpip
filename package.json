@@ -2,8 +2,9 @@
   "name": "zkpip",
   "private": true,
   "scripts": {
-    "build": "npm -w @zkpip/core run build && npm -w @zkpip/cli run build",
-    "test": "npm -w @zkpip/core run test"
+    "clean:srcjs": "bash -lc 'find packages -path \"*/src/*\" -type f \\( -name \"*.js\" -o -name \"*.js.map\" \\) -delete'",
+    "build": "npm run clean:srcjs && tsc -b",
+    "test": "npm run clean:srcjs && vitest run"
   },
   "dependencies": {
     "tsx": "^4.20.5"
