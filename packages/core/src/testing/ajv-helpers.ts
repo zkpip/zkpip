@@ -2,8 +2,7 @@
 import type { ErrorObject } from "ajv";
 import type { AjvInstance } from "../schemaUtils.js";
 
-import type Ajv from "ajv";
-type RealAjv = Ajv;
+type RealAjv = import("ajv").default;
 
 // Strukturális unió – mindkettőn van getSchema / errorsText / addSchema
 type AjvLike = AjvInstance | RealAjv;

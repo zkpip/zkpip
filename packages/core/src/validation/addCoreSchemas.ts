@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 import type { AnySchemaObject, ValidateFunction } from "ajv";
 import { CANONICAL_IDS } from "../schemaUtils.js";
 
+export type CanonicalId = string;
+
 interface AjvLike {
   addSchema(schema: AnySchemaObject): unknown;
   getSchema(id: string): ValidateFunction | undefined;
