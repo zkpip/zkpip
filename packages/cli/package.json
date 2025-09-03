@@ -2,27 +2,30 @@
   "name": "@zkpip/cli",
   "version": "0.1.0",
   "type": "module",
+  "private": false,
   "bin": {
     "zkpip": "./dist/index.js"
   },
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
   "files": [
     "dist"
   ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20.10"
+  },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "dev": "tsx src/index.ts"
+    "clean": "rimraf dist",
+    "build": "tsc -b && node ./scripts/make-executable.cjs",
+    "build:watch": "tsc -b -w",
+    "test": "vitest run",
+    "lint": "eslint ."
   },
   "dependencies": {
-    "@zkpip/core": "^0.1.0",
-    "commander": "^14.0.0",
-    "snarkjs": "^0.7.5",
-    "yargs": "^17.7.2"
-  },
-  "devDependencies": {
-    "@types/node": "^20.19.11",
     "@types/yargs": "^17.0.33",
-    "tsx": "^4.20.0"
+    "snarkjs": "^0.7.5",
+    "yargs": "^18.0.0"
   }
 }
