@@ -1,4 +1,4 @@
-name: Core CI
+name: Core & CLI CI
 
 on:
   pull_request:
@@ -20,6 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       core: ${{ steps.filter.outputs.core }}
+      cli:  ${{ steps.filter.outputs.cli }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -33,6 +34,11 @@ jobs:
           filters: |
             core:
               - 'packages/core/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'npm-shrinkwrap.json'
+            cli:
+              - 'packages/cli/**'
               - 'package.json'
               - 'package-lock.json'
               - 'npm-shrinkwrap.json'
@@ -58,16 +64,10 @@ jobs:
           cache: 'npm'
           cache-dependency-path: |
             package-lock.json
-            packages/core/package-lock.json
 
-      - name: Install root deps (npm ci)
-        if: hashFiles('package-lock.json') != ''
+      # Monorepo install
+      - name: Install (root)
         working-directory: .
-        run: npm ci --no-audit --fund=false
-
-      # Core dependencies
-      - name: Install core deps (npm ci)
-        if: hashFiles('packages/core/package-lock.json') != ''
         run: npm ci --no-audit --fund=false
 
       - name: TypeScript typecheck (non-blocking)
@@ -87,3 +87,31 @@ jobs:
           name: core-coverage
           path: packages/core/coverage/
           if-no-files-found: error
+
+  cli-integration:
+    name: CLI smoke (core build → cli test)
+    needs: changes
+    if: needs.changes.outputs.core == 'true' || needs.changes.outputs.cli == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+
+      - name: Install (root)
+        run: npm ci --no-audit --fund=false
+
+      - name: Build core (ESM dist must exist)
+        run: npm --prefix packages/core run build
+
+      - name: Run CLI tests (Vitest)
+        run: npm --prefix packages/cli run test
