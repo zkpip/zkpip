@@ -1,6 +1,6 @@
 // packages/core/src/__tests__/verificationVector.valid.test.ts
 import { describe, it, expect } from "vitest";
-import { createAjv, addCoreSchemas, CANONICAL_IDS } from "../schemaUtils.js";
+import { createAjv, addCoreSchemas, CANONICAL_IDS } from "../index.js";
 import { validateAgainstResult } from "../testing/ajv-helpers.js";
 import { vectors, readJson } from "../test-helpers/vectorPaths.js";
 
@@ -23,7 +23,6 @@ describe("Vector: verification/groth16-evm.valid.json", () => {
     const res = validateAgainstResult(ajv, CANONICAL_IDS.verification, data);
 
     if (!res.ok) {
-      // Fail loudly with detailed message, avoid console.*
       throw new Error(res.text);
     }
     expect(res.ok).toBe(true);

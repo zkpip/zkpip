@@ -1,7 +1,7 @@
+// packages/core/src/__tests__/schemaAliases.valid.test.ts
 import { describe, it, expect } from "vitest";
-import { createAjv } from "../validation/ajv.js";
-import { addCoreSchemas } from "../validation/addCoreSchemas.js";
-import { CANONICAL_IDS } from "../schemaUtils.js";
+import { createAjv, addCoreSchemas } from "../index.js";
+import { CANONICAL_IDS } from "../constants/canonicalIds.js";
 
 describe("Schema alias coverage", () => {
   it("resolves short dot, short slash, URN, https and filename aliases", () => {
@@ -17,41 +17,24 @@ describe("Schema alias coverage", () => {
           "mvs/proof-bundle",
           "mvs.proof-bundle.schema.json",
           // new subpath alias
-          "mvs/verification/proofBundle"
+          "mvs/verification/proofBundle",
         ],
       ],
       [
         CANONICAL_IDS.cir,
-        [
-          "mvs.cir",
-          "mvs/cir",
-          "mvs.cir.schema.json",
-          "mvs/verification/cir"
-        ],
+        ["mvs.cir", "mvs/cir", "mvs.cir.schema.json", "mvs/verification/cir"],
       ],
       [
         CANONICAL_IDS.verification,
-        [
-          "mvs.verification",
-          "mvs/verification",
-          "mvs.verification.schema.json",
-        ],
+        ["mvs.verification", "mvs/verification", "mvs.verification.schema.json"],
       ],
       [
         CANONICAL_IDS.issue,
-        [
-          "mvs.issue",
-          "mvs/issue",
-          "mvs.issue.schema.json",
-        ],
+        ["mvs.issue", "mvs/issue", "mvs.issue.schema.json"],
       ],
       [
         CANONICAL_IDS.ecosystem,
-        [
-          "mvs.ecosystem",
-          "mvs/ecosystem",
-          "mvs.ecosystem.schema.json",
-        ],
+        ["mvs.ecosystem", "mvs/ecosystem", "mvs.ecosystem.schema.json"],
       ],
     ];
 

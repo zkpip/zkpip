@@ -1,5 +1,6 @@
+// packages/core/src/__tests__/ecosystemVector.invalidFormat.test.ts
 import { describe, it, expect } from "vitest";
-import { createAjv, addCoreSchemas, CANONICAL_IDS } from "../schemaUtils.js";
+import { createAjv, addCoreSchemas, CANONICAL_IDS } from "../index.js";
 import { validateAgainstResult } from "../testing/ajv-helpers.js";
 import { vectors, readJson } from "../test-helpers/vectorPaths.js";
 
@@ -12,7 +13,7 @@ describe("Negative: ecosystem createdAt/updatedAt invalid format", () => {
     const ajv = createAjv();
     addCoreSchemas(ajv);
 
-    const vecPath = vectors.ecosystemAztec(); 
+    const vecPath = vectors.ecosystemAztec();
     const parsed: unknown = readJson(vecPath);
 
     if (!isObject(parsed)) {

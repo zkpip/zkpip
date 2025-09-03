@@ -1,5 +1,6 @@
+// packages/core/src/__tests__/ecosystemVector.emptyArrays.test.ts
 import { describe, it, expect } from "vitest";
-import { createAjv, addCoreSchemas, CANONICAL_IDS } from "../schemaUtils.js";
+import { createAjv, addCoreSchemas, CANONICAL_IDS } from "../index.js";
 import { validateAgainstResult } from "../testing/ajv-helpers.js";
 import { vectors, readJson } from "../test-helpers/vectorPaths.js";
 

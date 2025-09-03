@@ -3,7 +3,7 @@ import path from "node:path";
 import type { ErrorObject } from "ajv";
 import { addCoreSchemas, type CanonicalId } from "../validation/addCoreSchemas.js";
 import { createAjv } from "../validation/ajv.js";
-import { CANONICAL_IDS } from "../schemaUtils.js";
+import { CANONICAL_IDS } from "../constants/canonicalIds.js";
 
 function listJsonFiles(inputPath: string): string[] {
   const st = fs.statSync(inputPath);

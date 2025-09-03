@@ -1,6 +1,6 @@
 // packages/core/src/__tests__/compileCoreSchemas.test.ts
 import { describe, it, expect } from "vitest";
-import { createAjv, addCoreSchemas, CANONICAL_IDS } from "../schemaUtils.js";
+import { createAjv, addCoreSchemas, CANONICAL_IDS } from "../index.js";
 import type { ValidateFunction } from "ajv";
 
 /** Type guard for Ajv validate functions */

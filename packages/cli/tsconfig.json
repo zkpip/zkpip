@@ -1,30 +1,22 @@
 {
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
     "target": "ES2022",
-    "module": "esnext",
-    "moduleResolution": "bundler",
-    "rootDir": "src",
-    "outDir": "dist",
-    "declaration": true,
+    "lib": ["ES2022"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "moduleDetection": "force",
     "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "types": [
-      "node"
-    ],
-    "resolveJsonModule": true,
+    "sourceMap": true,
     "verbatimModuleSyntax": true,
-    "baseUrl": ".",
-    "paths": {
-      "@zkpip/core": [
-        "../core/dist/index.d.ts",
-        "../core/dist/index.js",
-        "../core/src/index.ts"
-      ]
-    }
+    "resolveJsonModule": true,
+    "noEmit": false,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "composite": true,
+    "skipLibCheck": true
   },
-  "include": [
-    "src/**/*",
-    "src/types/**/*.d.ts"
-  ]
+  "include": ["src"],
+  "exclude": ["dist", "**/*.test.ts"],
+  "references": [{ "path": "../core" }]
 }

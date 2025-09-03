@@ -1,18 +1,17 @@
-// Real Groth16 verification via snarkjs (CJS interop via createRequire)
-import { createRequire } from "node:module";
 import fs from "node:fs";
 import path from "node:path";
+import * as snarkjs from "snarkjs";
 import type { Adapter } from "../registry/types.js";
 
-// Load snarkjs (CommonJS) safely from ESM
-const require = createRequire(import.meta.url);
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const snarkjs: any = require("snarkjs");
 const { groth16 } = snarkjs;
 
 // ---- helpers ---------------------------------------------------------------
-function readStr(x: any): string { return (x ?? "").toString(); }
-function readLower(x: any): string { return readStr(x).toLowerCase(); }
+function readStr(x: unknown): string {
+  return (x ?? "").toString();
+}
+function readLower(x: unknown): string {
+  return readStr(x).toLowerCase();
+}
 function getField<T = unknown>(obj: any, paths: string[]): T | undefined {
   for (const p of paths) {
     const v = p.split(".").reduce((acc: any, key: string) => (acc ? acc[key] : undefined), obj);
@@ -20,7 +19,9 @@ function getField<T = unknown>(obj: any, paths: string[]): T | undefined {
   }
   return undefined;
 }
-function ensureArray(x: any): any[] { return Array.isArray(x) ? x : x == null ? [] : [x]; }
+function ensureArray(x: any): any[] {
+  return Array.isArray(x) ? x : x == null ? [] : [x];
+}
 function normalizeSignals(arr: any[]): any[] {
   return arr.map((v) => {
     if (typeof v === "bigint") return v.toString();
@@ -47,8 +48,19 @@ export const snarkjsGroth16: Adapter = {
   framework: "snarkjs",
 
   canHandle(bundle: any): boolean {
-    const ps = getField<string>(bundle, ["proofSystem","meta.proofSystem","system","provingScheme"]) ?? "";
-    const fw = getField<string>(bundle, ["framework","meta.framework","tool","library","prover.name"]) ?? "";
+    const ps = getField<string>(bundle, [
+      "proofSystem",
+      "meta.proofSystem",
+      "system",
+      "provingScheme",
+    ]) ?? "";
+    const fw = getField<string>(bundle, [
+      "framework",
+      "meta.framework",
+      "tool",
+      "library",
+      "prover.name",
+    ]) ?? "";
     const psL = readLower(ps), fwL = readLower(fw);
     const isGroth = psL.includes("groth") || psL === "g16" || psL === "groth16";
     const isSnarkjs = fwL.includes("snarkjs") || fwL.includes("circom") || fwL.includes("zkey");

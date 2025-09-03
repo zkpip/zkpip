@@ -45,7 +45,6 @@ The focus is on simplicity, Ethereum relevance, and adoption readiness.
   - Artefacts: `batch_seal.json`, badge (SVG), optional report
   - Cost-efficient (CPU-only, no GPU), aligned with Light Infra SaaS
 
-
 - **Annual Expiry & Renewal (applies to all Seal types):**
   - Every Seal (Light, Batch) carries a default 1-year validity period
   - Auto-renewal supported (via SaaS Stripe integration)
@@ -55,12 +54,11 @@ The focus is on simplicity, Ethereum relevance, and adoption readiness.
   - Valid/invalid bundles per adapter
   - Error catalog references for common failure cases
 
-
 - **ZKPIP Scan Explorer (scan.zkpip.org):**
   - Public explorer for all issued Seals (Light and Batch)
   - Badge backlinks resolve to dedicated Seal pages (permalink per Seal ID)
   - Seal detail pages show adapter version, hashes, verification status, and history
-  - Support for search (Seal ID, proofBundleHash), filters (adapter, Seal type)
+  - Support for search (Seal ID, proofBundleHash), filters (adapter, Seal type, **user/project**)
   - Re-verify support: API endpoint to re-run verification, history appended
   - Immutable publish: `POST /api/seals` from CLI, with signed manifest
   - SEO-ready: structured data (JSON-LD), canonical links, UTM tracking
@@ -70,6 +68,19 @@ The focus is on simplicity, Ethereum relevance, and adoption readiness.
   - Quickstart guide
   - Adapter integration examples
   - Light Seal usage & verification
+
+- **Developer Adoption Features (new):**
+  - **npm publish** pipeline with provenance + CI smoke test
+  - **Yarn / pnpm compatibility** (dlx support)
+  - **GitHub Actions integration** (CLI step + Seal badge in CI)
+  - Example repo with `zkpip-verify-action`
+
+- **User & Project Registration (new):**
+  - Simple registration (GitHub OIDC or API key) for developers/projects
+  - CLI: `zkpip login`, `zkpip project create <handle>`
+  - Proofs linked to `userId` and optional `projectHandle`
+  - Scan Explorer filter: by user, project, adapter, Seal type
+  - Public feed for developer/project Seals (SEO backlinks)
 
 ---
 
@@ -99,14 +110,18 @@ The focus is on simplicity, Ethereum relevance, and adoption readiness.
   - CLI support for batch sealing (`zkpip seal light --batch <dir>`)
   - Documentation and extended test vectors  
 
-
 - **Week 18–20:**
   - ZKPIP Scan Explorer MVP
-  - Public explorer at scan.zkpip.org with search & filter (Seal ID, proofBundleHash, adapter, Seal type)
+  - Public explorer at scan.zkpip.org with search & filter (Seal ID, proofBundleHash, adapter, Seal type, **user/project**)
   - Seal detail pages linked from badges (permalink per Seal)
   - Publish endpoint integration (`POST /api/seals`)
   - Re-verify support with verification history
   - SEO features: structured data, canonical links, UTM tracking
+
+- **Parallel (Week 16–20):**
+  - Developer Adoption Features: npm publish, Yarn/pnpm support
+  - GitHub Actions integration and badges
+  - **User & Project Registration:** CLI login, project handle creation, Scan Explorer filters
 
 - **OSS-ready + grant-ready product**
 

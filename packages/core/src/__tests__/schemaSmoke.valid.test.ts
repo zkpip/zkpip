@@ -1,6 +1,6 @@
+// packages/core/src/__tests__/schemaSmoke.valid.test.ts
 import { describe, it, expect } from "vitest";
-import { createAjv } from "../validation/ajv.js";
-import { addCoreSchemas } from "../validation/addCoreSchemas.js";
+import { createAjv, addCoreSchemas } from "../index.js";
 
 describe("Core Schemas Smoke", () => {
   it("loads core schemas and exposes legacy and subpath aliases", () => {

@@ -1,8 +1,9 @@
+// packages/core/src/__tests__/schemaUtils.missingSchema.test.ts
 import { it, expect } from "vitest";
 import * as path from "node:path";
 import * as fs from "node:fs";
 import * as os from "node:os";
-import * as SU from "../schemaUtils.js";
+import { createAjv, addCoreSchemas } from "../index.js";
 
 it("should throw when schemasDir points to an incomplete directory", () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "zkpip-schemas-"));
@@ -10,8 +11,9 @@ it("should throw when schemasDir points to an incomplete directory", () => {
   process.env.ZKPIP_SCHEMAS_DIR = tmp;
 
   try {
-    const ajv = SU.createAjv();
-    expect(() => SU.addCoreSchemas(ajv)).toThrow(/Missing core schema/);
+    const ajv = createAjv();
+    // Új hibaüzenet ellenőrzése
+    expect(() => addCoreSchemas(ajv)).toThrow(/Schema file not found/i);
   } finally {
     if (prev !== undefined) {
       process.env.ZKPIP_SCHEMAS_DIR = prev;

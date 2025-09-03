@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AnySchemaObject, ValidateFunction } from "ajv";
-import { CANONICAL_IDS } from "../schemaUtils.js";
+import { CANONICAL_IDS } from "../index.js";
 
 export type CanonicalId = string;
 
@@ -105,7 +105,7 @@ export function addCoreSchemas(ajv: AjvLike, opts?: { schemasDir?: string }): vo
   }
 
   // 3) HTTPS aliases derived from canonical URNs
-  for (const id of Object.values(CANONICAL_IDS)) {
+  for (const id of Object.values(CANONICAL_IDS) as readonly string[]) {
     const tail = id.split(":").pop()!;
     registerAliases(ajv, id, [`https://zkpip.org/schemas/${tail}`]);
   }
