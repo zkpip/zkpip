@@ -1,9 +1,0 @@
-{
-  "type": "proofBundle",
-  "version": "0.1",
-  "id": "bundle-bad",
-  "proof": {
-    "scheme": "groth16"
-  },
-  "publicSignals": []
-}

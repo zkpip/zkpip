@@ -1,0 +1,22 @@
+{
+  "formatVersion": "0.1",
+  "proofSystem": "groth16",
+  "curve": "bn128",
+  "fieldModulus": "21888242871839275222246405745257275088548364400416034343698204186575808495617",
+  "circuits": [
+    {
+      "id": "auth",
+      "hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "nConstraints": 5,
+      "nSignalsPublic": 2,
+      "nSignalsPrivate": 3
+    },
+    {
+      "id": "transfer",
+      "hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "nConstraints": 8,
+      "nSignalsPublic": 1,
+      "nSignalsPrivate": 4
+    }
+  ]
+}

@@ -1,178 +1,220 @@
-// AJV bootstrap helpers for loading repository JSON Schemas.
+/* eslint-disable @typescript-eslint/explicit-module-boundary-types */
+import { readFile } from "node:fs/promises";
+import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 
-import type { Options as AjvOptions, ErrorObject } from "ajv";
-import * as AjvNS from "ajv";
-import addFormatsOrig from "ajv-formats";
-import { readFileSync, existsSync } from "fs";
-import { resolve, dirname } from "path";
-import { fileURLToPath } from "url";
-import path from "path";
+/**
+ * Public API
+ * Loads a JSON schema from one of the supported sources:
+ *  - URN:  "urn:zkpip:mvs.proof-bundle.schema.json"
+ *  - HTTP: "http(s)://…"
+ *  - FILE: "file://…"
+ *  - Relative FS path (resolved against schemasRoot with alias fallback, then CWD)
+ *
+ * No global state, no logging. Deterministic, descriptive errors.
+ */
+export async function loadSchemaJson(
+  source: string | URL,
+  opts?: { schemasRoot?: string }
+): Promise<unknown> {
+  const srcStr = source instanceof URL ? source.toString() : String(source);
+  const schemasRoot = opts?.schemasRoot ? path.resolve(opts.schemasRoot) : undefined;
 
-type JSONSchemaLike = Record<string, unknown> & { $id?: string; $schema?: string };
-
-type ValidateFunction = ((data: unknown) => boolean) & {
-  errors?: ErrorObject[] | null;
-};
-
-export interface AjvInstance {
-  addSchema(schema: Record<string, unknown>, key?: string): unknown;
-  getSchema(id: string): ValidateFunction | undefined;
-  errorsText(
-    errors?: ErrorObject[] | null,
-    opts?: { separator?: string }
-  ): string;
-}
-
-type AjvCtor = new (opts?: AjvOptions) => AjvInstance;
-const Ajv = (AjvNS as unknown as { default: AjvCtor }).default;
-
-const addFormats: (ajv: unknown) => unknown = addFormatsOrig as unknown as (
-  ajv: unknown
-) => unknown;
-
-export const CANONICAL_IDS = {
-  core: "urn:zkpip:mvs.core.schema.json",
-  verification: "urn:zkpip:mvs.verification.schema.json",
-  issue: "urn:zkpip:mvs.issue.schema.json",
-  ecosystem: "urn:zkpip:mvs.ecosystem.schema.json",
-  proofBundle: "urn:zkpip:mvs.proof-bundle.schema.json",
-  cir: "urn:zkpip:mvs.cir.schema.json",
-} as const;
-
-export function vectorsDir(): string {
-  return path.join(schemasDir(), "tests", "vectors", "mvs");
-}
-
-function findSchemasDir(startDir: string): string | null {
-  let dir = startDir;
-  for (let i = 0; i < 8; i++) {
-    const candidate = resolve(dir, "schemas");
-    if (existsSync(candidate)) return candidate;
-    const parent = dirname(dir);
-    if (parent === dir) break;
-    dir = parent;
+  // 1) HTTP(S)
+  if (isHttpUrlString(srcStr)) {
+    const res = await fetch(srcStr);
+    if (!res.ok) {
+      throw new Error(
+        `E_SCHEMA_LOAD_HTTP_${res.status}: GET ${srcStr} → ${res.status} ${res.statusText}`
+      );
+    }
+    try {
+      return await res.json();
+    } catch (err: any) {
+      throw new Error(
+        `E_SCHEMA_LOAD_INVALID_JSON: Failed to parse HTTP JSON from ${srcStr}: ${err?.message ?? String(
+          err
+        )}`
+      );
+    }
   }
-  return null;
-}
 
-function repoSchemasDirFromHere(): string {
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = dirname(__filename);
-
-  const fromDist = findSchemasDir(__dirname);
-  if (fromDist) return fromDist;
-
-  const fromCwd = findSchemasDir(process.cwd());
-  if (fromCwd) return fromCwd;
-
-  // last resort
-  return resolve(process.cwd(), "schemas");
-}
-
-function readSchema(baseDir: string, filename: string): Record<string, unknown> | null {
-  const abs = resolve(baseDir, filename);
-  if (!existsSync(abs)) return null;
-  return JSON.parse(readFileSync(abs, "utf-8")) as Record<string, unknown>;
-}
-
-function loadFirstExistingSchema(baseDir: string, candidates: string[]): Record<string, unknown> {
-  for (const fn of candidates) {
-    const json = readSchema(baseDir, fn);
-    if (json) return json;
+  // 2) file:// URL
+  if (isFileUrlString(srcStr)) {
+    const fsPath = fileURLToPath(srcStr);
+    return readJsonFromFile(fsPath, `file://${fsPath}`);
   }
-  throw new Error(`Schema file not found. Looked for: ${candidates.join(", ")} in ${baseDir}`);
-}
 
-export function createAjv() {
-  const ajv = new Ajv({
-    strict: false,
-    allErrors: true,
-    validateSchema: false,
-  });
+  // 3) URN (zkpip)
+  if (isUrnString(srcStr)) {
+    const canonical = resolveUrnToSchemaPath(srcStr, schemasRoot);
+    if (!canonical) {
+      throw new Error(`E_SCHEMA_LOAD_UNSUPPORTED_URN: ${srcStr}`);
+    }
+    const candidates: string[] = [];
+    const canonAbs = schemasRoot ? path.resolve(canonical) : canonical;
 
-  addFormats(ajv);
-  return ajv;
-}
+    candidates.push(canonAbs);
 
-export function schemasDir(): string {
-  const override = process.env.ZKPIP_SCHEMAS_DIR;
-  if (override && override.trim()) {
-    return resolve(override);
+    // alias fallback: <schemasRoot>/<dir>.<file>
+    const alias = aliasPathForCanonical(canonAbs, schemasRoot);
+    if (alias) candidates.push(alias);
+
+    const { value, attempted } = await tryReadCandidates(candidates);
+    if (value !== undefined) return value;
+
+    throw new Error(
+      makeNotFoundMessage(srcStr, attempted)
+    );
   }
-  return repoSchemasDirFromHere();
+
+  // 4) Relative / absolute FS path resolution
+  const attempted: string[] = [];
+  const candidates: string[] = [];
+
+  if (path.isAbsolute(srcStr)) {
+    candidates.push(srcStr);
+  } else {
+    // 4.1 schemasRoot/<rel>
+    if (schemasRoot) {
+      candidates.push(path.resolve(schemasRoot, srcStr));
+
+      // 4.2 alias under schemasRoot: <schemasRoot>/<dir>.<file>
+      const alias = aliasPathForRelative(srcStr, schemasRoot);
+      if (alias) candidates.push(alias);
+    }
+
+    // 4.3 CWD/<rel>
+    candidates.push(path.resolve(process.cwd(), srcStr));
+  }
+
+  const res = await tryReadCandidates(candidates);
+  if (res.value !== undefined) return res.value;
+
+  throw new Error(makeNotFoundMessage(srcStr, res.attempted));
 }
 
-export function readJson<T = unknown>(p: string): T {
-  if (!existsSync(p)) {
-    throw new Error(`Schema file not found at: ${p}`);
-  }
-  const raw = readFileSync(p, "utf8");
-  try {
-    return JSON.parse(raw) as T;
-  } catch (e) {
-    throw new Error(`Invalid JSON in schema file: ${p} — ${(e as Error).message}`);
-  }
+/**
+ * INTERNAL (not exported)
+ * Map a zkpip URN to a filesystem path under schemasRoot, using the canonical form:
+ *   urn:zkpip:mvs.proof-bundle.schema.json → <schemasRoot>/mvs/proof-bundle.schema.json
+ * Returns null if the URN namespace is not supported or the alias is malformed.
+ */
+function resolveUrnToSchemaPath(urn: string, schemasRoot?: string): string | null {
+  const prefix = "urn:zkpip:";
+  if (!urn.startsWith(prefix)) return null;
+
+  const alias = urn.slice(prefix.length); // e.g. "mvs.proof-bundle.schema.json"
+  const firstDot = alias.indexOf(".");
+  if (firstDot < 0) return null;
+
+  const dir = alias.slice(0, firstDot); // "mvs"
+  const file = alias.slice(firstDot + 1); // "proof-bundle.schema.json"
+  const joined = path.join(schemasRoot ?? "", dir, file);
+  return joined;
 }
 
-const URN_RE = /^urn:[a-z0-9][a-z0-9-]{0,31}:.+/i;
+/* -------------------------- helpers (internal) --------------------------- */
 
-function assertValidUrn(id: string, where: string) {
-  if (!URN_RE.test(id)) {
-    throw new Error(`Invalid URN at ${where}: "${id}"  (expected "urn:<nid>:<nss>")`);
-  }
+function isHttpUrlString(s: string): boolean {
+  return s.startsWith("http://") || s.startsWith("https://");
 }
 
-function* walkRefs(obj: unknown, path: string[] = []): Generator<{ref:string; where:string}> {
-  if (obj && typeof obj === "object") {
-    for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
-      const here = [...path, k];
-      if (k === "$ref" && typeof v === "string") {
-        yield { ref: v, where: `$.${here.join(".")}` };
-      } else {
-        yield* walkRefs(v, here);
+function isFileUrlString(s: string): boolean {
+  return s.startsWith("file://");
+}
+
+function isUrnString(s: string): boolean {
+  return s.startsWith("urn:");
+}
+
+/**
+ * Try to read a list of candidate absolute file paths in order; return the first that succeeds.
+ * Collects attempted paths for deterministic error reporting.
+ */
+async function tryReadCandidates(candidates: string[]): Promise<{ value: unknown | undefined; attempted: string[] }> {
+  const attempted: string[] = [];
+  for (const p of candidates) {
+    attempted.push(p);
+    try {
+      const v = await readJsonFromFile(p);
+      return { value: v, attempted };
+    } catch (err: any) {
+      // Continue only on "not found" or "is a directory"; rethrow other IO errors
+      if (!isNotFoundErr(err) && !isIsDirectoryErr(err)) {
+        throw err;
       }
     }
   }
+  return { value: undefined, attempted };
 }
 
-function preflightSchemaIdsAndRefs(schema: JSONSchemaLike, fileTag: string) {
-  if (typeof schema.$schema === "string" && schema.$schema.startsWith("urn:")) {
-    throw new Error(`$schema must be a draft URL, not URN. Found at ${fileTag}: ${schema.$schema}`);
-  }
-
-  if (typeof schema.$id === "string" && schema.$id.startsWith("urn:")) {
-    assertValidUrn(schema.$id, `${fileTag}.$id`);
-  }
-
-  for (const { ref, where } of walkRefs(schema)) {
-    if (ref.startsWith("urn:")) assertValidUrn(ref, `${fileTag}:${where}`);
-  }
-}
-
-export function addCoreSchemas(ajv: AjvInstance): void {
-  const base = schemasDir(); 
-
-  const sources: Array<{ id: string; candidates: string[] }> = [
-    { id: CANONICAL_IDS.core,         candidates: ["mvs.core.schema.json", "common.schema.json"] },
-    { id: CANONICAL_IDS.verification, candidates: ["mvs.verification.schema.json", "error.schema.json"] },
-    { id: CANONICAL_IDS.issue,        candidates: ["mvs.issue.schema.json", "issue.schema.json"] },
-    { id: CANONICAL_IDS.ecosystem,    candidates: ["mvs.ecosystem.schema.json", "ecosystem.schema.json"] },
-    { id: CANONICAL_IDS.proofBundle,  candidates: ["mvs.proof-bundle.schema.json"] },
-    { id: CANONICAL_IDS.cir,          candidates: ["mvs.cir.schema.json"] },
-  ];
-
-  for (const { id, candidates } of sources) {
-    let schema: Record<string, unknown>;
-    try {
-      schema = loadFirstExistingSchema(base, candidates);
-    } catch {
-      throw new Error(`Missing core schema: ${candidates.join(" | ")} in ${base}`);
+/**
+ * Read and parse JSON from an absolute filesystem path.
+ * Strips an initial BOM if present for robustness.
+ */
+async function readJsonFromFile(absPath: string, displayLabel?: string): Promise<unknown> {
+  try {
+    const raw = await readFile(absPath, "utf8");
+    const text = raw.replace(/^\uFEFF/, "");
+    return JSON.parse(text);
+  } catch (err: any) {
+    if (isNotFoundErr(err) || isIsDirectoryErr(err)) {
+      throw err; // bubble up for candidate iteration
     }
-
-    (schema as Record<string, unknown>)["$id"] = id;
-    assertValidUrn(id, `addCoreSchemas:$id(${candidates[0] ?? "unknown"})`);
-    preflightSchemaIdsAndRefs(schema, `schema:${id}`);
-    ajv.addSchema(schema, id);
+    // Any other error is considered a parse problem from this source
+    const label = displayLabel ?? absPath;
+    throw new Error(
+      `E_SCHEMA_LOAD_INVALID_JSON: Failed to parse JSON from ${label}: ${err?.message ?? String(err)}`
+    );
   }
 }
 
+/**
+ * Build alias path for a canonical "<schemasRoot>/<dir>/<file>".
+ * Result: "<schemasRoot>/<dir>.<file>" (flattened into the root).
+ */
+function aliasPathForCanonical(canonicalAbs: string, schemasRoot?: string): string | null {
+  if (!schemasRoot) return null;
+
+  const rel = path.relative(schemasRoot, canonicalAbs);
+  if (rel.startsWith("..")) return null; // outside root; do not alias
+
+  const dir = path.dirname(rel);
+  const base = path.basename(rel);
+  if (!dir || dir === "." ) return null;
+
+  const flatName = `${dir.replace(/[\\/]/g, ".")}.${base}`;
+  return path.resolve(schemasRoot, flatName);
+}
+
+/**
+ * Build alias path for a *relative* input under schemasRoot:
+ *   "<schemasRoot>/<dir>.<file>"
+ */
+function aliasPathForRelative(relInput: string, schemasRoot: string): string | null {
+  const dir = path.dirname(relInput);
+  const base = path.basename(relInput);
+  if (!dir || dir === ".") return null;
+
+  const flatName = `${dir.replace(/[\\/]/g, ".")}.${base}`;
+  return path.resolve(schemasRoot, flatName);
+}
+
+function isNotFoundErr(err: any): boolean {
+  return err && typeof err === "object" && (err.code === "ENOENT" || err.code === "ENAMETOOLONG");
+}
+
+function isIsDirectoryErr(err: any): boolean {
+  // EISDIR can occur if a directory is addressed as a file
+  return err && typeof err === "object" && err.code === "EISDIR";
+}
+
+/**
+ * Build a deterministic not-found error message.
+ * Lists all attempted file paths, so that debugging is reproducible.
+ */
+function makeNotFoundMessage(source: string, attempted: string[]): string {
+  const list = attempted.map((p) => ` - ${p}`).join("\n");
+  return `E_SCHEMA_LOAD_NOT_FOUND: Unable to resolve schema from "${source}". Tried:\n${list}`;
+}

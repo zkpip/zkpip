@@ -147,3 +147,9 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+# prevent stray JS artifacts in source
+packages/**/src/**/*.js
+packages/**/src/**/*.js.map
+# prevent stray JS artifacts in source
+packages/**/src/**/*.js
+packages/**/src/**/*.js.map

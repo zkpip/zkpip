@@ -3,13 +3,14 @@ import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 
 import { buildVectorsValidateCommand } from "./commands/vectors-validate.js";
-import { verifyCommand } from "./commands/verify.js"; // feltételezve, hogy ez szintén CommandModule
+import { verifyCmd } from "./commands/verify.js"; 
 
 yargs(hideBin(process.argv))
   .scriptName("zkpip")
-  .command(buildVectorsValidateCommand()) // ← Itt a helyes regisztráció
-  .command(verifyCommand)                 // ha ez is CommandModule
+  .command(buildVectorsValidateCommand()) 
+  .command(verifyCmd)                 
   .demandCommand()
   .strict()
   .help()
+  .locale("en")  
   .parse();

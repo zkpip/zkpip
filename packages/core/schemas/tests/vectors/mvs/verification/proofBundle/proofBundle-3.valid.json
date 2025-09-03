@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "0.1.0",
+  "bundleId": "bndl-003",
+  "prover": "snarkjs",
+  "proofSystem": "groth16",
+  "curve": "bn128",
+  "program": { "language": "circom", "entry": "circuits/transfer.circom" },
+  "artifacts": {
+    "wasm": { "path": "out/transfer.wasm" },
+    "zkey": { "path": "out/transfer.zkey" }
+  }
+}

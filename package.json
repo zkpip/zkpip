@@ -2,12 +2,25 @@
   "name": "zkpip",
   "private": true,
   "scripts": {
-    "build": "npm -w @zkpip/core run build && npm -w @zkpip/cli run build"
+    "clean:srcjs": "bash -lc 'find packages -path \"*/src/*\" -type f \\( -name \"*.js\" -o -name \"*.js.map\" \\) -delete'",
+    "build": "npm run clean:srcjs && tsc -b",
+    "test": "npm run clean:srcjs && vitest run",
+    "clean": "rimraf dist"
   },
   "dependencies": {
     "tsx": "^4.20.5"
   },
   "devDependencies": {
-    "@types/node": "^24.3.0"
-  }
+    "@types/node": "^24.3.0",
+    "rimraf": "^6.0.1",
+    "typescript": "5.5",
+    "vitest": "^3.2.4"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "type": "module"
 }

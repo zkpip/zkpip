@@ -1,11 +1,21 @@
 // packages/core/src/testing/ajv-helpers.ts
 import type { ErrorObject } from "ajv";
-import type { AjvInstance } from "../schemaUtils.js";
 
-import type Ajv from "ajv";
-type RealAjv = Ajv;
+export interface AjvInstance {
+  addSchema(schema: Record<string, unknown>, key?: string): unknown;
+  getSchema(
+    id: string
+  ):
+    | (((data: unknown) => boolean) & { errors?: ErrorObject[] | null })
+    | undefined;
+  errorsText(
+    errors?: ErrorObject[] | null,
+    opts?: { separator?: string; dataVar?: string }
+  ): string;
+}
 
-// Strukturális unió – mindkettőn van getSchema / errorsText / addSchema
+type RealAjv = import("ajv").default;
+
 type AjvLike = AjvInstance | RealAjv;
 
 type ValidateFn = ((data: unknown) => boolean) & { errors?: ErrorObject[] | null };

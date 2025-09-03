@@ -3,9 +3,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { createAjv } from "../src/validation/ajv";
-import { addCoreSchemas } from "../src/validation/addCoreSchemas";
-import { validatePath } from "../src/validate/vectors";
+import { createAjv } from "../src/validation/ajv.js";
+import { addCoreSchemas } from "../src/validation/addCoreSchemas.js";
+import { validatePath } from "../src/validate/vectors.js";
 
 const rel = (p: string) => path.relative(process.cwd(), p).replace(/\\/g, "/");
 const norm = (p: string) => p.replace(/\\/g, "/");
