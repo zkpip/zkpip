@@ -17,11 +17,13 @@
     "node": ">=20.10"
   },
   "scripts": {
-    "clean": "rimraf dist",
+    "clean": "rimraf dist tsconfig.tsbuildinfo",
     "build": "tsc -b && node ./scripts/make-executable.cjs",
     "build:watch": "tsc -b -w",
     "test": "vitest run",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test:watch": "vitest",
+    "test:cov": "vitest run --coverage"    
   },
   "dependencies": {
     "@types/yargs": "^17.0.33",

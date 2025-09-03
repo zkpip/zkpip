@@ -1,6 +1,7 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
+    "types": ["node", "vitest"],
     "target": "ES2022",
     "lib": ["ES2022"],
     "module": "NodeNext",

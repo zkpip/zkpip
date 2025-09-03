@@ -5,7 +5,20 @@
     "clean:srcjs": "bash -lc 'find packages -path \"*/src/*\" -type f \\( -name \"*.js\" -o -name \"*.js.map\" \\) -delete'",
     "build": "npm run clean:srcjs && tsc -b",
     "test": "npm run clean:srcjs && vitest run",
-    "clean": "rimraf dist"
+    "clean": "rimraf dist",
+
+    "cli:build": "npm --prefix packages/cli run build",    
+    "cli:test": "npm --prefix packages/cli run test",
+    "cli:cov": "npm --prefix packages/cli run test:cov",
+    "cli:test:watch": "npm --prefix packages/cli run test:watch",
+
+    "core:clean": "npm --prefix packages/core run clean",
+    "core:build": "npm --prefix packages/core run build",
+    "core:test": "npm --prefix packages/core run test",
+    "core:test:ajv": "npm --prefix packages/core run test:ajv",
+    "core:test:watch": "npm --prefix packages/core run test:watch",
+    "core:cov": "npm --prefix packages/core run test:cov",
+    "core:validate": "npm --prefix packages/core run validate-schemas"    
   },
   "dependencies": {
     "tsx": "^4.20.5"
