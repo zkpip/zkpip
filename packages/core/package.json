@@ -9,12 +9,37 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./schemas/*": "./schemas/*"
+    "./validation/createAjv": {
+      "types": "./dist/validation/createAjv.d.ts",
+      "import": "./dist/validation/createAjv.js"
+    },
+    "./validation/addCoreSchemas": {
+      "types": "./dist/validation/addCoreSchemas.d.ts",
+      "import": "./dist/validation/addCoreSchemas.js"
+    },
+    "./validation/validators": {
+      "types": "./dist/validation/validators.d.ts",
+      "import": "./dist/validation/validators.js"
+    },
+    "./constants/canonicalIds": {
+      "types": "./dist/constants/canonicalIds.d.ts",
+      "import": "./dist/constants/canonicalIds.js"
+    },
+    "./validate/*": {
+      "types": "./dist/validate/*.d.ts",
+      "import": "./dist/validate/*.js"
+    },
+    "./schemaUtils": {
+      "types": "./dist/schemaUtils.d.ts",
+      "import": "./dist/schemaUtils.js"
+    }
   },
   "types": "./dist/index.d.ts",
   "files": [
     "dist",
-    "schemas"
+    "schemas",
+    "README.md",
+    "LICENSE"
   ],
   "sideEffects": false,
   "engines": {
@@ -28,7 +53,11 @@
     "test:coverage": "vitest run --coverage",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "validate-schemas": "tsx ./scripts/validateSchemas.ts"
+    "validate-schemas": "tsx ./scripts/validateSchemas.ts",
+    "test:ajv": "vitest run src/__tests__/ajv*.test.ts",
+    "dev": "vitest",
+    "test:watch": "vitest",
+    "test:cov": "vitest run --coverage"
   },
   "dependencies": {
     "ajv": "^8.17.1",

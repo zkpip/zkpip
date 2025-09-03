@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AnySchemaObject, ValidateFunction } from "ajv";
-import { CANONICAL_IDS } from "../index.js";
+import { CANONICAL_IDS } from "../constants/canonicalIds.js";
 
 export type CanonicalId = string;
 
