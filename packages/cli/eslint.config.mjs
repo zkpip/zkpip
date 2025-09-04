@@ -9,7 +9,7 @@ export default [
   { ignores: ['dist/**', 'coverage/**', 'eslint.config.*'] },
 
   // Globális plugin-regisztrációk – csak EGYSZER!
-  importPlugin.flatConfigs.recommended,   // <- 'import' plugin itt kerül be
+  importPlugin.flatConfigs.recommended, // <- 'import' plugin itt kerül be
   { plugins: { '@typescript-eslint': tseslint.plugin } }, // <- TS plugin egyszer globálisan
 
   // JS recommended
@@ -31,7 +31,7 @@ export default [
     languageOptions: {
       parser: tseslint.parser,
       parserOptions: {
-        project: ['./tsconfig.eslint.json'],   // ← pontosan 1 projekt
+        project: ['./tsconfig.eslint.json'], // ← pontosan 1 projekt
         tsconfigRootDir: import.meta.dirname,
         noWarnOnMultipleProjects: true,
       },
@@ -94,8 +94,15 @@ export default [
       },
       globals: {
         ...globals.node,
-        describe: true, it: true, test: true, expect: true,
-        beforeAll: true, beforeEach: true, afterAll: true, afterEach: true, vi: true,
+        describe: true,
+        it: true,
+        test: true,
+        expect: true,
+        beforeAll: true,
+        beforeEach: true,
+        afterAll: true,
+        afterEach: true,
+        vi: true,
       },
     },
     // Itt sincs 'plugins'

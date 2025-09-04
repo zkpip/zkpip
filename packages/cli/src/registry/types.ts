@@ -17,7 +17,7 @@ export type AdapterVerifyResult =
   | { ok: true; adapter: string }
   | { ok: false; adapter: string; error: 'verification_failed' | 'not_implemented' | string };
 
-// Adapter interface 
+// Adapter interface
 export interface Adapter {
   /** e.g. "snarkjs-groth16" */
   id: string;

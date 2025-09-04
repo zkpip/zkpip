@@ -9,7 +9,7 @@ declare module 'snarkjs' {
     pi_a?: readonly [string | bigint, string | bigint];
     pi_b?: readonly [
       readonly [string | bigint, string | bigint],
-      readonly [string | bigint, string | bigint]
+      readonly [string | bigint, string | bigint],
     ];
     pi_c?: readonly [string | bigint, string | bigint];
     protocol?: 'groth16';
@@ -20,7 +20,7 @@ declare module 'snarkjs' {
     verify: (
       vkey: VerificationKey,
       publicSignals: ReadonlyArray<PublicSignal>,
-      proof: Groth16Proof
+      proof: Groth16Proof,
     ) => Promise<boolean>;
   };
 

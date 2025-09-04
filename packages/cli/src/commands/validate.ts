@@ -57,7 +57,7 @@ function inferCoreSchemasRoot(): string | undefined {
     const candidate = path.resolve(here, '../../../core/schemas');
     if (existsSync(candidate)) return candidate;
   } catch {
-    return undefined; 
+    return undefined;
   }
 
   return undefined;

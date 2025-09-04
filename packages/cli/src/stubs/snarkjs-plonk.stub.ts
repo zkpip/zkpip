@@ -14,4 +14,3 @@ export const snarkjsPlonkStub: Adapter = {
     return { ok: false, adapter: 'snarkjs-plonk', error: 'not_implemented' };
   },
 };
-

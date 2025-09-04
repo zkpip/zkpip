@@ -8,7 +8,7 @@
       "@zkpip/core/*": ["../core/src/*"]
     }
   },
-    "include": [
+  "include": [
     "src/**/*.ts",
     "src/__tests__/**/*.ts",
     "tests/**/*.ts",

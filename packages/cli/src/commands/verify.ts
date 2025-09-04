@@ -22,12 +22,7 @@ type VerificationInput = VerificationFields & {
   meta?: VerificationMeta;
 };
 
-import type {
-  Argv,
-  ArgumentsCamelCase,
-  CommandModule,
-  CommandBuilder,
-} from 'yargs';
+import type { Argv, ArgumentsCamelCase, CommandModule, CommandBuilder } from 'yargs';
 
 type VerifyArgs = {
   bundle?: string;
@@ -39,7 +34,7 @@ type VerifyArgs = {
 };
 
 const builder: CommandBuilder<object, VerifyArgs> = (y: Argv<object>): Argv<VerifyArgs> =>
-  (y
+  y
     .option('bundle', {
       type: 'string',
       describe: 'Path to a proof-bundle JSON file',
@@ -60,15 +55,14 @@ const builder: CommandBuilder<object, VerifyArgs> = (y: Argv<object>): Argv<Veri
     .option('exit-codes', {
       type: 'boolean',
       default: false,
-      describe:
-        'Non-zero exit codes on failure (2=no adapter, 3=schema invalid, 1=verify failed)',
+      describe: 'Non-zero exit codes on failure (2=no adapter, 3=schema invalid, 1=verify failed)',
     })
     .option('debug', {
       type: 'boolean',
       default: false,
       describe: 'Verbose error output on failures',
     })
-    .conflicts('bundle', 'verification') as unknown) as Argv<VerifyArgs>;
+    .conflicts('bundle', 'verification') as unknown as Argv<VerifyArgs>;
 
 type EmitOk = {
   ok: true;

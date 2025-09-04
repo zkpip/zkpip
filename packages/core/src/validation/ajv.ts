@@ -6,10 +6,10 @@ import type { Options as AjvOptions, ValidateFunction, ErrorObject } from 'ajv';
 export interface AjvLike {
   addSchema: (schema: unknown, key?: string) => unknown;
   addFormat: (name: string, format: unknown) => AjvLike;
-  compile: (schema: unknown) => ValidateFunction;                 
-  getSchema: (id: string) => ValidateFunction | undefined;        
+  compile: (schema: unknown) => ValidateFunction;
+  getSchema: (id: string) => ValidateFunction | undefined;
   errorsText: (
-    errors?: ErrorObject[] | null,                                
+    errors?: ErrorObject[] | null,
     opts?: { separator?: string; dataVar?: string },
   ) => string;
 }
@@ -17,8 +17,7 @@ export interface AjvLike {
 type AjvCtor = new (opts?: AjvOptions) => AjvLike;
 
 const AjvClass: AjvCtor =
-  ((AjvModule as unknown as { default?: AjvCtor }).default ??
-   (AjvModule as unknown as AjvCtor));
+  (AjvModule as unknown as { default?: AjvCtor }).default ?? (AjvModule as unknown as AjvCtor);
 
 export function createAjv(): AjvLike {
   const ajv = new AjvClass({
