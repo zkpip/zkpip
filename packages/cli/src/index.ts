@@ -6,7 +6,7 @@ import { buildVectorsValidateCommand } from './commands/vectors-validate.js';
 import { verifyCmd } from './commands/verify.js';
 import { validatePath } from './commands/validate.js';
 
-yargs(hideBin(process.argv))
+void yargs(hideBin(process.argv))
   .scriptName('zkpip')
   .command(buildVectorsValidateCommand())
   .command(verifyCmd)
@@ -38,4 +38,4 @@ yargs(hideBin(process.argv))
   .strict()
   .help()
   .locale('en')
-  .parse();
+  .parseAsync();
