@@ -7,7 +7,7 @@ Provides a CLI with multiple adapters and a local "verified" badge generator.
 
 ## Features
 
-- Validate proof-bundles against canonical JSON Schemas  
+- Validate proof-bundles against canonical JSON Schemas
 - Verify proofs with adapters:
   - [`snarkjs`](https://github.com/iden3/snarkjs)
   - [`rapidsnark`](https://github.com/iden3/rapidsnark)
@@ -46,9 +46,9 @@ zkpip badge --out ./badge.svg
 
 ## Project
 
-- **Homepage:** [zkpip.org](https://zkpip.org)  
-- **Repository:** [github.com/zkpip/zkpip](https://github.com/zkpip/zkpip)  
-- **License:** Apache-2.0  
+- **Homepage:** [zkpip.org](https://zkpip.org)
+- **Repository:** [github.com/zkpip/zkpip](https://github.com/zkpip/zkpip)
+- **License:** Apache-2.0
 - **Author:** Tony Nagy - https://tonynagy.io
 
 ---

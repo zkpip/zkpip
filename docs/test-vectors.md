@@ -1,6 +1,7 @@
 # Test Vector Layout (MVS v1)
 
 **Categories**
+
 - `verification/` — Core verification use-cases.
   - Files: `<system>[-<target>][-<variant>].<outcome>.json`
   - Examples: `groth16-evm.valid.json`, `groth16-evm.invalid.json`
@@ -13,9 +14,11 @@
   - Examples: `aztec.json`, `zksync.json`
 
 **Outcomes**
+
 - `.valid.json` and `.invalid.json` suffixes are mandatory for verification vectors.
 
 **Globs**
+
 - All vectors: `mvs/**/*.json`
 - Verification (valid): `mvs/verification/**/*.valid.json`
 - Verification (invalid): `mvs/verification/**/*.invalid.json`

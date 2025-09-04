@@ -1,20 +1,37 @@
-import AjvImport from "ajv";
-import addFormats from "ajv-formats";
+// packages/core/src/validation/ajv.ts
+import AjvModule from 'ajv';
+import addFormats from 'ajv-formats';
+import type { Options as AjvOptions, ValidateFunction, ErrorObject } from 'ajv';
 
-// Golyóálló ESM/CJS interop: mindig konstruálható osztályt kapunk
-type AjvCtor = new (opts?: any) => import("ajv").default;
-const AjvClass: AjvCtor = (AjvImport as any).default ?? (AjvImport as any);
+export interface AjvLike {
+  addSchema: (schema: unknown, key?: string) => unknown;
+  addFormat: (name: string, format: unknown) => AjvLike;
+  compile: (schema: unknown) => ValidateFunction;
+  getSchema: (id: string) => ValidateFunction | undefined;
+  errorsText: (
+    errors?: ErrorObject[] | null,
+    opts?: { separator?: string; dataVar?: string },
+  ) => string;
+}
 
-export function createAjv() {
+type AjvCtor = new (opts?: AjvOptions) => AjvLike;
+
+const AjvClass: AjvCtor =
+  (AjvModule as unknown as { default?: AjvCtor }).default ?? (AjvModule as unknown as AjvCtor);
+
+export function createAjv(): AjvLike {
   const ajv = new AjvClass({
     allErrors: true,
     strict: false,
     allowUnionTypes: true,
-    // Ne kérjen meta-séma ellenőrzést (2020-12), így nem kell meta import
     validateSchema: false,
-  });
+  } satisfies AjvOptions);
 
-  // ajv-formats default export interop biztosan hívható
-  (addFormats as any)(ajv);
-  return ajv as import("ajv").default;
+  type AddFormatsFn = (ajv: AjvLike, opts?: unknown) => unknown;
+  const addFormatsTyped = addFormats as unknown as AddFormatsFn;
+  addFormatsTyped(ajv);
+
+  return ajv;
 }
+
+export type AjvInstance = ReturnType<typeof createAjv>;

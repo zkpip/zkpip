@@ -3,7 +3,7 @@ name: Core & CLI CI
 on:
   pull_request:
   push:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch: {}
 
 permissions:
@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       core: ${{ steps.filter.outputs.core }}
-      cli:  ${{ steps.filter.outputs.cli }}
+      cli: ${{ steps.filter.outputs.cli }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -43,6 +43,40 @@ jobs:
               - 'package-lock.json'
               - 'npm-shrinkwrap.json'
 
+  lint:
+    name: Lint & format check
+    needs: changes
+    if: needs.changes.outputs.core == 'true' || needs.changes.outputs.cli == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install (root)
+        run: npm ci --no-audit --fund=false
+
+      - name: Show npm scripts (debug)
+        run: node -e "console.log(require('./package.json').scripts)"
+
+      - name: ESLint (flat, workspaces)
+        run: npm run -ws lint
+        env:
+          ESLINT_USE_FLAT_CONFIG: "true"
+
+      - name: Prettier check (workspaces)
+        run: npm run -ws format:check
+
   core:
     name: Core build & test
     needs: changes
@@ -62,10 +96,9 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: |
-            package-lock.json
+          cache-dependency-path: package-lock.json
 
-      # Monorepo install
+      # Monorepo install (root)
       - name: Install (root)
         working-directory: .
         run: npm ci --no-audit --fund=false
@@ -89,23 +122,26 @@ jobs:
           if-no-files-found: error
 
   cli-integration:
-    name: CLI smoke (core build → cli test)
+    name: CLI integration (Node ${{ matrix.node }})
     needs: changes
     if: needs.changes.outputs.core == 'true' || needs.changes.outputs.cli == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js ${{ matrix.node }}
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ matrix.node }}
           cache: 'npm'
-          cache-dependency-path: |
-            package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install (root)
         run: npm ci --no-audit --fund=false
@@ -113,5 +149,20 @@ jobs:
       - name: Build core (ESM dist must exist)
         run: npm --prefix packages/core run build
 
+      - name: Build CLI (ESM dist for runtime smoke)
+        run: npm --prefix packages/cli run build
+
       - name: Run CLI tests (Vitest)
         run: npm --prefix packages/cli run test
+
+      - name: Smoke vectors validate (explicit schemas-root)
+        run: |
+          node packages/cli/dist/index.js vectors validate \
+            --vectors-root ./packages/core/schemas/tests/vectors/mvs/verification \
+            --schemas-root ./packages/core/schemas
+
+      - name: Smoke top-level validate single file
+        run: |
+          node packages/cli/dist/index.js validate \
+            ./packages/core/schemas/tests/vectors/mvs/verification/proofBundle/proof-bundle.valid.json \
+            --schemas-root ./packages/core/schemas

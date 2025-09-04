@@ -1,15 +1,15 @@
 // packages/cli/src/commands/vectors-validate.ts
-import type { CommandModule } from "yargs";
-import path from "node:path";
-import fs from "node:fs";
-import process from "node:process";
-import { createAjv, loadSchemaJson } from "@zkpip/core";
+import type { CommandModule } from 'yargs';
+import path from 'node:path';
+import fs from 'node:fs';
+import process from 'node:process';
+import { createAjv, loadSchemaJson } from '@zkpip/core';
 
 type Options = {
-  "vectors-root"?: string;
-  "schemas-root"?: string;
+  'vectors-root'?: string;
+  'schemas-root'?: string;
   json?: boolean;
-  "exit-codes"?: boolean;
+  'exit-codes'?: boolean;
 };
 
 function resolveAbs(p?: string): string | undefined {
@@ -25,41 +25,41 @@ function walkJson(root: string): string[] {
     for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
       const p = path.join(dir, ent.name);
       if (ent.isDirectory()) stack.push(p);
-      else if (ent.isFile() && p.endsWith(".json")) out.push(p);
+      else if (ent.isFile() && p.endsWith('.json')) out.push(p);
     }
   }
   return out;
 }
 
-export function buildVectorsValidateCommand(): CommandModule<{}, Options> {
+export function buildVectorsValidateCommand(): CommandModule<object, Options> {
   return {
-    command: "vectors validate",
-    describe: "Validate vectors against MVS schemas",
+    command: 'vectors validate',
+    describe: 'Validate vectors against MVS schemas',
     builder: (y) =>
       y
-        .option("vectors-root", {
-          type: "string",
-          describe: "Root directory of vectors",
+        .option('vectors-root', {
+          type: 'string',
+          describe: 'Root directory of vectors',
         })
-        .option("schemas-root", {
-          type: "string",
-          describe: "Root directory of schemas (override)",
+        .option('schemas-root', {
+          type: 'string',
+          describe: 'Root directory of schemas (override)',
         })
-        .option("json", {
-          type: "boolean",
+        .option('json', {
+          type: 'boolean',
           default: false,
-          describe: "Machine-readable JSON output",
+          describe: 'Machine-readable JSON output',
         })
-        .option("exit-codes", {
-          type: "boolean",
+        .option('exit-codes', {
+          type: 'boolean',
           default: false,
-          describe: "Set exit codes based on result",
+          describe: 'Set exit codes based on result',
         }),
     handler: async (argv) => {
       try {
         const vectorsRoot =
-          resolveAbs(argv["vectors-root"]) ?? path.resolve(process.cwd(), "vectors");
-        const schemasRoot = resolveAbs(argv["schemas-root"]);
+          resolveAbs(argv['vectors-root']) ?? path.resolve(process.cwd(), 'vectors');
+        const schemasRoot = resolveAbs(argv['schemas-root']);
 
         if (schemasRoot) {
           process.env.ZKPIP_SCHEMAS_ROOT = schemasRoot;
@@ -67,17 +67,17 @@ export function buildVectorsValidateCommand(): CommandModule<{}, Options> {
 
         const ajv = createAjv();
         // Példa: proof-bundle séma hozzáadása (bővítsd igény szerint)
-        const proofBundleSchema = loadSchemaJson("mvs/proof-bundle.schema.json");
-        ajv.addSchema(proofBundleSchema, "mvs/proof-bundle");
+        const proofBundleSchema = loadSchemaJson('mvs/proof-bundle.schema.json');
+        ajv.addSchema(proofBundleSchema, 'mvs/proof-bundle');
 
         const files = walkJson(vectorsRoot);
         const results: Array<{ file: string; valid: boolean; errors: unknown[] }> = [];
 
-        const validate = ajv.getSchema("mvs/proof-bundle");
+        const validate = ajv.getSchema('mvs/proof-bundle');
         if (!validate) throw new Error("Schema 'mvs/proof-bundle' not found.");
 
         for (const f of files) {
-          const raw = fs.readFileSync(f, "utf8");
+          const raw = fs.readFileSync(f, 'utf8');
           const data = JSON.parse(raw);
           const ok = Boolean(validate(data));
           results.push({
@@ -93,12 +93,12 @@ export function buildVectorsValidateCommand(): CommandModule<{}, Options> {
           console.log(JSON.stringify({ ok: allOk, results }, null, 2));
         } else {
           for (const r of results) {
-            console.log(`${r.valid ? "✅" : "❌"} ${r.file}`);
+            console.log(`${r.valid ? '✅' : '❌'} ${r.file}`);
             if (!r.valid) console.log(JSON.stringify(r.errors, null, 2));
           }
         }
 
-        if (argv["exit-codes"]) {
+        if (argv['exit-codes']) {
           process.exit(allOk ? 0 : 1);
         }
       } catch (err) {

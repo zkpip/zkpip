@@ -8,6 +8,7 @@ This directory contains the canonical JSON Schemas for ZKPIP objects:
 - `ecosystem.schema.json`
 
 ## Validation
+
 Use `@zkpip/core` validators or run:
 
 ```bash

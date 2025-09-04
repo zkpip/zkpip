@@ -1,17 +1,17 @@
 // packages/core/src/__tests__/ecosystemVector.emptyArrays.test.ts
-import { describe, it, expect } from "vitest";
-import { createAjv, addCoreSchemas, CANONICAL_IDS } from "../index.js";
-import { validateAgainstResult } from "../testing/ajv-helpers.js";
-import { vectors, readJson } from "../test-helpers/vectorPaths.js";
+import { describe, it, expect } from 'vitest';
+import { createAjv, addCoreSchemas, CANONICAL_IDS } from '../index.js';
+import { validateAgainstResult } from '../testing/ajv-helpers.js';
+import { vectors, readJson } from '../test-helpers/vectorPaths.js';
 
 type EcosystemLike = { languages?: unknown; hashes?: unknown };
 
 function isEcosystemLike(x: unknown): x is EcosystemLike {
-  return typeof x === "object" && x !== null && "languages" in x && "hashes" in x;
+  return typeof x === 'object' && x !== null && 'languages' in x && 'hashes' in x;
 }
 
-describe("Negative: ecosystem arrays must have at least 1 element", () => {
-  it("should fail when languages or hashes are empty", () => {
+describe('Negative: ecosystem arrays must have at least 1 element', () => {
+  it('should fail when languages or hashes are empty', () => {
     const ajv = createAjv();
     addCoreSchemas(ajv);
 

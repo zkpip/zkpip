@@ -51,13 +51,15 @@
     "build:watch": "tsc -b -w",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "lint": "eslint .",
+    "lint": "ESLINT_USE_FLAT_CONFIG=true eslint .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "validate-schemas": "tsx ./scripts/validateSchemas.ts",
     "test:ajv": "vitest run src/__tests__/ajv*.test.ts",
     "dev": "vitest",
     "test:watch": "vitest",
-    "test:cov": "vitest run --coverage"
+    "test:cov": "vitest run --coverage",
+    "format": "prettier -w .",
+    "format:check": "prettier -c ."
   },
   "dependencies": {
     "ajv": "^8.17.1",

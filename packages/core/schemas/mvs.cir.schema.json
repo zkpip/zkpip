@@ -28,12 +28,12 @@
       "items": { "$ref": "#/$defs/Circuit" }
     },
     "extensions": {
-        "type": "object",
-        "maxProperties": 32,
-        "patternProperties": {
+      "type": "object",
+      "maxProperties": 32,
+      "patternProperties": {
         "^[a-zA-Z][a-zA-Z0-9+.-]*:": { "type": "object" }
-        },
-        "additionalProperties": false
+      },
+      "additionalProperties": false
     }
   },
 
@@ -103,12 +103,8 @@
           "nConstraints": 1024,
           "nSignalsPublic": 2,
           "nSignalsPrivate": 3,
-          "inputsSpec": [
-            { "name": "pub.x", "type": "field" }
-          ],
-          "outputsSpec": [
-            { "name": "out.y", "type": "field" }
-          ]
+          "inputsSpec": [{ "name": "pub.x", "type": "field" }],
+          "outputsSpec": [{ "name": "out.y", "type": "field" }]
         }
       ]
     }

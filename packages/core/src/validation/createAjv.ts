@@ -1,7 +1,7 @@
 // Keep comments in English only (OSS).
-import type { Options as AjvOptions, ErrorObject, ValidateFunction } from "ajv";
-import * as AjvNS from "ajv";              // value import → ensures runtime emit
-import * as AjvFormatsNS from "ajv-formats"; // value import → ensures runtime emit
+import type { Options as AjvOptions, ErrorObject, ValidateFunction } from 'ajv';
+import * as AjvNS from 'ajv'; // value import → ensures runtime emit
+import * as AjvFormatsNS from 'ajv-formats'; // value import → ensures runtime emit
 
 /**
  * Narrow runtime surface we rely on across the codebase.
@@ -13,7 +13,7 @@ export interface AjvInstance {
   validate(schemaKeyRef: string | object, data: unknown): boolean;
   errorsText(
     errors?: ErrorObject[] | null,
-    opts?: { separator?: string; dataVar?: string }
+    opts?: { separator?: string; dataVar?: string },
   ): string;
   errors?: ErrorObject[] | null;
 }
@@ -23,12 +23,11 @@ type AjvCtor = new (opts?: AjvOptions) => unknown;
 
 /** ESM/CJS-agnostic extraction of the constructor and addFormats fn */
 const Ajv: AjvCtor =
-  ((AjvNS as unknown as { default?: AjvCtor }).default ??
-    (AjvNS as unknown as AjvCtor));
+  (AjvNS as unknown as { default?: AjvCtor }).default ?? (AjvNS as unknown as AjvCtor);
 
 const addFormats: (ajv: unknown) => unknown =
-  ((AjvFormatsNS as unknown as { default?: (a: unknown) => unknown }).default ??
-    (AjvFormatsNS as unknown as (a: unknown) => unknown));
+  (AjvFormatsNS as unknown as { default?: (a: unknown) => unknown }).default ??
+  (AjvFormatsNS as unknown as (a: unknown) => unknown);
 
 /**
  * ESM-native Ajv factory with stable defaults.

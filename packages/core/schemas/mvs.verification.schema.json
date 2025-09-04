@@ -5,9 +5,18 @@
   "allOf": [{ "$ref": "urn:zkpip:mvs.core.schema.json" }],
   "type": "object",
   "required": [
-    "schemaVersion", "recordType", "id", "createdAt", "updatedAt",
-    "proofSystem", "curve", "commitmentScheme", "hashFunctions",
-    "publicInputsSchema", "verifier", "result"
+    "schemaVersion",
+    "recordType",
+    "id",
+    "createdAt",
+    "updatedAt",
+    "proofSystem",
+    "curve",
+    "commitmentScheme",
+    "hashFunctions",
+    "publicInputsSchema",
+    "verifier",
+    "result"
   ],
   "properties": {
     "recordType": { "const": "verification" },
@@ -50,7 +59,10 @@
       },
       "additionalProperties": true
     },
-    "ext": { "type": "object", "description": "Technology-specific extensions (snarkjs, halo2, stark, barretenberg…)" }
+    "ext": {
+      "type": "object",
+      "description": "Technology-specific extensions (snarkjs, halo2, stark, barretenberg…)"
+    }
   },
   "additionalProperties": true
 }

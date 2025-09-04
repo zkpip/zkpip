@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@zkpip/core": ["../core/src/index.ts"],
+      "@zkpip/core/*": ["../core/src/*"]
+    }
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/__tests__/**/*.ts",
+    "tests/**/*.ts",
+    "scripts/**/*.ts",
+    "types/**/*.ts"
+  ],
+  "exclude": []
+}

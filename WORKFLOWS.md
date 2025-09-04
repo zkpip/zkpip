@@ -3,11 +3,13 @@
 This document describes the CI architecture for the core repository.
 
 ## Overview
+
 - **Schema Validation**: AJV-based validation of all core JSON Schemas.
 - **Core CI**: Vitest with coverage thresholds (enforced).
 - **Reusable Schema Guard**: A reusable workflow consumed by downstream repos (e.g. `zkpip/lab`).
 
 ## Workflows
+
 - `.github/workflows/schema-validation.yml`
   - Validates schema files in `/schemas/**` and runs conformance checks.
 - `.github/workflows/core-ci.yml`
@@ -27,17 +29,21 @@ This document describes the CI architecture for the core repository.
     - Exports `CORE_ROOT` for downstream guard steps.
 
 ## Fork PR behavior
+
 - The reusable guard avoids secrets on forks by using a public clone path.
 - Any step that needs secrets must be gated by conditions (`if:`) so fork PRs do not fail.
 
 ## Required checks (when repository is public / paid plan for private)
+
 - **Schema Validation**
 - **Core CI**
 - Reusable guard is **not** required here (it is **consumed** by downstream).
 
 ## Local debug
+
 ```bash
 # Run schema validation locally
 npm ci
 npm run lint
 npm test
+```

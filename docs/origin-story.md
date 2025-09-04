@@ -1,7 +1,7 @@
-📜 zkpip Origin Story
-Born in Zero-Knowledge
+📜 zkpip Origin Story  
+**Born in Zero-Knowledge**  
 
-The story of zkpip is itself a kind of zero-knowledge proof.
+The story of zkpip is itself a kind of zero-knowledge proof.  
 Its creator did not start with deep cryptography expertise or formal ZK training. In fact, there was zero knowledge about the mathematical internals of ZKP systems.
 
 What appeared instead was an intuition:
@@ -14,7 +14,26 @@ Without such a layer, interoperability and adoption remain harder than they shou
 
 That recognition — without yet knowing the underlying math — was enough to identify a missing link.
 
-Proof by Intuition
+---
+
+### Switzerland of ZK  
+**The Neutral Steward of Proofs**  
+
+From its very first day, ZKPIP positions itself as the *Switzerland of Zero-Knowledge*.  
+Neutral, independent, and open to all ecosystems, its purpose is to act as a trusted layer across proof systems.
+
+This identity stems from its architecture: schema-driven, adapter-based, and deliberately unbiased.  
+Any proof system — Groth16, Plonk, Halo2, STARKs, or future ones — can connect through adapters.  
+This neutrality ensures that ZKPIP is not tied to one technology, but serves the entire ZK landscape.
+
+The motto "Switzerland of ZK" reflects both a brand and a governance vision:  
+- Neutrality in validation.  
+- Independence from single vendors.  
+- Openness to community proposals from day one.  
+
+---
+
+### Proof by Intuition  
 
 In many ways, this is the essence of Zero-Knowledge itself:
 
@@ -22,27 +41,29 @@ You don’t need to see all the internals to know that something is true.
 
 You don’t need to reveal every detail to validate a statement.
 
-Here, the witness was the idea of zkpip.
-The verifier is the community, who can test and validate it.
+Here, the witness was the idea of zkpip.  
+The verifier is the community, who can test and validate it.  
 And the proof is the project itself — a schema-driven, adapter-based validation layer that brings consistency across ZK proof systems.
 
-Building in the Spirit of ZK
+---
 
-zkpip was not born out of academic cryptography, but out of practical engineering insight.
+### Building in the Spirit of ZK  
+
+zkpip was not born out of academic cryptography, but out of practical engineering insight.  
 It is created in the true spirit of Zero-Knowledge:
 
-To recognize the truth of a gap.
+- To recognize the truth of a gap.  
+- To build a portable, verifiable solution.  
+- To empower developers without requiring them to know every mathematical detail behind ZKPs.
 
-To build a portable, verifiable solution.
-
-To empower developers without requiring them to know every mathematical detail behind ZKPs.
-
-In short: zkpip is Zero-Knowledge at the meta-level.
+In short: zkpip is Zero-Knowledge at the meta-level.  
 It proves the missing layer exists, and delivers the tools to bridge it.
 
-From Intuition to Innovation
+---
 
-zkpip began as a simple intuition — the recognition that the ZK ecosystem lacked a unified, schema-driven way to validate proofs.
+### From Intuition to Innovation  
+
+zkpip began as a simple intuition — the recognition that the ZK ecosystem lacked a unified, schema-driven way to validate proofs.  
 At first, this came from a place of zero knowledge: the idea appeared before a deep understanding of the mathematics.
 
 But once the mathematical foundations became clear — constraints, witnesses, proving keys, rollup proofs — the vision expanded:

@@ -1,15 +1,15 @@
 // packages/core/src/__tests__/ecosystemVector.valid.test.ts
-import { describe, it, expect } from "vitest";
-import { createAjv, addCoreSchemas, CANONICAL_IDS } from "../index.js";
-import { validateAgainstResult } from "../testing/ajv-helpers.js";
-import { vectors, readJson } from "../test-helpers/vectorPaths.js";
+import { describe, it, expect } from 'vitest';
+import { createAjv, addCoreSchemas, CANONICAL_IDS } from '../index.js';
+import { validateAgainstResult } from '../testing/ajv-helpers.js';
+import { vectors, readJson } from '../test-helpers/vectorPaths.js';
 
 function isObject(x: unknown): x is Record<string, unknown> {
-  return typeof x === "object" && x !== null;
+  return typeof x === 'object' && x !== null;
 }
 
-describe("Vector: ecosystem/aztec.json", () => {
-  it("should validate against mvs.ecosystem.schema.json", () => {
+describe('Vector: ecosystem/aztec.json', () => {
+  it('should validate against mvs.ecosystem.schema.json', () => {
     const ajv = createAjv();
     addCoreSchemas(ajv);
 

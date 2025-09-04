@@ -56,9 +56,9 @@
         "wasm": { "$ref": "#/$defs/ArtifactRef" },
         "zkey": { "$ref": "#/$defs/ArtifactRef" },
         "r1cs": { "$ref": "#/$defs/ArtifactRef" },
-        "pk":   { "$ref": "#/$defs/ArtifactRef" },
-        "vk":   { "$ref": "#/$defs/ArtifactRef" },
-        "kzg":  { "$ref": "#/$defs/ArtifactRef" }
+        "pk": { "$ref": "#/$defs/ArtifactRef" },
+        "vk": { "$ref": "#/$defs/ArtifactRef" },
+        "kzg": { "$ref": "#/$defs/ArtifactRef" }
       }
     },
     "inputs": {
@@ -91,18 +91,18 @@
       "additionalProperties": false,
       "properties": {
         "supportsGroth16": { "type": "boolean" },
-        "supportsPlonk":   { "type": "boolean" },
-        "supportsHalo2":   { "type": "boolean" }
+        "supportsPlonk": { "type": "boolean" },
+        "supportsHalo2": { "type": "boolean" }
       }
     },
     "extensions": {
-        "type": "object",
-        "description": "Vendor/system-specific extensions. Keys SHOULD be URIs. Values are objects validated by their own schemas (if provided).",
-        "maxProperties": 32,
-        "patternProperties": {
+      "type": "object",
+      "description": "Vendor/system-specific extensions. Keys SHOULD be URIs. Values are objects validated by their own schemas (if provided).",
+      "maxProperties": 32,
+      "patternProperties": {
         "^[a-zA-Z][a-zA-Z0-9+.-]*:": { "type": "object" }
-        },
-        "additionalProperties": false
+      },
+      "additionalProperties": false
     }
   },
 
@@ -208,7 +208,7 @@
           { "type": "number" },
           { "type": "integer" },
           { "type": "boolean" },
-          { "type": "array", "items": { "type": ["string","number","integer","boolean"] } }
+          { "type": "array", "items": { "type": ["string", "number", "integer", "boolean"] } }
         ]
       }
     }
@@ -223,7 +223,10 @@
       "curve": "bn128",
       "program": { "language": "circom", "entry": "circuits/main.circom", "version": "2.1.9" },
       "artifacts": {
-        "wasm": { "path": "build/main.wasm", "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd" },
+        "wasm": {
+          "path": "build/main.wasm",
+          "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd"
+        },
         "zkey": { "path": "build/main_final.zkey" }
       },
       "inputs": { "public": { "x": "1" }, "private": { "w": "2" } },
