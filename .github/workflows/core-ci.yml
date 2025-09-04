@@ -69,14 +69,13 @@ jobs:
       - name: Show npm scripts (debug)
         run: node -e "console.log(require('./package.json').scripts)"
 
-      # Futassa a scriptet, de ha nem létezik, essünk vissza npx-re
-      - name: ESLint
-        run: |
-          npm run -s lint || npx eslint . --ext .ts
+      - name: ESLint (flat, workspaces)
+        run: npm run -ws lint
+        env:
+          ESLINT_USE_FLAT_CONFIG: "true"
 
-      - name: Prettier check
-        run: |
-          npm run -s format:check || npx prettier --check .
+      - name: Prettier check (workspaces)
+        run: npm run -ws format:check
 
   core:
     name: Core build & test
