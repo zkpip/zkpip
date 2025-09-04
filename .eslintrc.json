@@ -1,0 +1,40 @@
+{
+  "root": true,
+  "env": { "es2022": true, "node": true },
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "sourceType": "module",
+    "ecmaVersion": "latest"
+  },
+  "plugins": ["@typescript-eslint", "import", "unused-imports"],
+  "extends": [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended",
+    "plugin:import/recommended",
+    "plugin:import/typescript",
+    "prettier"
+  ],
+  "settings": {
+    "import/extensions": [".js", ".ts"],
+    "import/resolver": {
+      "typescript": { "alwaysTryTypes": true, "project": ["packages/*/tsconfig.json"] },
+      "node": { "extensions": [".js", ".ts", ".d.ts"] }
+    }
+  },
+  "rules": {
+    "import/extensions": ["error", "always", { "ignorePackages": true }],
+    "unused-imports/no-unused-imports": "error",
+    "@typescript-eslint/no-unused-vars": [
+      "error",
+      { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["**/*.test.ts", "**/__tests__/**/*.ts"],
+      "env": { "vitest-globals": true },
+      "plugins": ["vitest"],
+      "extends": ["plugin:vitest/recommended"]
+    }
+  ]
+}

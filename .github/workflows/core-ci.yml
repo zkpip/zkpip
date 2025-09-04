@@ -3,7 +3,7 @@ name: Core & CLI CI
 on:
   pull_request:
   push:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch: {}
 
 permissions:
@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       core: ${{ steps.filter.outputs.core }}
-      cli:  ${{ steps.filter.outputs.cli }}
+      cli: ${{ steps.filter.outputs.cli }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -49,6 +49,9 @@ jobs:
     if: needs.changes.outputs.core == 'true' || needs.changes.outputs.cli == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: .
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -63,11 +66,17 @@ jobs:
       - name: Install (root)
         run: npm ci --no-audit --fund=false
 
+      - name: Show npm scripts (debug)
+        run: node -e "console.log(require('./package.json').scripts)"
+
+      # Futassa a scriptet, de ha nem létezik, essünk vissza npx-re
       - name: ESLint
-        run: npm run lint
+        run: |
+          npm run -s lint || npx eslint . --ext .ts
 
       - name: Prettier check
-        run: npm run format:check
+        run: |
+          npm run -s format:check || npx prettier --check .
 
   core:
     name: Core build & test

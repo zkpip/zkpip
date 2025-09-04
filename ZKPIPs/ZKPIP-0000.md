@@ -1,13 +1,13 @@
 # ZKPIP-0000: ZKPIP Process and Specification Template
 
-| Field       | Value                        |
-|-------------|------------------------------|
-| ZKPIP ID    | 0000                         |
-| Title       | ZKPIP Process and Specification Template |
-| Status      | Draft                        |
-| Category    | Process                      |
-| Authors     | zkPIP Contributors           |
-| Created     | 2025-08-05                   |
+| Field    | Value                                    |
+| -------- | ---------------------------------------- |
+| ZKPIP ID | 0000                                     |
+| Title    | ZKPIP Process and Specification Template |
+| Status   | Draft                                    |
+| Category | Process                                  |
+| Authors  | zkPIP Contributors                       |
+| Created  | 2025-08-05                               |
 
 ---
 
@@ -42,16 +42,17 @@ Each ZKPIP should include:
 
 ## Status Lifecycle
 
-| Status     | Description                                                |
-|------------|------------------------------------------------------------|
-| Draft      | Proposed and under discussion                              |
-| Active     | Accepted and used in tooling or documentation              |
-| Deprecated | Replaced by a newer ZKPIP                                 |
-| Rejected   | Closed without adoption                                    |
+| Status     | Description                                   |
+| ---------- | --------------------------------------------- |
+| Draft      | Proposed and under discussion                 |
+| Active     | Accepted and used in tooling or documentation |
+| Deprecated | Replaced by a newer ZKPIP                     |
+| Rejected   | Closed without adoption                       |
 
 ## Example
 
-Filename:  
+Filename:
+
 ```
 ZKPIP-circom-groth16-001_invalid_ic_length.md
 ```

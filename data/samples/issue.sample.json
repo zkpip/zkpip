@@ -4,10 +4,7 @@
   "source": "github",
   "url": "https://github.com/org/repo/issues/42",
   "title": "Constraint system fails with unsatisfied constraints",
-  "labels": [
-    "constraint",
-    "noir"
-  ],
+  "labels": ["constraint", "noir"],
   "classification": "constraint-failure",
   "confidence": 0.92
 }

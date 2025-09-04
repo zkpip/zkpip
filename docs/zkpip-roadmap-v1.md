@@ -108,7 +108,7 @@ The focus is on simplicity, Ethereum relevance, and adoption readiness.
   - Light Batch Seal schema + CLI implementation
   - Merkle root aggregation for batch proof-bundles
   - CLI support for batch sealing (`zkpip seal light --batch <dir>`)
-  - Documentation and extended test vectors  
+  - Documentation and extended test vectors
 
 - **Week 18–20:**
   - ZKPIP Scan Explorer MVP

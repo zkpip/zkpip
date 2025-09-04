@@ -1,8 +1,8 @@
-import AjvImport from "ajv";
-import addFormats from "ajv-formats";
+import AjvImport from 'ajv';
+import addFormats from 'ajv-formats';
 
 // Golyóálló ESM/CJS interop: mindig konstruálható osztályt kapunk
-type AjvCtor = new (opts?: any) => import("ajv").default;
+type AjvCtor = new (opts?: any) => import('ajv').default;
 const AjvClass: AjvCtor = (AjvImport as any).default ?? (AjvImport as any);
 
 export function createAjv() {
@@ -16,5 +16,5 @@ export function createAjv() {
 
   // ajv-formats default export interop biztosan hívható
   (addFormats as any)(ajv);
-  return ajv as import("ajv").default;
+  return ajv as import('ajv').default;
 }

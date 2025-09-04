@@ -6,7 +6,9 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 ---
 
 ## [0.1.0] — 2025-08-27
+
 ### Added
+
 - Initial release of `@zkpip/core` with CLI and schema validation.
 - Support for proof-bundle validation against canonical JSON Schemas.
 - Adapters:
@@ -16,6 +18,7 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 - Offline SVG "verified" badge generation.
 
 ### Infrastructure
+
 - **Schema lint guards**:
   - `$ref` must be either URN + fragment or local fragment.
   - `$schema` must always be a draft URL (2020-12).
@@ -32,6 +35,7 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 ---
 
 ## [Unreleased]
+
 - Additional adapters (e.g. Halo2, Plonky2).
 - Expanded vector tests.
 - Improved developer documentation.

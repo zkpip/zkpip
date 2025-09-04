@@ -2,25 +2,25 @@ name: Schema Validation
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
-      - "packages/core/schemas/**"
-      - "packages/core/scripts/validateSchemas.ts"
-      - "packages/core/src/**"
-      - "packages/core/package.json"
-      - "packages/core/package-lock.json"
-      - "package.json"
-      - "package-lock.json"
+      - 'packages/core/schemas/**'
+      - 'packages/core/scripts/validateSchemas.ts'
+      - 'packages/core/src/**'
+      - 'packages/core/package.json'
+      - 'packages/core/package-lock.json'
+      - 'package.json'
+      - 'package-lock.json'
   pull_request:
-    branches: [ main ]
+    branches: [main]
     paths:
-      - "packages/core/schemas/**"
-      - "packages/core/scripts/validateSchemas.ts"
-      - "packages/core/src/**"
-      - "packages/core/package.json"
-      - "packages/core/package-lock.json"
-      - "package.json"
-      - "package-lock.json"
+      - 'packages/core/schemas/**'
+      - 'packages/core/scripts/validateSchemas.ts'
+      - 'packages/core/src/**'
+      - 'packages/core/package.json'
+      - 'packages/core/package-lock.json'
+      - 'package.json'
+      - 'package-lock.json'
   workflow_dispatch:
 
 jobs:

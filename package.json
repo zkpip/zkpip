@@ -6,25 +6,35 @@
     "build": "npm run clean:srcjs && tsc -b",
     "test": "npm run clean:srcjs && vitest run",
     "clean": "rimraf dist",
-
-    "cli:build": "npm --prefix packages/cli run build",    
+    "cli:build": "npm --prefix packages/cli run build",
     "cli:test": "npm --prefix packages/cli run test",
     "cli:cov": "npm --prefix packages/cli run test:cov",
     "cli:test:watch": "npm --prefix packages/cli run test:watch",
-
     "core:clean": "npm --prefix packages/core run clean",
     "core:build": "npm --prefix packages/core run build",
     "core:test": "npm --prefix packages/core run test",
     "core:test:ajv": "npm --prefix packages/core run test:ajv",
     "core:test:watch": "npm --prefix packages/core run test:watch",
     "core:cov": "npm --prefix packages/core run test:cov",
-    "core:validate": "npm --prefix packages/core run validate-schemas"    
+    "core:validate": "npm --prefix packages/core run validate-schemas",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint . --ext .ts"
   },
   "dependencies": {
     "tsx": "^4.20.5"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",
+    "@typescript-eslint/eslint-plugin": "^8.42.0",
+    "@typescript-eslint/parser": "^8.42.0",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-import-resolver-typescript": "^4.4.4",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-unused-imports": "^4.2.0",
+    "eslint-plugin-vitest": "^0.5.4",
+    "prettier": "^3.6.2",
     "rimraf": "^6.0.1",
     "typescript": "5.5",
     "vitest": "^3.2.4"

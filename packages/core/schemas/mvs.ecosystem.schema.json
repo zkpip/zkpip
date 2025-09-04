@@ -5,8 +5,18 @@
   "allOf": [{ "$ref": "urn:zkpip:mvs.core.schema.json" }],
   "type": "object",
   "required": [
-    "schemaVersion", "recordType", "id", "createdAt", "updatedAt",
-    "project", "category", "proofSystem", "curve", "commitmentScheme", "hashes", "languages"
+    "schemaVersion",
+    "recordType",
+    "id",
+    "createdAt",
+    "updatedAt",
+    "project",
+    "category",
+    "proofSystem",
+    "curve",
+    "commitmentScheme",
+    "hashes",
+    "languages"
   ],
   "properties": {
     "recordType": { "const": "ecosystem" },

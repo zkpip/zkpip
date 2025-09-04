@@ -4,32 +4,32 @@ on:
   workflow_call:
     inputs:
       include:
-        description: "Glob patterns (informational only)"
+        description: 'Glob patterns (informational only)'
         required: true
         type: string
       exclude:
-        description: "Exclusive glob patterns (informational only)"
+        description: 'Exclusive glob patterns (informational only)'
         required: false
         type: string
-        default: ""
+        default: ''
       annotate:
-        description: "PR comment on error"
+        description: 'PR comment on error'
         required: false
         type: boolean
         default: true
   workflow_dispatch:
     inputs:
       include:
-        description: "Glob patterns (informational only)"
+        description: 'Glob patterns (informational only)'
         required: true
         default: |
           packages/core/schemas/**
       exclude:
-        description: "Exclusive glob patterns"
+        description: 'Exclusive glob patterns'
         required: false
-        default: ""
+        default: ''
       annotate:
-        description: "PR-comment on manual dispatch."
+        description: 'PR-comment on manual dispatch.'
         required: false
         type: boolean
         default: true
@@ -44,7 +44,7 @@ jobs:
       pull-requests: write
     defaults:
       run:
-        working-directory: packages/core   
+        working-directory: packages/core
 
     steps:
       - name: Validate inputs

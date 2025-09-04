@@ -2,11 +2,11 @@
 // Ensure dist/index.js is executable and has a proper shebang.
 // Works on Windows/macOS/Linux. Safe to run multiple times.
 
-const fs = require("fs");
-const path = require("path");
+const fs = require('fs');
+const path = require('path');
 
-const ENTRY = path.resolve(__dirname, "..", "dist", "index.js");
-const SHEBANG = "#!/usr/bin/env node\n";
+const ENTRY = path.resolve(__dirname, '..', 'dist', 'index.js');
+const SHEBANG = '#!/usr/bin/env node\n';
 
 function ensureFileExists(p) {
   if (!fs.existsSync(p)) {
@@ -19,7 +19,7 @@ function ensureShebang(p) {
   const hasShebang = buf.slice(0, SHEBANG.length).toString() === SHEBANG;
   if (!hasShebang) {
     const content = buf.toString();
-    fs.writeFileSync(p, SHEBANG + content, { encoding: "utf8" });
+    fs.writeFileSync(p, SHEBANG + content, { encoding: 'utf8' });
     console.log(`Prepended shebang to ${p}`);
   } else {
     console.log(`Shebang already present in ${p}`);
@@ -41,5 +41,5 @@ function ensureExecutable(p) {
   ensureFileExists(ENTRY);
   ensureShebang(ENTRY);
   ensureExecutable(ENTRY);
-  console.log("make-executable: done.");
+  console.log('make-executable: done.');
 })();

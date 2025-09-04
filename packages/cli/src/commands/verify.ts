@@ -1,28 +1,61 @@
-import fs from "node:fs";
-import path from "node:path";
-import { pickAdapter, getAdapterById } from "../registry/adapterRegistry.js";
-import { createAjv, addCoreSchemas, CANONICAL_IDS } from "@zkpip/core";
+import fs from 'node:fs';
+import path from 'node:path';
+import { pickAdapter, getAdapterById } from '../registry/adapterRegistry.js';
+import { createAjv, addCoreSchemas, CANONICAL_IDS } from '@zkpip/core';
 
 type VerifyExit = 0 | 1 | 2 | 3 | 4;
 
+// Shared fields across meta and input
+type VerificationFields = {
+  proofSystem?: string;
+  framework?: string;
+  recordType?: string;
+  proof?: string;
+  publicInputs?: string;
+};
+
+// Meta contains the same shape
+type VerificationMeta = VerificationFields;
+
+// Input extends the same, plus optional meta
+type VerificationInput = VerificationFields & {
+  meta?: VerificationMeta;
+};
+
 export const verifyCmd = {
-  command: "verify",
-  describe: "Verify a proof bundle or a verification JSON input",
+  command: 'verify',
+  describe: 'Verify a proof bundle or a verification JSON input',
   builder: (y: any) =>
     y
-      .option("bundle", { type: "string", describe: "Path to a proof-bundle JSON file" })
-      .option("verification", { type: "string", describe: "Path to a verification JSON file (alternative input)" })
-      .option("adapter", { type: "string", describe: "Force a specific adapter id (e.g. snarkjs-groth16)" })
-      .option("json", { type: "boolean", default: false, describe: "Emit machine-readable JSON output" })
-      .option("exit-codes", {
-        type: "boolean",
-        default: false,
-        describe: "Non-zero exit codes on failure (2=no adapter, 3=schema invalid, 1=verify failed)",
+      .option('bundle', { type: 'string', describe: 'Path to a proof-bundle JSON file' })
+      .option('verification', {
+        type: 'string',
+        describe: 'Path to a verification JSON file (alternative input)',
       })
-      .option("debug", { type: "boolean", default: false, describe: "Verbose error output on failures" })
-      .conflicts("bundle", "verification")
+      .option('adapter', {
+        type: 'string',
+        describe: 'Force a specific adapter id (e.g. snarkjs-groth16)',
+      })
+      .option('json', {
+        type: 'boolean',
+        default: false,
+        describe: 'Emit machine-readable JSON output',
+      })
+      .option('exit-codes', {
+        type: 'boolean',
+        default: false,
+        describe:
+          'Non-zero exit codes on failure (2=no adapter, 3=schema invalid, 1=verify failed)',
+      })
+      .option('debug', {
+        type: 'boolean',
+        default: false,
+        describe: 'Verbose error output on failures',
+      })
+      .conflicts('bundle', 'verification')
       .check((argv: any) => {
-        if (!argv.bundle && !argv.verification) throw new Error("Provide --bundle or --verification");
+        if (!argv.bundle && !argv.verification)
+          throw new Error('Provide --bundle or --verification');
         return true;
       }),
   handler: async (argv: any) => {
@@ -32,8 +65,8 @@ export const verifyCmd = {
       if (argv.json) {
         (ok ? console.log : console.error)(JSON.stringify(obj, null, 2));
       } else {
-        if (ok) console.log(obj.message ?? "OK");
-        else console.error("ERROR:", obj.message ?? obj.error ?? obj);
+        if (ok) console.log(obj.message ?? 'OK');
+        else console.error('ERROR:', obj.message ?? obj.error ?? obj);
         if (argv.debug && obj.debug) console.error(obj.debug);
       }
     };
@@ -41,16 +74,16 @@ export const verifyCmd = {
     try {
       // Read and parse input
       const p = path.resolve(String(argv.bundle ?? argv.verification));
-      const raw = fs.readFileSync(p, "utf8");
-      const input = JSON.parse(raw);
+      const raw = fs.readFileSync(p, 'utf8');
+      const input = JSON.parse(raw) as VerificationInput;
 
       // 1) Schema validation via canonical IDs
       const ajv = createAjv();
       addCoreSchemas(ajv);
 
       const looksLikeBundle =
-        typeof input?.recordType === "string"
-          ? input.recordType.toLowerCase().includes("bundle")
+        typeof input?.recordType === 'string'
+          ? input.recordType.toLowerCase().includes('bundle')
           : !!input?.proof || !!input?.publicInputs;
 
       const schemaId = looksLikeBundle ? CANONICAL_IDS.proofBundle : CANONICAL_IDS.verification;
@@ -62,15 +95,15 @@ export const verifyCmd = {
         emit(
           {
             ok: false,
-            stage: "schema",
+            stage: 'schema',
             schemaRef: schemaId,
             errors: validate.errors ?? [],
-            message: "Input failed MVS schema validation.",
+            message: 'Input failed MVS schema validation.',
             debug: argv.debug ? { file: p } : undefined,
           },
-          false
+          false,
         );
-        if (argv["exit-codes"]) process.exit(exitCode);
+        if (argv['exit-codes']) process.exit(exitCode);
         return;
       }
 
@@ -83,13 +116,15 @@ export const verifyCmd = {
           emit(
             {
               ok: false,
-              stage: "adapter",
+              stage: 'adapter',
               message: `Adapter not found: ${argv.adapter}`,
-              debug: argv.debug ? { available: ["snarkjs-groth16", "snarkjs-plonk", "zokrates-groth16"] } : undefined,
+              debug: argv.debug
+                ? { available: ['snarkjs-groth16', 'snarkjs-plonk', 'zokrates-groth16'] }
+                : undefined,
             },
-            false
+            false,
           );
-          if (argv["exit-codes"]) process.exit(exitCode);
+          if (argv['exit-codes']) process.exit(exitCode);
           return;
         }
       } else {
@@ -101,8 +136,8 @@ export const verifyCmd = {
         emit(
           {
             ok: false,
-            stage: "adapter",
-            message: "No suitable adapter found for this input.",
+            stage: 'adapter',
+            message: 'No suitable adapter found for this input.',
             debug: argv.debug
               ? {
                   sniff: {
@@ -112,9 +147,9 @@ export const verifyCmd = {
                 }
               : undefined,
           },
-          false
+          false,
         );
-        if (argv["exit-codes"]) process.exit(exitCode);
+        if (argv['exit-codes']) process.exit(exitCode);
         return;
       }
 
@@ -128,35 +163,35 @@ export const verifyCmd = {
             adapter: res.adapter,
             message: `Verified by adapter: ${res.adapter}`,
           },
-          true
+          true,
         );
-        if (argv["exit-codes"]) process.exit(0);
+        if (argv['exit-codes']) process.exit(0);
       } else {
         exitCode = 1;
         emit(
           {
             ok: false,
             adapter: res.adapter,
-            error: res.error ?? "verification_failed",
-            message: `Verification failed in adapter: ${res.adapter} (${res.error ?? "unknown"})`,
+            error: res.error ?? 'verification_failed',
+            message: `Verification failed in adapter: ${res.adapter} (${res.error ?? 'unknown'})`,
           },
-          false
+          false,
         );
-        if (argv["exit-codes"]) process.exit(exitCode);
+        if (argv['exit-codes']) process.exit(exitCode);
       }
     } catch (err: any) {
       exitCode = 4;
       emit(
         {
           ok: false,
-          stage: "io",
+          stage: 'io',
           error: String(err?.message ?? err),
-          message: "Failed to read or process the input file.",
+          message: 'Failed to read or process the input file.',
           debug: argv.debug ? String(err?.stack ?? err) : undefined,
         },
-        false
+        false,
       );
-      if (argv["exit-codes"]) process.exit(exitCode);
+      if (argv['exit-codes']) process.exit(exitCode);
     }
   },
 };

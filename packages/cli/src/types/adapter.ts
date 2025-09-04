@@ -1,16 +1,16 @@
 // packages/cli/src/types/adapter.ts
-export type VerificationOutcome = "valid" | "invalid" | "error";
+export type VerificationOutcome = 'valid' | 'invalid' | 'error';
 
 export interface VerificationInput {
-  proofBundle: unknown;      // JSON parsed bundle
+  proofBundle: unknown; // JSON parsed bundle
   options?: Record<string, unknown>; // adapter-specific opts (e.g., fast mode)
 }
 
 export interface VerificationResult {
   outcome: VerificationOutcome;
-  adapter: string;           // e.g., "snarkjs-groth16"
+  adapter: string; // e.g., "snarkjs-groth16"
   checks: Array<{
-    name: string;            // e.g., "groth16.verify"
+    name: string; // e.g., "groth16.verify"
     passed: boolean;
     details?: Record<string, unknown>;
   }>;

@@ -1,8 +1,8 @@
 // Heuristic schema $id picker using the input file name/path.
 // Backed by actual $id values loaded from the /schemas directory.
 
-import { basename } from "path";
-import { loadSchemaIds } from "./schemaIds.js";
+import { basename } from 'path';
+import { loadSchemaIds } from './schemaIds.js';
 
 const ids = loadSchemaIds();
 
@@ -26,38 +26,27 @@ export function pickSchemaId(filePath: string): string {
   const name = basename(filePath).toLowerCase();
 
   // 1) Proof-bundle manifest
-  if (
-    name.includes("proof-bundle") ||
-    name.includes("bundle") ||
-    name.includes("manifest")
-  ) {
+  if (name.includes('proof-bundle') || name.includes('bundle') || name.includes('manifest')) {
     return ids.proofBundle;
   }
 
   // 2) CIR (Canonical Intermediate Representation)
-  if (
-    name.includes("cir") ||
-    name.includes("circuit")
-  ) {
+  if (name.includes('cir') || name.includes('circuit')) {
     return ids.cir;
   }
 
   // 3) Verification (legacy: "error")
-  if (
-    name.includes("verification") ||
-    name.includes("verify") ||
-    name.includes("error")
-  ) {
+  if (name.includes('verification') || name.includes('verify') || name.includes('error')) {
     return ids.verification;
   }
 
   // 4) Issue
-  if (name.includes("issue")) {
+  if (name.includes('issue')) {
     return ids.issue;
   }
 
   // 5) Ecosystem
-  if (name.includes("ecosystem") || name.includes("eco")) {
+  if (name.includes('ecosystem') || name.includes('eco')) {
     return ids.ecosystem;
   }
 

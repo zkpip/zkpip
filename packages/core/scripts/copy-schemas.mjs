@@ -1,7 +1,7 @@
 // scripts/copy-schemas.mjs
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -21,9 +21,9 @@ function copyDirSync(src, dest) {
 }
 
 function main() {
-  const coreRoot = path.resolve(__dirname, "..");
-  const src = path.join(coreRoot, "schemas");
-  const dest = path.join(coreRoot, "dist/schemas");
+  const coreRoot = path.resolve(__dirname, '..');
+  const src = path.join(coreRoot, 'schemas');
+  const dest = path.join(coreRoot, 'dist/schemas');
   copyDirSync(src, dest);
   console.log(`✅ Schemas copied: ${src} -> ${dest}`);
 }
