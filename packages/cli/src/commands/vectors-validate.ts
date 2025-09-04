@@ -31,7 +31,7 @@ function walkJson(root: string): string[] {
   return out;
 }
 
-export function buildVectorsValidateCommand(): CommandModule<{}, Options> {
+export function buildVectorsValidateCommand(): CommandModule<object, Options> {
   return {
     command: 'vectors validate',
     describe: 'Validate vectors against MVS schemas',

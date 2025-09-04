@@ -12,14 +12,10 @@ export interface AjvInstance {
   ): string;
 }
 
-type RealAjv = import('ajv').default;
-
-type AjvLike = AjvInstance | RealAjv;
-
 type ValidateFn = ((data: unknown) => boolean) & { errors?: ErrorObject[] | null };
 
 export function validateAgainstResult(
-  ajv: AjvLike,
+  ajv: AjvInstance,
   schemaId: string,
   data: Record<string, unknown>,
 ): { ok: true; text: string } | { ok: false; text: string } {

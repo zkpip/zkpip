@@ -8,7 +8,6 @@ import { CANONICAL_IDS } from './constants/canonicalIds.js';
 import { validateError, validateIssue, validateEcosystem } from './validation/validators.js';
 // If you really need this and it exists:
 import { loadSchemaJson } from './schemaUtils.js';
-import type { AjvInstance } from './validation/createAjv.js';
 
 // 2) VALUE EXPORTS (re-exporting the value bindings)
 export {

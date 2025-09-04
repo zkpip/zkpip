@@ -30,11 +30,14 @@ describe('schemaUtils.loadSchemaJson', () => {
   });
 
   it('loads by URN → alias fallback', async () => {
-    // (Note: we keep canonical; test only ensures loader returns a valid object)
     const data = await loadSchemaJson('urn:zkpip:mvs.proof-bundle.schema.json', {
       schemasRoot: tmpRoot,
     });
-    expect(Object.keys(data as any)).toContain('ok');
+
+    const hasOk = (v: unknown): v is { ok: unknown } =>
+      typeof v === 'object' && v !== null && 'ok' in v;
+
+    expect(hasOk(data)).toBe(true);
   });
 
   it('loads relative path from schemasRoot', async () => {

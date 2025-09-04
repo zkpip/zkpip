@@ -37,11 +37,9 @@ export async function loadSchemaJson(
     }
     try {
       return await res.json();
-    } catch (err: any) {
+    } catch (err: unknown) {
       throw new Error(
-        `E_SCHEMA_LOAD_INVALID_JSON: Failed to parse HTTP JSON from ${srcStr}: ${
-          err?.message ?? String(err)
-        }`,
+        `E_SCHEMA_LOAD_INVALID_JSON: Failed to parse HTTP JSON from ${srcStr}: ${errMsg(err)}`,
       );
     }
   }
@@ -136,8 +134,7 @@ async function tryReadCandidates(
     try {
       const v = await readJsonFromFile(p);
       return { value: v, attempted };
-    } catch (err: any) {
-      // Csak "nem található" vagy "könyvtár" hibára lépünk tovább; más IO hibát buborékoltatunk.
+    } catch (err: unknown) {
       if (!isNotFoundErr(err) && !isIsDirectoryErr(err)) {
         throw err;
       }
@@ -155,15 +152,13 @@ async function readJsonFromFile(absPath: string, displayLabel?: string): Promise
     const raw = await readFile(absPath, 'utf8');
     const text = raw.replace(/^\uFEFF/, '');
     return JSON.parse(text);
-  } catch (err: any) {
+  } catch (err: unknown) {
     if (isNotFoundErr(err) || isIsDirectoryErr(err)) {
       throw err;
     }
     const label = displayLabel ?? absPath;
     throw new Error(
-      `E_SCHEMA_LOAD_INVALID_JSON: Failed to parse JSON from ${label}: ${
-        err?.message ?? String(err)
-      }`,
+      `E_SCHEMA_LOAD_INVALID_JSON: Failed to parse JSON from ${label}: ${errMsg(err)}`,
     );
   }
 }
@@ -197,16 +192,32 @@ function aliasPathForRelative(relInput: string, schemasRoot: string): string | n
   return path.resolve(schemasRoot, flatName);
 }
 
-function isNotFoundErr(err: any): boolean {
-  return err && typeof err === 'object' && (err.code === 'ENOENT' || err.code === 'ENAMETOOLONG');
+function isNotFoundErr(err: unknown): boolean {
+  const code = errorCode(err);
+  return code === 'ENOENT' || code === 'ENAMETOOLONG';
 }
 
-function isIsDirectoryErr(err: any): boolean {
-  return err && typeof err === 'object' && err.code === 'EISDIR';
+function isIsDirectoryErr(err: unknown): boolean {
+  const code = errorCode(err);
+  return code === 'EISDIR';
 }
 
 function makeNotFoundMessage(source: string, attempted: string[], schemasRoot?: string): string {
   const list = attempted.map((p) => ` - ${p}`).join('\n');
   const rootInfo = `schemasRoot=${schemasRoot ?? '(undefined)'}`;
   return `E_SCHEMA_LOAD_NOT_FOUND: Unable to resolve schema from "${source}" (${rootInfo}). Tried:\n${list}`;
+}
+
+// ---- error helpers --------------------------------------------------------
+function errMsg(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}
+
+function hasCode(e: unknown): e is { code: unknown } {
+  return typeof e === 'object' && e !== null && 'code' in e;
+}
+
+function errorCode(e: unknown): string | undefined {
+  if (!hasCode(e)) return undefined;
+  return typeof e.code === 'string' ? e.code : undefined;
 }

@@ -47,7 +47,9 @@ function inferCoreSchemasRoot(): string | undefined {
     const coreDir = path.dirname(corePkgJson);
     const candidate = path.resolve(coreDir, 'schemas');
     if (existsSync(candidate)) return candidate;
-  } catch {}
+  } catch {
+    return undefined;
+  }
 
   // 2) Monorepo: <this_file>/../../../core/schemas
   try {
@@ -55,7 +57,7 @@ function inferCoreSchemasRoot(): string | undefined {
     const candidate = path.resolve(here, '../../../core/schemas');
     if (existsSync(candidate)) return candidate;
   } catch {
-    // no more fallback
+    return undefined; 
   }
 
   return undefined;

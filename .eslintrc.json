@@ -19,14 +19,58 @@
     }
   },
   "rules": {
-    "import/extensions": ["error", "always", { "ignorePackages": true }],
+    "import/extensions": [
+        "error",
+        "ignorePackages",
+        {
+        "js": "always",  
+        "ts": "never",   
+        "tsx": "never"
+        }
+    ],
     "unused-imports/no-unused-imports": "error",
     "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }]
   },
   "overrides": [
     {
       "files": ["**/*.test.ts", "**/__tests__/**/*.ts"],
-      "env": { "vitest-globals": true }
+      "globals": {
+        "describe": "readonly",
+        "it": "readonly",
+        "test": "readonly",
+        "expect": "readonly",
+        "beforeAll": "readonly",
+        "afterAll": "readonly",
+        "beforeEach": "readonly",
+        "afterEach": "readonly",
+        "vi": "readonly"
+      }
     }
-  ]
+  ],
+    "overrides": [
+    {
+        "files": ["**/*.ts"],
+        "rules": {
+        "import/extensions": [
+            "error",
+            "ignorePackages",
+            { "js": "always", "ts": "never", "tsx": "never" }
+        ]
+        }
+    },
+    {
+        "files": ["**/*.test.ts", "**/__tests__/**/*.ts"],
+        "globals": {
+        "describe": "readonly",
+        "it": "readonly",
+        "test": "readonly",
+        "expect": "readonly",
+        "beforeAll": "readonly",
+        "afterAll": "readonly",
+        "beforeEach": "readonly",
+        "afterEach": "readonly",
+        "vi": "readonly"
+        }
+    }
+    ]
 }

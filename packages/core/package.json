@@ -57,7 +57,9 @@
     "test:ajv": "vitest run src/__tests__/ajv*.test.ts",
     "dev": "vitest",
     "test:watch": "vitest",
-    "test:cov": "vitest run --coverage"
+    "test:cov": "vitest run --coverage",
+    "format": "prettier -w .",
+    "format:check": "prettier -c ."
   },
   "dependencies": {
     "ajv": "^8.17.1",

@@ -23,7 +23,9 @@
     "test": "vitest run",
     "lint": "eslint .",
     "test:watch": "vitest",
-    "test:cov": "vitest run --coverage"
+    "test:cov": "vitest run --coverage",
+    "format": "prettier -w .",
+    "format:check": "prettier -c ."
   },
   "dependencies": {
     "@types/yargs": "^17.0.33",
