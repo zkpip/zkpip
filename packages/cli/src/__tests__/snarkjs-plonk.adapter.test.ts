@@ -14,7 +14,7 @@ const base = {
   framework: 'snarkjs',
   proof: { pi_a: [] },
   publicSignals: ['1', '2'],
-  verificationKey: {  },
+  verificationKey: {},
 } as const;
 
 describe('snarkjs-plonk adapter', () => {

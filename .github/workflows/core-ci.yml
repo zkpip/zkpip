@@ -72,7 +72,7 @@ jobs:
       - name: ESLint (flat, workspaces)
         run: npm run -ws lint
         env:
-          ESLINT_USE_FLAT_CONFIG: "true"
+          ESLINT_USE_FLAT_CONFIG: 'true'
 
       - name: Prettier check (workspaces)
         run: npm run -ws format:check

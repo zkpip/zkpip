@@ -30,12 +30,12 @@ declare module 'snarkjs' {
       publicSignals: ReadonlyArray<string | number | bigint>,
       proof: unknown,
     ): Promise<boolean>;
-  }  
+  }
 
-   const _default: {
-     groth16: typeof groth16;
-     plonk: typeof plonk;
-   };
+  const _default: {
+    groth16: typeof groth16;
+    plonk: typeof plonk;
+  };
 
-   export default _default;
+  export default _default;
 }

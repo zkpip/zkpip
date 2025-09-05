@@ -8,9 +8,7 @@ type Options = {
 
 function formatTable(rows: string[][]): string {
   // oszlopszélességek
-  const widths = rows[0].map((_, col) =>
-    Math.max(...rows.map((r) => (r[col] ?? '').length)),
-  );
+  const widths = rows[0].map((_, col) => Math.max(...rows.map((r) => (r[col] ?? '').length)));
   const pad = (s: string, w: number) => s + ' '.repeat(Math.max(0, w - s.length));
 
   const [header, ...body] = rows;
