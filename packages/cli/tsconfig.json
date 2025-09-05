@@ -17,7 +17,8 @@
     "composite": true,
     "skipLibCheck": true
   },
-  "include": ["src"],
+  "include": ["src", "src/**/*.ts", "src/**/*.d.ts"],
   "exclude": ["dist", "**/*.test.ts"],
-  "references": [{ "path": "../core" }]
+  "references": [{ "path": "../core" }],
+  "typeRoots": ["./src/types", "./types", "../../node_modules/@types"]
 }
