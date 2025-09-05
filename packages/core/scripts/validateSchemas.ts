@@ -40,9 +40,9 @@ function makeExpectedFailSet(vectorsRoot: string) {
     'mvs/cir/cir-valid-1.json',
     'mvs/cir/cir-valid-2.json',
     'mvs/cir/cir-valid-3.json',
-    'mvs/proofBundle/proofBundle-valid-1.json',
-    'mvs/proofBundle/proofBundle-valid-2.json',
-    'mvs/proofBundle/proofBundle-valid-3.json',
+    'mvs/proofSet/proofSet-valid-1.json',
+    'mvs/proofSet/proofSet-valid-2.json',
+    'mvs/proofSet/proofSet-valid-3.json',
   ]);
   const expectedAbs = new Set<string>();
   for (const r of expectedRel) {

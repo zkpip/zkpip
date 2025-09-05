@@ -22,7 +22,7 @@ function listJsonFiles(inputPath: string): string[] {
 }
 
 const SHORT_CANDIDATES: CanonicalId[] = [
-  'mvs.proof-bundle',
+  'mvs.proof-set',
   'mvs.cir',
   'mvs.verification',
   'mvs.issue',
@@ -30,7 +30,7 @@ const SHORT_CANDIDATES: CanonicalId[] = [
 ];
 
 const SHORT_TO_URN: Record<CanonicalId, string> = {
-  'mvs.proof-bundle': CANONICAL_IDS.proofBundle,
+  'mvs.proof-set': CANONICAL_IDS.proofSet,
   'mvs.cir': CANONICAL_IDS.cir,
   'mvs.verification': CANONICAL_IDS.verification,
   'mvs.issue': CANONICAL_IDS.issue,
@@ -51,7 +51,7 @@ function toShortId(schemaRef?: string): CanonicalId | undefined {
   }
   // fájlnév / URL utolsó komponense alapján
   const tail = s.split('/').pop() || s;
-  if (tail === 'mvs.proof-bundle.schema.json') return 'mvs.proof-bundle';
+  if (tail === 'mvs.proof-set.schema.json') return 'mvs.proof-set';
   if (tail === 'mvs.cir.schema.json') return 'mvs.cir';
   if (tail === 'mvs.verification.schema.json') return 'mvs.verification';
   if (tail === 'mvs.issue.schema.json') return 'mvs.issue';

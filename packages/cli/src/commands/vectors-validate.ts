@@ -66,15 +66,15 @@ export function buildVectorsValidateCommand(): CommandModule<object, Options> {
         }
 
         const ajv = createAjv();
-        // Példa: proof-bundle séma hozzáadása (bővítsd igény szerint)
-        const proofBundleSchema = loadSchemaJson('mvs/proof-bundle.schema.json');
-        ajv.addSchema(proofBundleSchema, 'mvs/proof-bundle');
+        // Példa: proof-set séma hozzáadása (bővítsd igény szerint)
+        const proofSetSchema = loadSchemaJson('mvs/proof-set.schema.json');
+        ajv.addSchema(proofSetSchema, 'mvs/proof-set');
 
         const files = walkJson(vectorsRoot);
         const results: Array<{ file: string; valid: boolean; errors: unknown[] }> = [];
 
-        const validate = ajv.getSchema('mvs/proof-bundle');
-        if (!validate) throw new Error("Schema 'mvs/proof-bundle' not found.");
+        const validate = ajv.getSchema('mvs/proof-set');
+        if (!validate) throw new Error("Schema 'mvs/proof-set' not found.");
 
         for (const f of files) {
           const raw = fs.readFileSync(f, 'utf8');

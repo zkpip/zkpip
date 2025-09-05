@@ -10,7 +10,7 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 
 - Initial release of `@zkpip/core` with CLI and schema validation.
-- Support for proof-bundle validation against canonical JSON Schemas.
+- Support for proof-set validation against canonical JSON Schemas.
 - Adapters:
   - `snarkjs`
   - `rapidsnark`

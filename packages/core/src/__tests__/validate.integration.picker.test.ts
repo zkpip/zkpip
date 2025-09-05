@@ -49,7 +49,7 @@ describe('validate.ts + pickSchemaId integration (picker)', () => {
     await expect(validatePath(ECO_VECTOR)).resolves.toBeUndefined();
   });
 
-  it('routes proof-bundle manifest files by name to the proofBundle schema (valid example)', async () => {
+  it('routes proof-set manifest files by name to the proofSet schema (valid example)', async () => {
     const valid = {
       schemaVersion: '0.1.0',
       bundleId: 'bndl-001',
@@ -62,11 +62,11 @@ describe('validate.ts + pickSchemaId integration (picker)', () => {
         zkey: { path: 'build/main.zkey' },
       },
     };
-    const p = tmpJsonFile('my.proof-bundle.manifest.json', valid);
+    const p = tmpJsonFile('my.proof-set.manifest.json', valid);
     await expect(validatePath(p)).resolves.toBeUndefined();
   });
 
-  it('rejects invalid proof-bundle (snarkjs without zkey)', async () => {
+  it('rejects invalid proof-set (snarkjs without zkey)', async () => {
     const invalid = {
       schemaVersion: '0.1.0',
       bundleId: 'bndl-002',

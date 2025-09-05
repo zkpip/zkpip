@@ -7,7 +7,7 @@ Provides a CLI with multiple adapters and a local "verified" badge generator.
 
 ## Features
 
-- Validate proof-bundles against canonical JSON Schemas
+- Validate proof-sets against canonical JSON Schemas
 - Verify proofs with adapters:
   - [`snarkjs`](https://github.com/iden3/snarkjs)
   - [`rapidsnark`](https://github.com/iden3/rapidsnark)
@@ -24,16 +24,16 @@ Install:
 npm install -g @zkpip/core
 ```
 
-Validate a proof-bundle:
+Validate a proof-set:
 
 ```bash
-zkpip validate ./vectors/proof-bundle.json
+zkpip validate ./vectors/proof-set.json
 ```
 
 Verify with an adapter:
 
 ```bash
-zkpip verify --adapter snarkjs --bundle ./vectors/proof-bundle.json
+zkpip verify --adapter snarkjs --bundle ./vectors/proof-set.json
 ```
 
 Generate a badge:

@@ -52,12 +52,12 @@ export function addCoreSchemas(ajv: AjvLike, opts?: { schemasDir?: string }): vo
 
   // 🔧 Include 'core' as well; try both filename variants if needed.
   const FILES: Record<
-    'core' | 'verification' | 'proofBundle' | 'cir' | 'issue' | 'ecosystem',
+    'core' | 'verification' | 'proofSet' | 'cir' | 'issue' | 'ecosystem',
     string | string[]
   > = {
     core: ['mvs.core.schema.json', 'mvs.core.payload.schema.json'],
     verification: 'mvs.verification.schema.json',
-    proofBundle: 'mvs.proof-bundle.schema.json',
+    proofSet: 'mvs.proof-set.schema.json',
     cir: 'mvs.cir.schema.json',
     issue: 'mvs.issue.schema.json',
     ecosystem: 'mvs.ecosystem.schema.json',
@@ -66,17 +66,17 @@ export function addCoreSchemas(ajv: AjvLike, opts?: { schemasDir?: string }): vo
   // 1) Add canonical schemas FIRST
   ajv.addSchema(loadSchema(dir, FILES.core));
   ajv.addSchema(loadSchema(dir, FILES.verification));
-  ajv.addSchema(loadSchema(dir, FILES.proofBundle));
+  ajv.addSchema(loadSchema(dir, FILES.proofSet));
   ajv.addSchema(loadSchema(dir, FILES.cir));
   ajv.addSchema(loadSchema(dir, FILES.issue));
   ajv.addSchema(loadSchema(dir, FILES.ecosystem));
 
   // 2) Aliases (legacy + new subpaths)
-  registerAliases(ajv, CANONICAL_IDS.proofBundle, [
-    'mvs.proof-bundle',
-    'mvs/proof-bundle',
-    'mvs.proof-bundle.schema.json',
-    'mvs/verification/proofBundle',
+  registerAliases(ajv, CANONICAL_IDS.proofSet, [
+    'mvs.proof-set',
+    'mvs/proof-set',
+    'mvs.proof-set.schema.json',
+    'mvs/verification/proofSet',
   ]);
   registerAliases(ajv, CANONICAL_IDS.cir, [
     'mvs.cir',

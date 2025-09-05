@@ -37,7 +37,7 @@ const builder: CommandBuilder<object, VerifyArgs> = (y: Argv<object>): Argv<Veri
   y
     .option('bundle', {
       type: 'string',
-      describe: 'Path to a proof-bundle JSON file',
+      describe: 'Path to a proof-set JSON file',
     })
     .option('verification', {
       type: 'string',
@@ -120,7 +120,7 @@ export const verifyCmd: CommandModule<object, VerifyArgs> = {
           ? input.recordType.toLowerCase().includes('bundle')
           : !!input?.proof || !!input?.publicInputs;
 
-      const schemaId = looksLikeBundle ? CANONICAL_IDS.proofBundle : CANONICAL_IDS.verification;
+      const schemaId = looksLikeBundle ? CANONICAL_IDS.proofSet : CANONICAL_IDS.verification;
       const validate = ajv.getSchema(schemaId) ?? ajv.compile({ $ref: schemaId });
       const valid = !!validate(input);
 

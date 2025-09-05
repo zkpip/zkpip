@@ -1,5 +1,5 @@
 {
-  "$id": "urn:zkpip:mvs.proof-bundle.schema.json",
+  "$id": "urn:zkpip:mvs.proof-set.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "ZKPIP MVS Proof Bundle (v0.1)",
   "type": "object",

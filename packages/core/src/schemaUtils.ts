@@ -16,7 +16,7 @@ export type LoadSchemaOptions = {
 /**
  * Public API
  * JSON schema loading:
- *  - URN:  "urn:zkpip:mvs.proof-bundle.schema.json"
+ *  - URN:  "urn:zkpip:mvs.proof-set.schema.json"
  *  - HTTP: "http(s)://…"
  *  - FILE: "file://…"
  */
@@ -97,18 +97,18 @@ export async function loadSchemaJson(
 
 /**
  * URN
- *   urn:zkpip:mvs.proof-bundle.schema.json → <schemasRoot>/mvs/proof-bundle.schema.json
+ *   urn:zkpip:mvs.proof-set.schema.json → <schemasRoot>/mvs/proof-set.schema.json
  */
 function resolveUrnToSchemaPath(urn: string, schemasRoot?: string): string | null {
   const prefix = 'urn:zkpip:';
   if (!urn.startsWith(prefix)) return null;
 
-  const alias = urn.slice(prefix.length); // "mvs.proof-bundle.schema.json"
+  const alias = urn.slice(prefix.length); // "mvs.proof-set.schema.json"
   const firstDot = alias.indexOf('.');
   if (firstDot < 0) return null;
 
   const dir = alias.slice(0, firstDot); // "mvs"
-  const file = alias.slice(firstDot + 1); // "proof-bundle.schema.json"
+  const file = alias.slice(firstDot + 1); // "proof-set.schema.json"
   const joined = path.join(schemasRoot ?? '', dir, file);
   return joined;
 }

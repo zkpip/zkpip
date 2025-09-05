@@ -82,7 +82,7 @@ This dual meaning is intentional:the **Project** exists to host tools and schema
 
 ```ts
 export const SCHEMA_ALIASES = {
-  'mvs.proofBundle': 'https://zkpip.org/mvs/proof-bundle.schema.json',
+  'mvs.proofSet': 'https://zkpip.org/mvs/proof-set.schema.json',
   'mvs.cir': 'https://zkpip.org/mvs/cir.schema.json',
 } as const;
 ```
@@ -99,3 +99,10 @@ export SCHEMA_DEV_ROOT=./packages/core/schemas
   - all core schemas compile
   - canonical `$id` uniqueness
   - alias map injective & acyclic
+
+  ---
+
+© 2025 ZKPIP Contributors. Licensed under Apache-2.0.  
+All project names and terms (e.g., ZKPIP™, ProofSet™, SwiftSeal™, BatchSeal™) are unregistered trademarks (™).  
+See [TRADEMARKS.md](./TRADEMARKS.md) for details on trademark usage and the full brand family.
+

@@ -1,6 +1,6 @@
 # ZKPIP Roadmap — MVS v1.0
 
-> **Executive Summary:** ZKPIP MVS v1.0 delivers a stable foundation for ZK proof-bundle validation with four baseline adapters, a CLI toolchain, and the first Light Seal (single and batch) — providing an OSS-ready and grant-ready product for Ethereum developers.
+> **Executive Summary:** ZKPIP MVS v1.0 delivers a stable foundation for ZK proof-set validation with four baseline adapters, a CLI toolchain, and the first Light Seal (single and batch) — providing an OSS-ready and grant-ready product for Ethereum developers.
 
 **Date:** 2025-08-16  
 **Status:** Updated planning for MVS v1.0 release
@@ -9,7 +9,7 @@
 
 ## 1. Scope & Vision
 
-The Minimum Viable Standard (MVS v1.0) aims to deliver a stable foundation for ZK proof-bundle validation and developer adoption.  
+The Minimum Viable Standard (MVS v1.0) aims to deliver a stable foundation for ZK proof-set validation and developer adoption.  
 It includes baseline adapters, a CLI toolchain, and the first implementation of the **Light Seal** for verified proof batches.  
 The focus is on simplicity, Ethereum relevance, and adoption readiness.
 
@@ -22,7 +22,7 @@ The focus is on simplicity, Ethereum relevance, and adoption readiness.
   - Invariants, canonical fields, validation suite
 
 - **CLI Tooling:**
-  - `zkpip validate` — schema validation for ZK proof-bundles and CIR
+  - `zkpip validate` — schema validation for ZK proof-sets and CIR
   - `zkpip verify` — off-chain verification with adapters
   - `zkpip seal light` — issue Light Seal artefacts (JSON + badge)
 
@@ -40,7 +40,7 @@ The focus is on simplicity, Ethereum relevance, and adoption readiness.
 
 - **Batch Seal (OSS mode, with annual expiry):**
   - Support for small proof batches (e.g. up to 50 proofs)
-  - Merkle root aggregation over batch proof-bundles
+  - Merkle root aggregation over batch proof-sets
   - CLI support: `zkpip seal light --batch <dir>`
   - Artefacts: `batch_seal.json`, badge (SVG), optional report
   - Cost-efficient (CPU-only, no GPU), aligned with Light Infra SaaS
@@ -58,7 +58,7 @@ The focus is on simplicity, Ethereum relevance, and adoption readiness.
   - Public explorer for all issued Seals (Light and Batch)
   - Badge backlinks resolve to dedicated Seal pages (permalink per Seal ID)
   - Seal detail pages show adapter version, hashes, verification status, and history
-  - Support for search (Seal ID, proofBundleHash), filters (adapter, Seal type, **user/project**)
+  - Support for search (Seal ID, proofSetHash), filters (adapter, Seal type, **user/project**)
   - Re-verify support: API endpoint to re-run verification, history appended
   - Immutable publish: `POST /api/seals` from CLI, with signed manifest
   - SEO-ready: structured data (JSON-LD), canonical links, UTM tracking
@@ -106,13 +106,13 @@ The focus is on simplicity, Ethereum relevance, and adoption readiness.
 
 - **Week 16–18:**
   - Light Batch Seal schema + CLI implementation
-  - Merkle root aggregation for batch proof-bundles
+  - Merkle root aggregation for batch proof-sets
   - CLI support for batch sealing (`zkpip seal light --batch <dir>`)
   - Documentation and extended test vectors
 
 - **Week 18–20:**
   - ZKPIP Scan Explorer MVP
-  - Public explorer at scan.zkpip.org with search & filter (Seal ID, proofBundleHash, adapter, Seal type, **user/project**)
+  - Public explorer at scan.zkpip.org with search & filter (Seal ID, proofSetHash, adapter, Seal type, **user/project**)
   - Seal detail pages linked from badges (permalink per Seal)
   - Publish endpoint integration (`POST /api/seals`)
   - Re-verify support with verification history

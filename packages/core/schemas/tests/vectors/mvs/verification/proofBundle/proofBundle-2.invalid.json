@@ -1,5 +1,5 @@
 {
-  "type": "proofBundle",
+  "type": "proofSet",
   "id": "bundle-noversion",
   "proof": {
     "scheme": "plonk",

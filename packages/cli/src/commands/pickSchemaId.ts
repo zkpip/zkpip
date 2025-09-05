@@ -10,7 +10,7 @@ const ids = loadSchemaIds();
  * Pick a schema $id based on the input file name/path (case-insensitive).
  *
  * Priority (substring match):
- *   1) Proof-bundle manifest → "proof-bundle" | "bundle" | "manifest" → proofBundle
+ *   1) Proof-bundle manifest → "proof-set" | "bundle" | "manifest" → proofSet
  *   2) Canonical IR          → "cir" | "circuit" | "circuits"         → cir
  *   3) Verification          → "verification" | "verify" | "error"    → verification
  *   4) Issue                 → "issue"                                 → issue
@@ -19,15 +19,15 @@ const ids = loadSchemaIds();
  *
  * Notes:
  * - The "error" legacy naming maps to "verification" for backward compatibility.
- * - The "manifest" keyword is routed to proofBundle (typical file naming).
+ * - The "manifest" keyword is routed to proofSet (typical file naming).
  * - If you need stricter routing, replace/augment these heuristics with a config.
  */
 export function pickSchemaId(filePath: string): string {
   const name = basename(filePath).toLowerCase();
 
   // 1) Proof-bundle manifest
-  if (name.includes('proof-bundle') || name.includes('bundle') || name.includes('manifest')) {
-    return ids.proofBundle;
+  if (name.includes('proof-set') || name.includes('bundle') || name.includes('manifest')) {
+    return ids.proofSet;
   }
 
   // 2) CIR (Canonical Intermediate Representation)

@@ -164,5 +164,5 @@ jobs:
       - name: Smoke top-level validate single file
         run: |
           node packages/cli/dist/index.js validate \
-            ./packages/core/schemas/tests/vectors/mvs/verification/proofBundle/proof-bundle.valid.json \
+            ./packages/core/schemas/tests/vectors/mvs/verification/proofSet/proof-set.valid.json \
             --schemas-root ./packages/core/schemas

@@ -10,14 +10,14 @@ describe('Schema alias coverage', () => {
 
     const entries: Array<[string, string[]]> = [
       [
-        CANONICAL_IDS.proofBundle,
+        CANONICAL_IDS.proofSet,
         [
           // legacy
-          'mvs.proof-bundle',
-          'mvs/proof-bundle',
-          'mvs.proof-bundle.schema.json',
+          'mvs.proof-set',
+          'mvs/proof-set',
+          'mvs.proof-set.schema.json',
           // new subpath alias
-          'mvs/verification/proofBundle',
+          'mvs/verification/proofSet',
         ],
       ],
       [CANONICAL_IDS.cir, ['mvs.cir', 'mvs/cir', 'mvs.cir.schema.json', 'mvs/verification/cir']],

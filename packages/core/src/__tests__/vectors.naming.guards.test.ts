@@ -28,8 +28,8 @@ describe('Vectors layout guards', () => {
     }
   });
 
-  it('ProofBundle vectors use .valid.json / .invalid.json suffixes', () => {
-    const dir = path.join(VERIF, 'proofBundle');
+  it('ProofSet vectors use .valid.json / .invalid.json suffixes', () => {
+    const dir = path.join(VERIF, 'proofSet');
     const files = list(dir).filter((f) => f.endsWith('.json'));
     for (const f of files) {
       expect(/\.valid\.json$|\.invalid\.json$/.test(f)).toBe(true);

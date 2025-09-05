@@ -1,4 +1,4 @@
-// packages/core/src/__tests__/proofBundle.invalid.test.ts
+// packages/core/src/__tests__/proofSet.invalid.test.ts
 import { describe, it, expect } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -6,12 +6,12 @@ import { createAjv, addCoreSchemas, CANONICAL_IDS } from '../index.js';
 import { validateAgainstResult } from '../testing/ajv-helpers.js';
 import { MVS_ROOT, readJson } from '../test-helpers/vectorPaths.js';
 
-/** Collect invalid proofBundle vectors from the new layout; fallback to legacy flat files. */
-function collectInvalidProofBundleVectors(): string[] {
-  const newDir = path.join(MVS_ROOT, 'verification/proofBundle');
+/** Collect invalid proofSet vectors from the new layout; fallback to legacy flat files. */
+function collectInvalidProofSetVectors(): string[] {
+  const newDir = path.join(MVS_ROOT, 'verification/proofSet');
   const legacyDir = MVS_ROOT; // legacy flat files lived under mvs/
 
-  // Prefer new layout: verification/proofBundle/*.invalid.json
+  // Prefer new layout: verification/proofSet/*.invalid.json
   if (fs.existsSync(newDir)) {
     const files = fs
       .readdirSync(newDir)
@@ -20,8 +20,8 @@ function collectInvalidProofBundleVectors(): string[] {
     if (files.length > 0) return files;
   }
 
-  // Fallback: legacy files like proof-bundle.*.invalid.json under mvs/
-  const legacyPattern = /^proof-bundle\..*\.invalid\.json$/i;
+  // Fallback: legacy files like proof-set.*.invalid.json under mvs/
+  const legacyPattern = /^proof-set\..*\.invalid\.json$/i;
   if (fs.existsSync(legacyDir)) {
     const files = fs
       .readdirSync(legacyDir)
@@ -33,14 +33,14 @@ function collectInvalidProofBundleVectors(): string[] {
   return [];
 }
 
-describe('ProofBundle — INVALID vectors', () => {
+describe('ProofSet — INVALID vectors', () => {
   const ajv = createAjv();
   addCoreSchemas(ajv);
 
-  const files = collectInvalidProofBundleVectors();
+  const files = collectInvalidProofSetVectors();
 
   if (files.length === 0) {
-    it.skip('no invalid proof-bundle vectors present', () => {
+    it.skip('no invalid proof-set vectors present', () => {
       expect(true).toBe(true);
     });
     return;
@@ -50,7 +50,7 @@ describe('ProofBundle — INVALID vectors', () => {
     const name = path.basename(abs);
     it(`should reject ${name}`, () => {
       const data = readJson(abs) as Record<string, unknown>;
-      const res = validateAgainstResult(ajv, CANONICAL_IDS.proofBundle, data);
+      const res = validateAgainstResult(ajv, CANONICAL_IDS.proofSet, data);
       expect(res.ok).toBe(false);
     });
   }
