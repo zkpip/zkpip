@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, Mock, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { Mock } from 'vitest'; // <- type import, nem value
 
 vi.mock('snarkjs', () => ({
   plonk: {

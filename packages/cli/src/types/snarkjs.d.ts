@@ -32,7 +32,10 @@ declare module 'snarkjs' {
     ): Promise<boolean>;
   }  
 
-  const _default: { groth16: typeof groth16; plonk: typeof plonk };
-  export default _default;
-  export { groth16, plonk };
+   const _default: {
+     groth16: typeof groth16;
+     plonk: typeof plonk;
+   };
+
+   export default _default;
 }
