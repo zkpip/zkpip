@@ -16,16 +16,25 @@ declare module 'snarkjs' {
     curve?: string;
   };
 
-  export const groth16: {
-    verify: (
-      vkey: VerificationKey,
-      publicSignals: ReadonlyArray<PublicSignal>,
-      proof: Groth16Proof,
-    ) => Promise<boolean>;
-  };
+  export namespace groth16 {
+    function verify(
+      vkey: unknown,
+      publicSignals: ReadonlyArray<string | number | bigint>,
+      proof: unknown,
+    ): Promise<boolean>;
+  }
+
+  export namespace plonk {
+    function verify(
+      vkey: unknown,
+      publicSignals: ReadonlyArray<string | number | bigint>,
+      proof: unknown,
+    ): Promise<boolean>;
+  }
 
   const _default: {
     groth16: typeof groth16;
+    plonk: typeof plonk;
   };
 
   export default _default;

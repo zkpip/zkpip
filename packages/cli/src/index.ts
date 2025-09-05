@@ -3,12 +3,14 @@ import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 
 import { buildVectorsValidateCommand } from './commands/vectors-validate.js';
+import { adaptersCmd } from './commands/adapters.js';
 import { verifyCmd } from './commands/verify.js';
 import { validatePath } from './commands/validate.js';
 
 void yargs(hideBin(process.argv))
   .scriptName('zkpip')
   .command(buildVectorsValidateCommand())
+  .command(adaptersCmd)
   .command(verifyCmd)
   .command(
     ['validate <file>', 'schema:validate <file>'],

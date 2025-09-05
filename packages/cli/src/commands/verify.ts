@@ -1,11 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { pickAdapter, getAdapterById } from '../registry/adapterRegistry.js';
+import type { Argv, ArgumentsCamelCase, CommandModule } from 'yargs';
+import { pickAdapter, getAdapterById, getAllAdapters } from '../registry/adapterRegistry.js';
 import { createAjv, addCoreSchemas, CANONICAL_IDS } from '@zkpip/core';
 
 type VerifyExit = 0 | 1 | 2 | 3 | 4;
 
-// Shared fields across meta and input
+/** Shared fields across meta and input */
 type VerificationFields = {
   proofSystem?: string;
   framework?: string;
@@ -14,15 +15,12 @@ type VerificationFields = {
   publicInputs?: string;
 };
 
-// Meta contains the same shape
 type VerificationMeta = VerificationFields;
 
-// Input extends the same, plus optional meta
+/** Input extends the same, plus optional meta */
 type VerificationInput = VerificationFields & {
   meta?: VerificationMeta;
 };
-
-import type { Argv, ArgumentsCamelCase, CommandModule, CommandBuilder } from 'yargs';
 
 type VerifyArgs = {
   bundle?: string;
@@ -30,10 +28,13 @@ type VerifyArgs = {
   adapter?: string;
   json: boolean;
   'exit-codes': boolean;
+  exitCodes: boolean; // camel alias (yargs)
   debug: boolean;
+  'list-adapters': boolean;
+  listAdapters: boolean; // camel alias
 };
 
-const builder: CommandBuilder<object, VerifyArgs> = (y: Argv<object>): Argv<VerifyArgs> =>
+const builder = (y: Argv<object>) =>
   y
     .option('bundle', {
       type: 'string',
@@ -46,6 +47,11 @@ const builder: CommandBuilder<object, VerifyArgs> = (y: Argv<object>): Argv<Veri
     .option('adapter', {
       type: 'string',
       describe: 'Force a specific adapter id (e.g. snarkjs-groth16)',
+    })
+    .option('list-adapters', {
+      type: 'boolean',
+      default: false,
+      describe: 'List available adapters and exit',
     })
     .option('json', {
       type: 'boolean',
@@ -61,6 +67,14 @@ const builder: CommandBuilder<object, VerifyArgs> = (y: Argv<object>): Argv<Veri
       type: 'boolean',
       default: false,
       describe: 'Verbose error output on failures',
+    })
+    .parserConfiguration({ 'camel-case-expansion': true })
+    .check((argv) => {
+      if (argv.listAdapters) return true;
+      if (!argv.bundle && !argv.verification) {
+        throw new Error('Provide --bundle or --verification');
+      }
+      return true;
     })
     .conflicts('bundle', 'verification') as unknown as Argv<VerifyArgs>;
 
@@ -83,32 +97,63 @@ type EmitErr = {
 
 type EmitPayload = EmitOk | EmitErr;
 
+type Attempt = { id: string; canHandle: boolean };
+
+function errnoCode(err: unknown): string | undefined {
+  if (typeof err !== 'object' || err === null) return undefined;
+  const anyObj = err as Record<string, unknown>;
+  return typeof anyObj.code === 'string' ? anyObj.code : undefined;
+}
+
 export const verifyCmd: CommandModule<object, VerifyArgs> = {
   command: 'verify',
   describe: 'Verify a proof bundle or a verification JSON input',
   builder,
   handler: async (argv: ArgumentsCamelCase<VerifyArgs>) => {
     let exitCode: VerifyExit = 0;
+    let inputPath = '';
+    let attemptsForDebug: Attempt[] | undefined;
 
     const emit = (obj: EmitPayload) => {
-      if (argv.json) {
-        (obj.ok ? console.log : console.error)(JSON.stringify(obj, null, 2));
-        return;
-      }
-
       if (obj.ok) {
-        console.log(obj.message ?? 'OK');
+        if (argv.json) {
+          console.log(JSON.stringify(obj, null, 2));
+        } else {
+          console.log(obj.message ?? 'OK');
+          if (argv.debug && 'debug' in obj && obj.debug) console.error(obj.debug);
+        }
       } else {
-        // Itt már EmitErr-re szűkült, ezért van obj.error
-        console.error('ERROR:', obj.message ?? obj.error ?? obj);
-        if (argv.debug && obj.debug) console.error(obj.debug);
+        if (argv.json) {
+          console.error(JSON.stringify(obj, null, 2));
+        } else {
+          const msg = obj.message ?? obj.error ?? 'ERROR';
+          console.error('ERROR:', msg);
+          if (argv.debug && obj.debug) console.error(obj.debug);
+        }
       }
     };
 
+    // EARLY EXIT: --list-adapters
+    if (argv.listAdapters || argv['list-adapters']) {
+      const rows = getAllAdapters().map((a) => ({
+        id: a.id,
+        proofSystem: a.proofSystem,
+        framework: a.framework,
+      }));
+
+      if (argv.json) {
+        console.log(JSON.stringify({ ok: true, adapters: rows }, null, 2));
+      } else {
+        console.table(rows);
+      }
+      if (argv['exit-codes'] || argv.exitCodes) process.exit(0);
+      return;
+    }
+
     try {
       // Read and parse input
-      const p = path.resolve(String(argv.bundle ?? argv.verification));
-      const raw = fs.readFileSync(p, 'utf8');
+      inputPath = path.resolve(String(argv.bundle ?? argv.verification));
+      const raw = fs.readFileSync(inputPath, 'utf8');
       const input = JSON.parse(raw) as VerificationInput;
 
       // 1) Schema validation via canonical IDs
@@ -132,14 +177,15 @@ export const verifyCmd: CommandModule<object, VerifyArgs> = {
           schemaRef: schemaId,
           errors: validate.errors ?? [],
           message: 'Input failed MVS schema validation.',
-          debug: argv.debug ? { file: p } : undefined,
+          debug: argv.debug ? { file: inputPath } : undefined,
         });
-        if (argv['exit-codes']) process.exit(exitCode);
+        if (argv['exit-codes'] || argv.exitCodes) process.exit(exitCode);
         return;
       }
 
       // 2) Adapter selection (forced or heuristic)
       let adapter = undefined as ReturnType<typeof getAdapterById> | undefined;
+
       if (argv.adapter) {
         adapter = getAdapterById(String(argv.adapter));
         if (!adapter) {
@@ -152,10 +198,14 @@ export const verifyCmd: CommandModule<object, VerifyArgs> = {
               ? { available: ['snarkjs-groth16', 'snarkjs-plonk', 'zokrates-groth16'] }
               : undefined,
           });
-          if (argv['exit-codes']) process.exit(exitCode);
+          if (argv['exit-codes'] || argv.exitCodes) process.exit(exitCode);
           return;
         }
       } else {
+        attemptsForDebug = getAllAdapters().map((a) => ({
+          id: a.id,
+          canHandle: a.canHandle(input),
+        }));
         adapter = pickAdapter(input);
       }
 
@@ -171,14 +221,15 @@ export const verifyCmd: CommandModule<object, VerifyArgs> = {
                   proofSystem: input?.proofSystem ?? input?.meta?.proofSystem,
                   framework: input?.framework ?? input?.meta?.framework,
                 },
+                attempts: attemptsForDebug,
               }
             : undefined,
         });
-        if (argv['exit-codes']) process.exit(exitCode);
+        if (argv['exit-codes'] || argv.exitCodes) process.exit(exitCode);
         return;
       }
 
-      // 3) Run verification (stub adapters may return not_implemented)
+      // 3) Run verification
       const res = await adapter.verify(input);
 
       if (res.ok) {
@@ -187,7 +238,7 @@ export const verifyCmd: CommandModule<object, VerifyArgs> = {
           adapter: res.adapter,
           message: `Verified by adapter: ${res.adapter}`,
         });
-        if (argv['exit-codes']) process.exit(0);
+        if (argv['exit-codes'] || argv.exitCodes) process.exit(0);
       } else {
         exitCode = 1;
         emit({
@@ -195,20 +246,31 @@ export const verifyCmd: CommandModule<object, VerifyArgs> = {
           adapter: res.adapter,
           error: res.error ?? 'verification_failed',
           message: `Verification failed in adapter: ${res.adapter} (${res.error ?? 'unknown'})`,
+          debug: argv.debug ? { attempts: attemptsForDebug } : undefined,
         });
-        if (argv['exit-codes']) process.exit(exitCode);
+        if (argv['exit-codes'] || argv.exitCodes) process.exit(exitCode);
       }
-    } catch (err: unknown) {
+    } catch (err) {
       exitCode = 4;
-      const e = err instanceof Error ? err : new Error(String(err));
+
+      const code = errnoCode(err);
+      const friendly = code ? new Set(['ENOENT', 'EISDIR', 'EACCES', 'EPERM']).has(code) : false;
+
       emit({
         ok: false,
         stage: 'io',
-        error: e.message,
-        message: 'Failed to read or process the input file.',
-        debug: argv.debug ? (e.stack ?? String(err)) : undefined,
+        error: code ?? String((err as Error)?.message ?? err),
+        message: friendly
+          ? `Input file not readable: ${inputPath || '(unknown path)'} (${code})`
+          : 'Failed to read or process the input file.',
+        debug: argv.debug
+          ? friendly
+            ? { file: inputPath || '(unknown path)' }
+            : String((err as Error)?.stack ?? err)
+          : undefined,
       });
-      if (argv['exit-codes']) process.exit(exitCode);
+
+      if (argv['exit-codes'] || argv.exitCodes) process.exit(exitCode);
     }
   },
 };

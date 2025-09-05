@@ -24,8 +24,8 @@
     "lint": "ESLINT_USE_FLAT_CONFIG=true eslint .",
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
-    "format": "prettier -w .",
-    "format:check": "prettier -c ."
+    "format:check": "prettier -c \"src/**/*.{ts,js,mjs,cjs,md,json,yml,yaml}\"",
+    "format": "prettier -w \"src/**/*.{ts,js,mjs,cjs,md,json,yml,yaml}\""
   },
   "dependencies": {
     "@types/yargs": "^17.0.33",

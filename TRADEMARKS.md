@@ -9,50 +9,58 @@ All names are currently unregistered trademarks (™). Some may be registered as
 
 ## Trademarked Terms
 
-- **ZKPIP™**  
-- **ProofSet™**  
-- **SwiftSeal™**  
-- **SwiftSeal+™**  
-- **BatchSeal™**  
-- **CodeSeal™**  
-- **SealScan™**  
+- **ZKPIP™**
+- **ProofSet™**
+- **SwiftSeal™**
+- **SwiftSeal+™**
+- **BatchSeal™**
+- **CodeSeal™**
+- **SealScan™**
 - **ErrorGuide™**
 
 ---
 
 ## Brand Family Definitions
 
-### ZKPIP™  
+### ZKPIP™
+
 ZKPIP™ is the umbrella project brand.  
-It defines minimum viable standards for zero-knowledge proof validation and interoperability across proving systems.  
+It defines minimum viable standards for zero-knowledge proof validation and interoperability across proving systems.
 
-### ProofSet™  
+### ProofSet™
+
 ProofSet™ is the canonical JSON schema format for packaging and validating zero-knowledge proofs.  
-It replaces fragmented representations with a unified, interoperable standard.  
+It replaces fragmented representations with a unified, interoperable standard.
 
-### SwiftSeal™  
+### SwiftSeal™
+
 SwiftSeal™ provides lightweight validation for single proofs and small batches (1–9 proofs).  
-It is designed for fast, efficient checks without requiring heavy infrastructure.  
+It is designed for fast, efficient checks without requiring heavy infrastructure.
 
-### SwiftSeal+™  
+### SwiftSeal+™
+
 SwiftSeal+™ extends SwiftSeal™ with paid support for medium-sized batches (10–100 proofs).  
-It runs on light infrastructure, offering scalable proof validation at low cost.  
+It runs on light infrastructure, offering scalable proof validation at low cost.
 
-### BatchSeal™  
+### BatchSeal™
+
 BatchSeal™ delivers enterprise-grade validation for large proof batches (100+).  
-It leverages heavy infrastructure to provide reliable, high-throughput verification for mission-critical workloads.  
+It leverages heavy infrastructure to provide reliable, high-throughput verification for mission-critical workloads.
 
-### CodeSeal™  
+### CodeSeal™
+
 CodeSeal™ is a community badge for developers adopting and contributing to the ZKPIP™ ecosystem.  
-It represents alignment with the standard and recognition within the open-source ZK community.  
+It represents alignment with the standard and recognition within the open-source ZK community.
 
-### SealScan™  
+### SealScan™
+
 SealScan™ is the official explorer portal of ZKPIP™.  
-It enables developers, auditors, and end-users to search, view, and verify ProofSet™ records and associated Seals.  
+It enables developers, auditors, and end-users to search, view, and verify ProofSet™ records and associated Seals.
 
-### ErrorGuide™  
+### ErrorGuide™
+
 ErrorGuide™ is a structured knowledge base of common proof errors and interoperability issues.  
-It helps developers navigate failures across proving systems, promoting reproducibility and shared learning.  
+It helps developers navigate failures across proving systems, promoting reproducibility and shared learning.
 
 ---
 
