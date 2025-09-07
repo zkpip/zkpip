@@ -34,7 +34,6 @@ jobs:
     defaults:
       run:
         working-directory: packages/core
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -44,14 +43,11 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-
-      - name: Install root deps (npm ci)
-        if: hashFiles('package-lock.json') != ''
-        working-directory: .
-        run: npm ci --no-audit --fund=false
+          cache-dependency-path: |
+            package-lock.json
+            packages/core/package-lock.json
 
       - name: Install core deps (npm ci)
-        if: hashFiles('packages/core/package-lock.json') != ''
         run: npm ci --no-audit --fund=false
 
       - name: Validate MVS schemas (core)

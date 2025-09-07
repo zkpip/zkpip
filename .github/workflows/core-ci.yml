@@ -167,5 +167,11 @@ jobs:
             ./packages/core/schemas/tests/vectors/mvs/verification/proofBundle/proof-bundle.valid.json \
             --schemas-root ./packages/core/schemas
 
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Check python
+        run: python3 --version        
+
       - name: CLI e2e
         run: npm --prefix packages/cli run e2e            
