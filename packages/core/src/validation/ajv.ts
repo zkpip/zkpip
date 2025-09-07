@@ -1,37 +1,28 @@
-// packages/core/src/validation/ajv.ts
-import AjvModule from 'ajv';
-import addFormats from 'ajv-formats';
-import type { Options as AjvOptions, ValidateFunction, ErrorObject } from 'ajv';
-
-export interface AjvLike {
-  addSchema: (schema: unknown, key?: string) => unknown;
-  addFormat: (name: string, format: unknown) => AjvLike;
-  compile: (schema: unknown) => ValidateFunction;
-  getSchema: (id: string) => ValidateFunction | undefined;
-  errorsText: (
-    errors?: ErrorObject[] | null,
-    opts?: { separator?: string; dataVar?: string },
-  ) => string;
-}
-
-type AjvCtor = new (opts?: AjvOptions) => AjvLike;
-
-const AjvClass: AjvCtor =
-  (AjvModule as unknown as { default?: AjvCtor }).default ?? (AjvModule as unknown as AjvCtor);
+import AjvDefault, { type Options as AjvOptions } from "ajv";
+import addFormats from "ajv-formats";
+import type { AjvLike } from "./ajv-types.js";
 
 export function createAjv(): AjvLike {
-  const ajv = new AjvClass({
+  const AjvCtor: new (opts?: AjvOptions) => any = AjvDefault as unknown as new (opts?: AjvOptions) => any;
+
+  const core = new AjvCtor({
     allErrors: true,
     strict: false,
     allowUnionTypes: true,
     validateSchema: false,
-  } satisfies AjvOptions);
+  });
 
-  type AddFormatsFn = (ajv: AjvLike, opts?: unknown) => unknown;
-  const addFormatsTyped = addFormats as unknown as AddFormatsFn;
-  addFormatsTyped(ajv);
+  addFormats(core);
 
-  return ajv;
+  const wrapped: AjvLike = {
+    addFormat: core.addFormat.bind(core),
+    addSchema: core.addSchema.bind(core),
+    getSchema: core.getSchema.bind(core),
+    compile: core.compile.bind(core),
+    validate: core.validate.bind(core),
+    get errors() {
+      return core.errors ?? null;
+    },
+  };
+  return wrapped;
 }
-
-export type AjvInstance = ReturnType<typeof createAjv>;

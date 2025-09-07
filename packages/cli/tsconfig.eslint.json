@@ -3,10 +3,12 @@
   "compilerOptions": {
     "noEmit": true,
     "baseUrl": ".",
+    /*
     "paths": {
       "@zkpip/core": ["../core/src/index.ts"],
       "@zkpip/core/*": ["../core/src/*"]
     }
+      */
   },
   "include": [
     "src/**/*.ts",

@@ -1,55 +1,51 @@
-// Heuristic schema $id picker using the input file name/path.
-// Backed by actual $id values loaded from the /schemas directory.
+import { basename } from "node:path";
+import { CANONICAL_IDS } from "@zkpip/core";
 
-import { basename } from 'path';
-import { loadSchemaIds } from './schemaIds.js';
+const ids = {
+  proofBundle: CANONICAL_IDS.proofBundle,
+  verification: CANONICAL_IDS.verification,
+  cir: CANONICAL_IDS.cir,
+  issue: CANONICAL_IDS.issue,
+  ecosystem: CANONICAL_IDS.ecosystem,
+  core: CANONICAL_IDS.core,
+};
 
-const ids = loadSchemaIds();
+function isProofBundleLike(x: any): boolean {
+  const a = x?.artifacts;
+  return !!(x?.mvs?.kind === "proofBundle" || (a && a.verificationKey && a.proof && a.publicSignals));
+}
 
-/**
- * Pick a schema $id based on the input file name/path (case-insensitive).
- *
- * Priority (substring match):
- *   1) Proof-bundle manifest → "proof-bundle" | "bundle" | "manifest" → proofBundle
- *   2) Canonical IR          → "cir" | "circuit" | "circuits"         → cir
- *   3) Verification          → "verification" | "verify" | "error"    → verification
- *   4) Issue                 → "issue"                                 → issue
- *   5) Ecosystem             → "ecosystem" | "eco"                     → ecosystem
- *   6) Default                                                   → core
- *
- * Notes:
- * - The "error" legacy naming maps to "verification" for backward compatibility.
- * - The "manifest" keyword is routed to proofBundle (typical file naming).
- * - If you need stricter routing, replace/augment these heuristics with a config.
- */
-export function pickSchemaId(filePath: string): string {
-  const name = basename(filePath).toLowerCase();
+function isLegacyVerificationLike(x: any): boolean {
+  const r = x?.result;
+  return !!(x?.verifier?.verificationKey && r?.proof && r?.publicSignals);
+}
 
-  // 1) Proof-bundle manifest
-  if (name.includes('proof-bundle') || name.includes('bundle') || name.includes('manifest')) {
+export function pickSchemaId(inputOrPath: unknown): string {
+  if (inputOrPath && typeof inputOrPath === "object") {
+    const data = inputOrPath as any;
+
+    if (typeof data.$schema === "string") return data.$schema;
+
+    if (isProofBundleLike(data)) return ids.proofBundle;
+    if (isLegacyVerificationLike(data)) return ids.verification;
+  }
+
+  const name = typeof inputOrPath === "string" ? basename(inputOrPath).toLowerCase() : "";
+
+  if (name.includes("proof-bundle") || name.includes("bundle") || name.includes("manifest")) {
     return ids.proofBundle;
   }
-
-  // 2) CIR (Canonical Intermediate Representation)
-  if (name.includes('cir') || name.includes('circuit')) {
+  if (name.includes("cir") || name.includes("circuit")) {
     return ids.cir;
   }
-
-  // 3) Verification (legacy: "error")
-  if (name.includes('verification') || name.includes('verify') || name.includes('error')) {
+  if (name.includes("verification") || name.includes("verify") || name.includes("error")) {
     return ids.verification;
   }
-
-  // 4) Issue
-  if (name.includes('issue')) {
+  if (name.includes("issue")) {
     return ids.issue;
   }
-
-  // 5) Ecosystem
-  if (name.includes('ecosystem') || name.includes('eco')) {
+  if (name.includes("ecosystem") || name.includes("eco")) {
     return ids.ecosystem;
   }
-
-  // 6) Default → core
   return ids.core;
 }

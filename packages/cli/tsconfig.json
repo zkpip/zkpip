@@ -1,7 +1,7 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "types": ["node", "vitest"],
+    "composite": true,
     "target": "ES2022",
     "lib": ["ES2022"],
     "module": "NodeNext",
@@ -11,14 +11,35 @@
     "sourceMap": true,
     "verbatimModuleSyntax": true,
     "resolveJsonModule": true,
+
+    "baseUrl": "../..",
+    "paths": {
+      "@zkpip/core": ["packages/core/src/index.ts"],
+      "@zkpip/core/*": ["packages/core/src/*"]
+    },    
+
     "noEmit": false,
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "composite": true,
-    "skipLibCheck": true
+    "outDir": "dist",
+    "rootDir": "src",
+    "declaration": true,
+    "skipLibCheck": true,
+    "types": ["node"],
+
+    "typeRoots": [
+      "./src/types",
+      "./types",
+      "../../node_modules/@types"
+    ]
   },
-  "include": ["src", "src/**/*.ts", "src/**/*.d.ts"],
-  "exclude": ["dist", "**/*.test.ts"],
   "references": [{ "path": "../core" }],
-  "typeRoots": ["./src/types", "./types", "../../node_modules/@types"]
+  "composite": true,  
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.d.ts"
+  ],
+  "exclude": [
+    "dist",
+    "**/*.test.ts",
+    "**/__tests__/**"
+  ]
 }

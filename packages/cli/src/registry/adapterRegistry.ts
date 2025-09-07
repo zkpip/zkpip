@@ -1,9 +1,9 @@
 import type { Adapter } from './types.js';
 import { snarkjsGroth16 } from '../adapters/snarkjs-groth16.js';
-import { snarkjsPlonkStub } from '../stubs/snarkjs-plonk.stub.js';
-import { zokratesGroth16Stub } from '../stubs/zokrates-groth16.stub.js';
+import { snarkjsPlonk } from '../adapters/snarkjs-plonk.js';
+import { zokratesGroth16 } from "../adapters/zokrates-groth16.js";
 
-const ADAPTERS: Adapter[] = [snarkjsGroth16, snarkjsPlonkStub, zokratesGroth16Stub];
+const ADAPTERS: Adapter[] = [snarkjsGroth16, snarkjsPlonk, zokratesGroth16];
 
 // Derive the detection input type from the Adapter interface
 type DetectInput = Parameters<Adapter['canHandle']>[0];

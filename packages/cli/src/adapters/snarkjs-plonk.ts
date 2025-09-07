@@ -39,7 +39,7 @@ function extractPlonkPieces(input: DetectInput): {
 
 export const snarkjsPlonk: Adapter = {
   id: 'snarkjs-plonk',
-  proofSystem: 'Plonk',
+  proofSystem: 'plonk',
   framework: 'snarkjs',
 
   canHandle(bundle: DetectInput): boolean {

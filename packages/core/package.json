@@ -4,9 +4,14 @@
   "type": "module",
   "private": false,
   "main": "./dist/index.js",
+  "types": "./dist/index.d.ts", 
+  "declaration": true, 
+  "rootDir": "src", 
+  "outDir": "dist",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
+      "default": "./dist/index.js",
       "import": "./dist/index.js"
     },
     "./validation/createAjv": {
@@ -32,9 +37,10 @@
     "./schemaUtils": {
       "types": "./dist/schemaUtils.d.ts",
       "import": "./dist/schemaUtils.js"
-    }
+    },
+    "./schemas/*": "./schemas/*",
+    "./package.json": "./package.json"
   },
-  "types": "./dist/index.d.ts",
   "files": [
     "dist",
     "schemas",

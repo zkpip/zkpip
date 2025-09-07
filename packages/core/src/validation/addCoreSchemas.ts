@@ -1,113 +1,134 @@
 // packages/core/src/validation/addCoreSchemas.ts
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import type { AnySchemaObject, ValidateFunction } from 'ajv';
-import { CANONICAL_IDS } from '../constants/canonicalIds.js';
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { CANONICAL_IDS } from "../constants/canonicalIds.js";
+import type { AjvRegistryLike } from "./ajv-types.js";
 
-export type CanonicalId = string;
+export type CanonicalId = typeof CANONICAL_IDS[keyof typeof CANONICAL_IDS];
 
-interface AjvLike {
-  addSchema(schema: AnySchemaObject): unknown;
-  getSchema(id: string): ValidateFunction | undefined;
+function resolveSchemasDir(custom?: string): string {
+  if (custom) return custom;
+  return fileURLToPath(new URL("../../schemas/", import.meta.url));
 }
 
-function resolveSchemasDir(explicit?: string): string {
-  if (explicit && fs.existsSync(explicit)) return explicit;
-  const env = process.env.ZKPIP_SCHEMAS_DIR;
-  if (env && fs.existsSync(env)) return env;
-
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = path.dirname(__filename);
-  const candidates = [
-    path.resolve(__dirname, '../../schemas'), // packages/core/schemas
-    path.resolve(process.cwd(), 'packages/core/schemas'), // workspace fallback
-  ];
-  for (const c of candidates) if (fs.existsSync(c)) return c;
-  throw new Error(
-    'Schemas dir not found. Set ZKPIP_SCHEMAS_DIR or ensure packages/core/schemas exists.',
-  );
+function walk(dir: string, acc: string[] = []): string[] {
+  for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, ent.name);
+    if (ent.isDirectory()) walk(p, acc);
+    else if (ent.isFile() && ent.name.endsWith(".schema.json")) acc.push(p);
+  }
+  return acc;
 }
 
-// Allow string | string[] so we can try multiple filenames for 'core'
-function loadSchema(dir: string, names: string | string[]): AnySchemaObject {
-  const list = Array.isArray(names) ? names : [names];
-  for (const name of list) {
-    const p = path.join(dir, name);
-    if (fs.existsSync(p)) {
-      return JSON.parse(fs.readFileSync(p, 'utf8')) as AnySchemaObject;
+function hasSchema(ajv: AjvRegistryLike, key: string): boolean {
+  try { return !!ajv.getSchema(key); } catch { return false; }
+}
+
+function addIfMissing(ajv: AjvRegistryLike, key: string, schemaObj: object) {
+  if (!key) return;
+  if (!hasSchema(ajv, key)) ajv.addSchema(schemaObj, key);
+}
+
+const ALIASES: Record<CanonicalId, string[]> = {
+  [CANONICAL_IDS.proofBundle]: [
+    "urn:zkpip:mvs.proof-bundle.schema.json",
+    "mvs.proof-bundle",
+    "mvs/proof-bundle",
+    "mvs.proof-bundle.schema.json",
+    "mvs/verification/proofBundle",
+  ],
+  [CANONICAL_IDS.verification]: [
+    "urn:zkpip:mvs.verification.schema.json",
+    "mvs.verification",
+    "mvs/verification",
+    "mvs.verification.schema.json",
+  ],
+  [CANONICAL_IDS.core]: [
+    "urn:zkpip:mvs.core.schema.json",
+    "urn:zkpip:mvs.core.payload.schema.json",
+    "mvs.core",
+    "mvs/core",
+    "mvs.core.schema.json",
+    "mvs.core.payload.schema.json",
+  ],
+  [CANONICAL_IDS.cir]: [
+    "urn:zkpip:mvs.cir.schema.json",
+    "mvs.cir",
+    "mvs/cir",
+    "mvs.cir.schema.json",
+    "mvs/verification/cir",
+  ],
+  [CANONICAL_IDS.issue]: [
+    "urn:zkpip:mvs.issue.schema.json",
+    "mvs.issue",
+    "mvs/issue",
+    "mvs.issue.schema.json",
+  ],
+  [CANONICAL_IDS.ecosystem]: [
+    "urn:zkpip:mvs.ecosystem.schema.json",
+    "mvs.ecosystem",
+    "mvs/ecosystem",
+    "mvs.ecosystem.schema.json",
+  ],
+} as const;
+
+const NEW_URN_BY_CANONICAL: Record<string, string> = {
+  [CANONICAL_IDS.proofBundle]:  "urn:zkpip:mvs:schemas:proofBundle.schema.json",
+  [CANONICAL_IDS.verification]: "urn:zkpip:mvs:schemas:verification.schema.json",
+  [CANONICAL_IDS.cir]:          "urn:zkpip:mvs:schemas:cir.schema.json",
+  [CANONICAL_IDS.issue]:        "urn:zkpip:mvs:schemas:issue.schema.json",
+  [CANONICAL_IDS.ecosystem]:    "urn:zkpip:mvs:schemas:ecosystem.schema.json",
+  [CANONICAL_IDS.core]:         "urn:zkpip:mvs:schemas:core.schema.json",
+};
+
+function detectKind(schema: any, file: string): CanonicalId | undefined {
+  const id = String(schema?.$id ?? "").toLowerCase();
+  const f  = file.toLowerCase();
+  if (id.includes("proof-bundle") || id.includes("proofbundle") || f.includes("proof-bundle") || f.includes("proofbundle")) return CANONICAL_IDS.proofBundle;
+  if (id.includes("verification") || f.includes("verification")) return CANONICAL_IDS.verification;
+  if (id.includes("ecosystem")   || f.includes("ecosystem"))   return CANONICAL_IDS.ecosystem;
+  if (id.includes("issue")       || f.includes("issue"))       return CANONICAL_IDS.issue;
+  if (id.includes("cir")         || id.includes("circuit") || f.includes("cir")) return CANONICAL_IDS.cir;
+  if (id.includes("core")        || f.includes("core"))        return CANONICAL_IDS.core;
+  return undefined;
+}
+
+export function addCoreSchemas(ajv: AjvRegistryLike, opts?: { schemasDir?: string; debug?: boolean }): void {
+  const dir = resolveSchemasDir(opts?.schemasDir);
+  const files = walk(dir);
+
+  for (const file of files) {
+    const schemaObj = JSON.parse(fs.readFileSync(file, "utf8"));
+
+    const id = typeof schemaObj.$id === "string" ? schemaObj.$id : undefined;
+    if (id) addIfMissing(ajv, id, schemaObj);
+    else {
+      try { ajv.addSchema(schemaObj); } catch { /* ignore */ }
+    }
+
+    const canonical = detectKind(schemaObj, file);
+    if (canonical) {
+      addIfMissing(ajv, canonical, schemaObj);
+
+      const newUrn = NEW_URN_BY_CANONICAL[canonical];
+      if (newUrn) addIfMissing(ajv, newUrn, schemaObj);
+
+      for (const a of (ALIASES[canonical] || [])) {
+        addIfMissing(ajv, a, schemaObj);
+      }
+
+      const tailOld = canonical.split(':').pop()!;
+      addIfMissing(ajv, `https://zkpip.org/schemas/${tailOld}`, schemaObj);
+
+      if (newUrn) {
+        const tailNew = newUrn.split(':').pop()!;
+        addIfMissing(ajv, `https://zkpip.org/schemas/${tailNew}`, schemaObj);
+      }
     }
   }
-  throw new Error(`Schema file not found. Tried: ${list.join(' | ')}`);
-}
 
-function registerAliases(ajv: AjvLike, canonicalId: string, aliases: readonly string[]): void {
-  for (const id of aliases) {
-    ajv.addSchema({ $id: id, $ref: canonicalId } as AnySchemaObject);
-  }
-}
-
-export function addCoreSchemas(ajv: AjvLike, opts?: { schemasDir?: string }): void {
-  const dir = resolveSchemasDir(opts?.schemasDir);
-
-  // 🔧 Include 'core' as well; try both filename variants if needed.
-  const FILES: Record<
-    'core' | 'verification' | 'proofBundle' | 'cir' | 'issue' | 'ecosystem',
-    string | string[]
-  > = {
-    core: ['mvs.core.schema.json', 'mvs.core.payload.schema.json'],
-    verification: 'mvs.verification.schema.json',
-    proofBundle: 'mvs.proof-bundle.schema.json',
-    cir: 'mvs.cir.schema.json',
-    issue: 'mvs.issue.schema.json',
-    ecosystem: 'mvs.ecosystem.schema.json',
-  };
-
-  // 1) Add canonical schemas FIRST
-  ajv.addSchema(loadSchema(dir, FILES.core));
-  ajv.addSchema(loadSchema(dir, FILES.verification));
-  ajv.addSchema(loadSchema(dir, FILES.proofBundle));
-  ajv.addSchema(loadSchema(dir, FILES.cir));
-  ajv.addSchema(loadSchema(dir, FILES.issue));
-  ajv.addSchema(loadSchema(dir, FILES.ecosystem));
-
-  // 2) Aliases (legacy + new subpaths)
-  registerAliases(ajv, CANONICAL_IDS.proofBundle, [
-    'mvs.proof-bundle',
-    'mvs/proof-bundle',
-    'mvs.proof-bundle.schema.json',
-    'mvs/verification/proofBundle',
-  ]);
-  registerAliases(ajv, CANONICAL_IDS.cir, [
-    'mvs.cir',
-    'mvs/cir',
-    'mvs.cir.schema.json',
-    'mvs/verification/cir',
-  ]);
-  registerAliases(ajv, CANONICAL_IDS.verification, [
-    'mvs.verification',
-    'mvs/verification',
-    'mvs.verification.schema.json',
-  ]);
-  registerAliases(ajv, CANONICAL_IDS.issue, ['mvs.issue', 'mvs/issue', 'mvs.issue.schema.json']);
-  registerAliases(ajv, CANONICAL_IDS.ecosystem, [
-    'mvs.ecosystem',
-    'mvs/ecosystem',
-    'mvs.ecosystem.schema.json',
-  ]);
-  // (Optional but recommended) Core aliases as well
-  if (CANONICAL_IDS.core) {
-    registerAliases(ajv, CANONICAL_IDS.core, [
-      'mvs.core',
-      'mvs/core',
-      'mvs.core.schema.json',
-      'mvs.core.payload.schema.json',
-    ]);
-  }
-
-  // 3) HTTPS aliases derived from canonical URNs
-  for (const id of Object.values(CANONICAL_IDS) as readonly string[]) {
-    const tail = id.split(':').pop()!;
-    registerAliases(ajv, id, [`https://zkpip.org/schemas/${tail}`]);
+  if (opts?.debug || process.env.DEBUG_MVS_SCHEMAS) {
+    console.log(`[addCoreSchemas] loaded ${files.length} schema(s) from ${dir}`);
   }
 }

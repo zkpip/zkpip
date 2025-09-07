@@ -19,7 +19,9 @@ export {
   validateEcosystem,
   loadSchemaJson,
 };
-export type { AjvInstance } from './validation/createAjv.js';
+
+import type { AjvLike } from '../src/validation/ajv-types.js';
+export type AjvInstance = AjvLike;
 
 // 3) Wildcard export kept (vectors contains values)
 export * from './validate/vectors.js';

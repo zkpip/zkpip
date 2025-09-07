@@ -40,7 +40,7 @@ export type DetectInput = {
 
 export interface Adapter {
   id: string; // e.g. "snarkjs-groth16"
-  proofSystem: 'Groth16' | 'Plonk';
+  proofSystem: 'groth16' | 'plonk';
   framework: 'snarkjs' | 'zokrates';
 
   canHandle(input: DetectInput): boolean;

@@ -36,6 +36,7 @@
     "eslint-plugin-vitest": "^0.5.4",
     "prettier": "^3.6.2",
     "rimraf": "^6.0.1",
+    "snarkjs": "^0.7.5",
     "typescript": "5.5",
     "typescript-eslint": "^8.42.0",
     "vitest": "^3.2.4"
