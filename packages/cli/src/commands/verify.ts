@@ -133,7 +133,6 @@ function guessAdapterIdFromInput(input: unknown): AdapterId | undefined {
 function pickBundlePathFromVerification(input: unknown, baseDir: string): string | undefined {
   if (!isObject(input)) return undefined;
 
-  // Common fields we might accept; extend later if needed
   const direct =
     (typeof input.bundle === 'string' && input.bundle) ||
     (isObject(input.meta) && typeof input.meta.bundle === 'string' && input.meta.bundle) ||
@@ -144,6 +143,17 @@ function pickBundlePathFromVerification(input: unknown, baseDir: string): string
   }
 
   return undefined;
+}
+
+/** Flush stdout/stderr, then exit immediately (for prompt friendliness). */
+function exitNow(code: VerifyExit): void {
+  try {
+    process.stdout.write('', () => {
+      process.stderr.write('', () => process.exit(code));
+    });
+  } catch {
+    process.exit(code);
+  }
 }
 
 // ---- yargs builder -------------------------------------------------------
@@ -200,7 +210,6 @@ export const builder = (y: Argv<object>) =>
 // ---- handler -------------------------------------------------------------
 
 export async function handler(argv: ArgumentsCamelCase<VerifyArgs>): Promise<void> {
-  let exitCode: VerifyExit = 0;
   let inputPath = '';
 
   // Normalize flags
@@ -240,7 +249,7 @@ export async function handler(argv: ArgumentsCamelCase<VerifyArgs>): Promise<voi
     } else {
       console.table(rows);
     }
-    if (useExitCodes) process.exit(0);
+    if (useExitCodes) exitNow(0);
     return;
   }
 
@@ -275,7 +284,6 @@ export async function handler(argv: ArgumentsCamelCase<VerifyArgs>): Promise<voi
     const validate = ajv.getSchema(schemaId) ?? ajv.compile({ $ref: schemaId });
     const valid = !!validate(input);
     if (!valid) {
-      exitCode = 3;
       emit({
         ok: false,
         stage: 'schema',
@@ -284,7 +292,7 @@ export async function handler(argv: ArgumentsCamelCase<VerifyArgs>): Promise<voi
         message: 'Input failed MVS schema validation.',
         debug: wantDebug ? { file: inputPath, chosenSchema: schemaId, looksLikeBundle } : undefined,
       });
-      if (useExitCodes) process.exit(exitCode);
+      if (useExitCodes) exitNow(3);
       return;
     }
 
@@ -295,7 +303,6 @@ export async function handler(argv: ArgumentsCamelCase<VerifyArgs>): Promise<voi
       if ((availableAdapterIds as readonly string[]).includes(candidate)) {
         adapterId = candidate as AdapterId;
       } else {
-        exitCode = 2;
         const all = await getAllAdapters();
         emit({
           ok: false,
@@ -303,13 +310,12 @@ export async function handler(argv: ArgumentsCamelCase<VerifyArgs>): Promise<voi
           message: `Adapter not found: ${candidate}`,
           debug: wantDebug ? { available: all.map((a) => a.id) } : undefined,
         });
-        if (useExitCodes) process.exit(exitCode);
+        if (useExitCodes) exitNow(2);
         return;
       }
     } else {
       adapterId = guessAdapterIdFromInput(input);
       if (!adapterId) {
-        exitCode = 2;
         const sniff = isObject(input)
           ? {
               proofSystem:
@@ -329,20 +335,19 @@ export async function handler(argv: ArgumentsCamelCase<VerifyArgs>): Promise<voi
           message: 'No suitable adapter found. Provide --adapter.',
           debug: wantDebug ? { sniff, available: (await getAllAdapters()).map((a) => a.id) } : undefined,
         });
-        if (useExitCodes) process.exit(exitCode);
+        if (useExitCodes) exitNow(2);
         return;
       }
     }
 
     const adapter = await getAdapterById(adapterId);
     if (!adapter) {
-      exitCode = 2;
       emit({
         ok: false,
         stage: 'adapter',
         message: `Adapter not loadable: ${adapterId}`,
       });
-      if (useExitCodes) process.exit(exitCode);
+      if (useExitCodes) exitNow(2);
       return;
     }
 
@@ -351,19 +356,17 @@ export async function handler(argv: ArgumentsCamelCase<VerifyArgs>): Promise<voi
     if (looksLikeBundle) {
       bundlePath = inputPath;
     } else {
-      // verification-type input: try to extract bundle path
       bundlePath = pickBundlePathFromVerification(input, path.dirname(inputPath));
     }
 
     if (!bundlePath) {
-      exitCode = 4;
       emit({
         ok: false,
         stage: 'io',
         message: 'Could not determine bundle path (use --bundle or add "bundle" path in verification JSON).',
         debug: wantDebug ? { file: inputPath } : undefined,
       });
-      if (useExitCodes) process.exit(exitCode);
+      if (useExitCodes) exitNow(4);
       return;
     }
 
@@ -376,27 +379,16 @@ export async function handler(argv: ArgumentsCamelCase<VerifyArgs>): Promise<voi
       res = { ok: false, adapter: adapter.id, error: 'adapter_error', message: msg };
     }
 
-    const failed = res.ok === false;
-
     if (wantJson) {
       console.log(JSON.stringify(res, null, 2));
     } else if (isErrorOutcome(res)) {
-      // res most a hibás ág típusa
       console.error(`❌ verify failed [${res.adapter}] ${res.error ?? ''} ${res.message ?? ''}`.trim());
     } else {
       console.log(`✅ verify ok [${res.adapter}]`);
     }
 
-    if (useExitCodes) {
-      process.exitCode = failed ? 1 : 0;
-    }
-
-    if (useExitCodes) {
-      process.exitCode = failed ? 1 : 0;
-    }
+    if (useExitCodes) exitNow(res.ok ? 0 : 1);
   } catch (err) {
-    exitCode = 4;
-
     const code = errnoCode(err);
     const friendlyCodes = new Set(['ENOENT', 'EISDIR', 'EACCES', 'EPERM']);
     const friendly = code ? friendlyCodes.has(code) : false;
@@ -417,7 +409,7 @@ export async function handler(argv: ArgumentsCamelCase<VerifyArgs>): Promise<voi
         : undefined,
     });
 
-    if (useExitCodes) process.exit(exitCode);
+    if (useExitCodes) exitNow(4);
   }
 }
 
