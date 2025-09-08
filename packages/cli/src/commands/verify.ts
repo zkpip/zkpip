@@ -53,6 +53,72 @@ type EmitPayload = EmitOk | EmitErr;
 
 // ---- helpers -------------------------------------------------------------
 
+// Safe object check (already in your file)
+function isObject(x: unknown): x is Record<string, unknown> {
+  return typeof x === 'object' && x !== null && !Array.isArray(x);
+}
+
+/** Detects artifact-style bundles (has artifacts or classic bundle fields) */
+function isBundleArtifactLike(x: unknown): boolean {
+  if (!isObject(x)) return false;
+  const xo = x as Record<string, unknown>;
+
+  if (Object.prototype.hasOwnProperty.call(xo, 'artifacts')) return true;
+
+  const arts = isObject(xo['artifacts']) ? (xo['artifacts'] as Record<string, unknown>) : undefined;
+  if (
+    arts &&
+    (Object.prototype.hasOwnProperty.call(arts, 'zkey') ||
+     Object.prototype.hasOwnProperty.call(arts, 'wasm') ||
+     Object.prototype.hasOwnProperty.call(arts, 'vkey') ||
+     Object.prototype.hasOwnProperty.call(arts, 'proof'))
+  ) {
+    return true;
+  }
+
+  if (
+    Object.prototype.hasOwnProperty.call(xo, 'bundleId') ||
+    Object.prototype.hasOwnProperty.call(xo, 'verifier')
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/** Detects inline verification-style inputs (vkey/proof/publicSignals present) */
+function isInlineVerificationLike(x: unknown): boolean {
+  if (!isObject(x)) return false;
+  const xo = x as Record<string, unknown>;
+
+  // top-level vkey
+  const hasVkeyTop =
+    Object.prototype.hasOwnProperty.call(xo, 'verificationKey') ||
+    Object.prototype.hasOwnProperty.call(xo, 'vkey') ||
+    Object.prototype.hasOwnProperty.call(xo, 'vk');
+
+  // verifier.vkey
+  const verifier = isObject(xo['verifier']) ? (xo['verifier'] as Record<string, unknown>) : undefined;
+  const hasVkeyVerifier = verifier
+    ? (Object.prototype.hasOwnProperty.call(verifier, 'verificationKey') ||
+       Object.prototype.hasOwnProperty.call(verifier, 'vkey') ||
+       Object.prototype.hasOwnProperty.call(verifier, 'vk'))
+    : false;
+
+  // result.proof / result.publicSignals OR top-level publics
+  const result = isObject(xo['result']) ? (xo['result'] as Record<string, unknown>) : undefined;
+  const hasProof = result ? isObject(result['proof']) : false;
+  const hasPublics =
+    (result ? Array.isArray(result['publicSignals']) : false) ||
+    Array.isArray(xo['publicSignals']) ||
+    Array.isArray(xo['publicInputs']);
+
+  const hasArtifacts = Object.prototype.hasOwnProperty.call(xo, 'artifacts');
+
+  // Inline means: some inline bits present AND no artifacts object
+  return (hasVkeyTop || hasVkeyVerifier || hasProof || hasPublics) && !hasArtifacts;
+}
+
 function isErrorOutcome<A extends string>(o: VerifyOutcome<A>): o is Extract<VerifyOutcome<A>, { ok: false }> {
   return o.ok === false;
 }
@@ -61,10 +127,6 @@ function errnoCode(err: unknown): string | undefined {
   if (typeof err !== 'object' || err === null) return undefined;
   const anyObj = err as Record<string, unknown>;
   return typeof anyObj.code === 'string' ? anyObj.code : undefined;
-}
-
-function isObject(x: unknown): x is Record<string, unknown> {
-  return typeof x === 'object' && x !== null && !Array.isArray(x);
 }
 
 function isProofBundleLike(x: unknown): boolean {
@@ -269,16 +331,33 @@ export async function handler(argv: ArgumentsCamelCase<VerifyArgs>): Promise<voi
         : undefined;
 
     const normalized = normalizeSchemaRef(declared);
-    const looksLikeBundle = isProofBundleLike(input);
+    const looksBundleArtifacts = isBundleArtifactLike(input);
+    const looksInline = isInlineVerificationLike(input);
 
-    const schemaId =
-      normalized ??
-      (looksLikeBundle
-        ? 'urn:zkpip:mvs:schemas:proofBundle.schema.json'
-        : 'urn:zkpip:mvs:schemas:verification.schema.json');
+    let schemaId: string;
+    if (normalized && normalized.includes('proofBundle.schema.json') && !looksBundleArtifacts) {
+      // deklaráltan bundle, de nincs artifacts → mégis verification
+      schemaId = 'urn:zkpip:mvs:schemas:verification.schema.json';
+    } else {
+      schemaId = normalized
+        ?? (looksBundleArtifacts ? 'urn:zkpip:mvs:schemas:proofBundle.schema.json'
+                                : 'urn:zkpip:mvs:schemas:verification.schema.json');
+    }
 
     if (wantDebug) {
-      console.error('[verify] chosen schema:', schemaId, '(declared:', declared, 'bundleLike:', looksLikeBundle, ')');
+      console.error('[verify] chosen schema:', schemaId, '(declared:', declared,
+                    'bundleArtifacts:', looksBundleArtifacts, 'inline:', looksInline, ')');
+    }
+
+    if (wantDebug) {
+      console.error(
+        '[verify] chosen schema:',
+        schemaId,
+        '(declared:', declared,
+        'bundleArtifacts:', looksBundleArtifacts,
+        'inline:', looksInline,
+        ')'
+      );
     }
 
     const validate = ajv.getSchema(schemaId) ?? ajv.compile({ $ref: schemaId });
@@ -290,7 +369,7 @@ export async function handler(argv: ArgumentsCamelCase<VerifyArgs>): Promise<voi
         schemaRef: schemaId,
         errors: validate.errors ?? [],
         message: 'Input failed MVS schema validation.',
-        debug: wantDebug ? { file: inputPath, chosenSchema: schemaId, looksLikeBundle } : undefined,
+        debug: wantDebug ? { file: inputPath, chosenSchema: schemaId, looksBundleArtifacts, looksInline } : undefined,
       });
       if (useExitCodes) exitNow(3);
       return;
@@ -353,9 +432,11 @@ export async function handler(argv: ArgumentsCamelCase<VerifyArgs>): Promise<voi
 
     // 3) Resolve bundle path for adapter.verify()
     let bundlePath: string | undefined;
-    if (looksLikeBundle) {
+    if (looksBundleArtifacts || looksInline) {
+      // inline és artifacts-os esetben is a *jelenlegi fájl* a forrás
       bundlePath = inputPath;
     } else {
+      // csak a „hivatkozó” verification-ben próbálunk bundle path-ot kivenni
       bundlePath = pickBundlePathFromVerification(input, path.dirname(inputPath));
     }
 

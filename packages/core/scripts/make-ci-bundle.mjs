@@ -225,6 +225,7 @@ async function main() {
       publicSignals,
     },
   };
+  outBundle.$schema = 'urn:zkpip:mvs:schemas:verification.schema.json';
   delete outBundle.artifacts;
 
   const outPath = outPathArg
