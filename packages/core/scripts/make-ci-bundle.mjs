@@ -1,24 +1,36 @@
 // packages/core/scripts/make-ci-bundle.mjs
 // Usage:
 //   node packages/core/scripts/make-ci-bundle.mjs <input-bundle.json> [<output.json>]
-// Produces a bundle with inline verificationKey, result.proof, result.publicSignals (no artifacts).
+// Creates an *inline* bundle (verificationKey + result.proof + result.publicSignals), no artifacts.
 
-import { readFile, writeFile } from 'node:fs/promises';
-import path from 'node:path';
+import { readFile, writeFile, stat } from 'node:fs/promises';
+import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+// ---------- tiny utils ----------
 
 function asLocalPath(maybe) {
   if (typeof maybe !== 'string') return undefined;
   try {
-    return fileURLToPath(maybe); // file://...
+    // convert file:// URIs to absolute paths
+    if (maybe.startsWith('file:')) return fileURLToPath(maybe);
   } catch {
-    return maybe;
+    /* ignore */
   }
+  return maybe;
+}
+
+function isRepoRelative(p) {
+  if (typeof p !== 'string') return false;
+  const n = p.replace(/^\.\/+/, ''); // strip leading ./ for safety
+  return n.startsWith(`packages${path.sep}`);
 }
 
 function pickPathLike(obj, keys) {
+  if (!obj || typeof obj !== 'object') return undefined;
   for (const k of keys) {
-    if (obj && typeof obj === 'object' && obj[k] && typeof obj[k] === 'string') return obj[k];
+    const v = obj[k];
+    if (typeof v === 'string' && v.trim() !== '') return v;
   }
   return undefined;
 }
@@ -38,10 +50,10 @@ function norm1(v) {
 }
 
 function norm2(v) {
-  const outer = norm1(v);
-  if (!outer) return undefined;
+  const o = norm1(v);
+  if (!o) return undefined;
   const out = [];
-  for (const row of outer) {
+  for (const row of o) {
     const r = norm1(row);
     if (!r) return undefined;
     out.push(r);
@@ -73,19 +85,55 @@ function normalizePublicSignals(arr) {
   return (arr ?? []).map(toDecString);
 }
 
+function resolveRefPath(baseDir, ref) {
+  const ws = process.env.GITHUB_WORKSPACE || process.cwd();
+  const local = asLocalPath(ref);
+  if (!local) return undefined;
+
+  // absolute stays absolute
+  if (path.isAbsolute(local)) return local;
+
+  // repo-root relative 'packages/...'
+  if (isRepoRelative(local)) return path.join(ws, local);
+
+  // otherwise treat as relative to the bundle directory
+  return path.resolve(baseDir, local);
+}
+
+// ---------- main ----------
+
 async function main() {
-  const inPath = process.argv[2];
-  if (!inPath) {
+  // robust argv parsing
+  const argv = process.argv.slice(2).filter((s) => typeof s === 'string' && s.trim() !== '');
+  const inPathArg = argv[0];
+  const outPathArg = argv[1];
+
+  if (!inPathArg) {
     console.error('Usage: node make-ci-bundle.mjs <input-bundle.json> [<output.json>]');
     process.exit(2);
   }
-  const absIn = path.resolve(inPath);
-  const baseDir = path.dirname(absIn);
 
+  // normalize input path
+  const inLocal = asLocalPath(inPathArg) ?? '';
+  const absIn = path.isAbsolute(inLocal) ? inLocal : path.resolve(process.cwd(), inLocal);
+
+  // ensure input exists early
+  try {
+    const st = await stat(absIn);
+    if (!st.isFile()) {
+      console.error(`Not a file: ${absIn}`);
+      process.exit(4);
+    }
+  } catch {
+    console.error(`Input not found: ${absIn}`);
+    process.exit(4);
+  }
+
+  const baseDir = path.dirname(absIn);
   const raw = await readFile(absIn, 'utf8');
   const bundle = JSON.parse(raw);
 
-  // If already inline, just re-emit (normalize publics)
+  // If already inline, keep as base and normalize publics
   const hasInlineVkey = bundle && typeof bundle === 'object' && bundle.verificationKey;
   const hasInlineProof = bundle?.result?.proof;
   const hasInlinePublics = Array.isArray(bundle?.result?.publicSignals);
@@ -94,7 +142,7 @@ async function main() {
   let proof = hasInlineProof ? normalizeProof(bundle.result.proof) : undefined;
   let publicSignals = hasInlinePublics ? normalizePublicSignals(bundle.result.publicSignals) : undefined;
 
-  // If anything missing, read from artifacts (relative to bundle dir)
+  // If missing, read from artifacts (relative to bundle dir or repo root)
   const artifacts = (bundle && typeof bundle === 'object') ? bundle.artifacts : undefined;
 
   if (!hasInlineVkey) {
@@ -106,7 +154,7 @@ async function main() {
       console.error('Missing artifacts.vkey path/uri');
       process.exit(4);
     }
-    const vkeyAbs = path.resolve(baseDir, asLocalPath(vkeyPathStr));
+    const vkeyAbs = resolveRefPath(baseDir, vkeyPathStr);
     vkey = await readJson(vkeyAbs);
   }
 
@@ -120,7 +168,7 @@ async function main() {
       console.error('Missing artifacts.proof path/uri');
       process.exit(4);
     }
-    const proofAbs = path.resolve(baseDir, asLocalPath(proofPathStr));
+    const proofAbs = resolveRefPath(baseDir, proofPathStr);
     proofFile = await readJson(proofAbs);
     const rawProof = (proofFile && typeof proofFile === 'object' && 'proof' in proofFile) ? proofFile.proof : proofFile;
     proof = normalizeProof(rawProof);
@@ -131,7 +179,6 @@ async function main() {
   }
 
   if (!publicSignals) {
-    // Try proof file's embedded publics first
     if (!proofFile) {
       // if not loaded above:
       const proofRef = artifacts?.proof;
@@ -139,7 +186,7 @@ async function main() {
         ? proofRef
         : pickPathLike(proofRef ?? {}, ['path', 'uri', 'url']);
       if (proofPathStr) {
-        const proofAbs = path.resolve(baseDir, asLocalPath(proofPathStr));
+        const proofAbs = resolveRefPath(baseDir, proofPathStr);
         proofFile = await readJson(proofAbs);
       }
     }
@@ -155,7 +202,7 @@ async function main() {
         console.error('Missing artifacts.publicSignals path/uri');
         process.exit(4);
       }
-      const pubAbs = path.resolve(baseDir, asLocalPath(pubPathStr));
+      const pubAbs = resolveRefPath(baseDir, pubPathStr);
       const pubFile = await readJson(pubAbs);
       publicsRaw = Array.isArray(pubFile) ? pubFile
         : (pubFile && typeof pubFile === 'object' && Array.isArray(pubFile.publicSignals)) ? pubFile.publicSignals
@@ -180,8 +227,8 @@ async function main() {
   };
   delete outBundle.artifacts;
 
-  const outPath = process.argv[3]
-    ? path.resolve(process.argv[3])
+  const outPath = outPathArg
+    ? (path.isAbsolute(outPathArg) ? outPathArg : path.resolve(process.cwd(), outPathArg))
     : path.join(path.dirname(absIn), path.basename(absIn).replace(/\.json$/i, '.ci.valid.json'));
 
   await writeFile(outPath, JSON.stringify(outBundle, null, 2));
