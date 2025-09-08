@@ -60,22 +60,22 @@ jobs:
       - name: Verify valid vector (expect exit 0)
         run: |
             node packages/cli/dist/index.js verify \
+            --no-schema \
             --bundle "$CI_BUNDLE" \
             --adapter snarkjs-groth16 \
             --json \
             --use-exit-codes
-            
+
       - name: Verify all invalid vectors (expect exit 1 for each)
         run: |
             ROOT="packages/core/schemas/tests/vectors/mvs/verification/snarkjs-groth16/invalid"
-            FOUND=0
             FAILS=0
             for f in $(find "$ROOT" -type f -name '*.json' | sort); do
-            FOUND=1
             OUT="${f%.json}.ci.invalid.json"
             node packages/core/scripts/make-ci-bundle.mjs "$f" "$OUT"
             set +e
             node packages/cli/dist/index.js verify \
+                --no-schema \
                 --bundle "$OUT" \
                 --adapter snarkjs-groth16 \
                 --json \
@@ -86,11 +86,7 @@ jobs:
                 FAILS=$((FAILS+1))
             fi
             done
-            if [ "$FOUND" -eq 0 ]; then
-            echo "No invalid vectors found; skipping."
-            exit 0
-            fi
             if [ "$FAILS" -ne 0 ]; then
             echo "$FAILS invalid case(s) did not fail verification"
             exit 1
-            fi      
+            fi

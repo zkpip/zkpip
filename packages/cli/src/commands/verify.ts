@@ -29,6 +29,10 @@ type VerifyArgs = {
   debug: boolean;
   'list-adapters': boolean;
   listAdapters: boolean;        // camel alias
+  'no-schema': boolean;
+  noSchema: boolean;
+  'skip-schema': boolean;
+  skipSchema: boolean;  
 };
 
 type EmitOk = {
@@ -260,6 +264,16 @@ export const builder = (y: Argv<object>) =>
       default: false,
       describe: 'Verbose error output on failures',
     })
+    .option('no-schema', {
+      type: 'boolean',
+      default: false,
+      describe: 'Skip MVS schema validation (useful for CI smoke)',
+    })
+    .option('skip-schema', {
+      type: 'boolean',
+      default: false,
+      describe: 'Alias for --no-schema',
+    })    
     .parserConfiguration({ 'camel-case-expansion': true })
     .check((argv) => {
       if (argv.listAdapters) return true;
@@ -279,6 +293,9 @@ export async function handler(argv: ArgumentsCamelCase<VerifyArgs>): Promise<voi
   const wantDebug = !!argv.debug;
   const useExitCodes = !!(argv['exit-codes'] || argv.exitCodes || argv['use-exit-codes'] || argv.useExitCodes);
   const wantList = !!(argv['list-adapters'] || argv.listAdapters);
+  const skipSchema =
+    !!argv['no-schema'] || !!argv.noSchema || !!argv['skip-schema'] || !!argv.skipSchema ||
+    process.env.ZKPIP_SKIP_SCHEMA === '1';  
 
   const emit = (obj: EmitPayload) => {
     if (obj.ok) {
@@ -343,6 +360,25 @@ export async function handler(argv: ArgumentsCamelCase<VerifyArgs>): Promise<voi
         ?? (looksBundleArtifacts ? 'urn:zkpip:mvs:schemas:proofBundle.schema.json'
                                 : 'urn:zkpip:mvs:schemas:verification.schema.json');
     }
+
+    if (!skipSchema) {
+      const validate = ajv.getSchema(schemaId) ?? ajv.compile({ $ref: schemaId });
+      const valid = !!validate(input);
+      if (!valid) {
+        emit({
+          ok: false,
+          stage: 'schema',
+          schemaRef: schemaId,
+          errors: validate.errors ?? [],
+          message: 'Input failed MVS schema validation.',
+          debug: wantDebug ? { file: inputPath, chosenSchema: schemaId, looksBundleArtifacts, looksInline } : undefined,
+        });
+        if (useExitCodes) exitNow(3);
+        return;
+      }
+    } else if (wantDebug) {
+      console.error('[verify] schema validation skipped (CI smoke), chosen schema would be:', schemaId);
+    }    
 
     if (wantDebug) {
       console.error('[verify] chosen schema:', schemaId, '(declared:', declared,
