@@ -50,26 +50,47 @@ jobs:
       - name: List adapters
         run: node packages/cli/dist/index.js adapters --json
 
+      - name: Prepare CI-inline bundle
+        run: |
+            VALID="packages/core/schemas/tests/vectors/mvs/verification/snarkjs-groth16/valid/proof-bundle.valid.json"
+            OUT="${VALID%.json}.ci.valid.json"
+            node packages/core/scripts/make-ci-bundle.mjs "$VALID" "$OUT"
+            echo "CI_BUNDLE=$OUT" >> $GITHUB_ENV
+
       - name: Verify valid vector (expect exit 0)
         run: |
-          VALID="packages/core/schemas/tests/vectors/mvs/verification/snarkjs-groth16/valid/proof-bundle.valid.json"
-          node packages/cli/dist/index.js verify \
-            --bundle "$VALID" \
+            node packages/cli/dist/index.js verify \
+            --bundle "$CI_BUNDLE" \
             --adapter snarkjs-groth16 \
             --json \
             --use-exit-codes
-
-      - name: Verify one invalid vector (expect exit 1)
+            
+      - name: Verify all invalid vectors (expect exit 1 for each)
         run: |
-          INVALID=$(ls packages/core/schemas/tests/vectors/mvs/verification/snarkjs-groth16/invalid/*.json | head -n1)
-          set +e
-          node packages/cli/dist/index.js verify \
-            --bundle "$INVALID" \
-            --adapter snarkjs-groth16 \
-            --json \
-            --use-exit-codes
-          CODE=$?
-          if [ "$CODE" -ne 1 ]; then
-            echo "Expected exit code 1 for invalid vector, got $CODE"
+            ROOT="packages/core/schemas/tests/vectors/mvs/verification/snarkjs-groth16/invalid"
+            FOUND=0
+            FAILS=0
+            for f in $(find "$ROOT" -type f -name '*.json' | sort); do
+            FOUND=1
+            OUT="${f%.json}.ci.invalid.json"
+            node packages/core/scripts/make-ci-bundle.mjs "$f" "$OUT"
+            set +e
+            node packages/cli/dist/index.js verify \
+                --bundle "$OUT" \
+                --adapter snarkjs-groth16 \
+                --json \
+                --use-exit-codes
+            CODE=$?
+            if [ "$CODE" -ne 1 ]; then
+                echo "::error title=Invalid vector verified unexpectedly::${f} returned $CODE"
+                FAILS=$((FAILS+1))
+            fi
+            done
+            if [ "$FOUND" -eq 0 ]; then
+            echo "No invalid vectors found; skipping."
+            exit 0
+            fi
+            if [ "$FAILS" -ne 0 ]; then
+            echo "$FAILS invalid case(s) did not fail verification"
             exit 1
-          fi
+            fi      
