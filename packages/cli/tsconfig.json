@@ -1,45 +1,40 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "composite": true,
     "target": "ES2022",
     "lib": ["ES2022"],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "moduleDetection": "force",
-    "strict": true,
-    "sourceMap": true,
-    "verbatimModuleSyntax": true,
-    "resolveJsonModule": true,
 
-    "baseUrl": "../..",
+    "baseUrl": ".",
     "paths": {
-      "@zkpip/core": ["packages/core/src/index.ts"],
-      "@zkpip/core/*": ["packages/core/src/*"]
+      "@zkpip/core": ["../core/dist/index.d.ts"],
+      "@zkpip/core/*": ["../core/dist/*"]
     },    
 
-    "noEmit": false,
-    "outDir": "dist",
     "rootDir": "src",
+    "outDir": "dist",
     "declaration": true,
-    "skipLibCheck": true,
-    "types": ["node"],
+    "sourceMap": true,
+    "composite": true,
 
-    "typeRoots": [
-      "./src/types",
-      "./types",
-      "../../node_modules/@types"
-    ]
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
+    "noEmitOnError": true,
+
+    "types": ["node"],
+    "skipLibCheck": true
   },
-  "references": [{ "path": "../core" }],
-  "composite": true,  
-  "include": [
-    "src/**/*.ts",
-    "src/**/*.d.ts"
-  ],
+  "include": ["src/**/*"],
   "exclude": [
-    "dist",
+    "scripts/**",
+    "e2e-artifacts/**",
+    "**/__tests__/**",
     "**/*.test.ts",
-    "**/__tests__/**"
-  ]
+    "**/*.expect.json"
+  ],
+  "references": [{ "path": "../core" }]
 }

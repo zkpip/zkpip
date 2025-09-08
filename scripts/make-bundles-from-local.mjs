@@ -17,12 +17,20 @@ const pubRaw = read(path.join(dir, "public.json"));
 const vkey  = read(path.join(dir, "verification_key.json"));
 const publicSignals = Array.isArray(pubRaw) ? pubRaw : (pubRaw.publicSignals ?? pubRaw);
 
-// snarkjs verzió a gyökér package.json-ból
-let snarkjsVersion = "0.7.5";
+let snarkjsVersion = "unknown";
+
 try {
-  const pkg = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), "package.json"), "utf8"));
-  snarkjsVersion = (pkg.devDependencies?.snarkjs || pkg.dependencies?.snarkjs || snarkjsVersion).replace(/^[\^~]/, "");
-} catch {}
+  const pkg = JSON.parse(
+    fs.readFileSync(path.resolve(process.cwd(), "package.json"), "utf8")
+  );
+  snarkjsVersion = (
+    pkg.devDependencies?.snarkjs ||
+    pkg.dependencies?.snarkjs ||
+    snarkjsVersion
+  ).replace(/^[\^~]/, "");
+} catch {
+  // noop: no package.json
+}
 
 const base = {
   $schema: "urn:zkpip:mvs:schemas:proofBundle.schema.json",

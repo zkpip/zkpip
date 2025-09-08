@@ -76,7 +76,7 @@ function formatAjvErrors(errors?: ErrorObject[] | null): string {
 
 export async function validatePath(inputPath: string): Promise<void> {
   const files = listJsonFiles(inputPath);
-  const ajv: AjvLike = createAjv();   // ⬅️ típus explicit
+  const ajv: AjvLike = createAjv();   
   addCoreSchemas(ajv);
 
   for (const file of files) {

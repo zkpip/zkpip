@@ -51,8 +51,9 @@ function isInvalidVector(file: string): boolean {
 }
 
 // Expected-fail allowlist (relative to vectorsRoot)
-function makeExpectedFailSet(vectorsRoot: string) {
-  // paths fo not exitst anymore
+function makeExpectedFailSet(vectorsRoot: string): { expectedAbs: Set<string> } {
+  // explicitly mark param as used to satisfy no-unused-vars
+  void vectorsRoot; // paths do not exist anymore
   return { expectedAbs: new Set<string>() };
 }
 

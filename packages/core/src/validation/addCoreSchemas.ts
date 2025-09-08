@@ -82,8 +82,14 @@ const NEW_URN_BY_CANONICAL: Record<string, string> = {
   [CANONICAL_IDS.core]:         "urn:zkpip:mvs:schemas:core.schema.json",
 };
 
-function detectKind(schema: any, file: string): CanonicalId | undefined {
-  const id = String(schema?.$id ?? "").toLowerCase();
+function detectKind(schema: unknown, file: string): CanonicalId | undefined {
+  const id =
+    typeof schema === "object" &&
+    schema !== null &&
+    !Array.isArray(schema) &&
+    typeof (schema as Record<string, unknown>)["$id"] === "string"
+      ? String((schema as Record<string, unknown>)["$id"]).toLowerCase()
+      : "";
   const f  = file.toLowerCase();
   if (id.includes("proof-bundle") || id.includes("proofbundle") || f.includes("proof-bundle") || f.includes("proofbundle")) return CANONICAL_IDS.proofBundle;
   if (id.includes("verification") || f.includes("verification")) return CANONICAL_IDS.verification;

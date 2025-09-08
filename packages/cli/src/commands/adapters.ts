@@ -3,20 +3,36 @@ import type { CommandModule, ArgumentsCamelCase } from 'yargs';
 import { getAllAdapters } from '../registry/adapterRegistry.js';
 
 type Options = {
-  json: boolean;
+  readonly json: boolean;
 };
 
-function formatTable(rows: string[][]): string {
-  // oszlopszélességek
-  const widths = rows[0].map((_, col) => Math.max(...rows.map((r) => (r[col] ?? '').length)));
-  const pad = (s: string, w: number) => s + ' '.repeat(Math.max(0, w - s.length));
+function pad(s: string, w: number): string {
+  const padLen = Math.max(0, w - s.length);
+  return s + ' '.repeat(padLen);
+}
 
-  const [header, ...body] = rows;
+function formatTable(rows: readonly string[][]): string {
+  if (rows.length === 0) return 'No adapters registered.';
+
+  const headerArr = rows[0];
+  if (!headerArr) return 'No adapters registered.';
+  const header: readonly string[] = headerArr;
+  const body: readonly string[][] = rows.slice(1);
+
+  const colCount = rows.reduce((max, r) => Math.max(max, r.length), 0);
+  const widths = Array.from({ length: colCount }, (_, col) =>
+    Math.max(...rows.map((r) => (r[col] ?? '').length))
+  );
+
   const sep = widths.map((w) => '-'.repeat(w)).join('  ');
   const out: string[] = [];
   out.push(widths.map((w, i) => pad(header[i] ?? '', w)).join('  '));
   out.push(sep);
-  for (const r of body) out.push(widths.map((w, i) => pad(r[i] ?? '', w)).join('  '));
+
+  for (const r of body) {
+    out.push(widths.map((w, i) => pad(r[i] ?? '', w)).join('  '));
+  }
+
   return out.join('\n');
 }
 
@@ -30,11 +46,14 @@ export const adaptersCmd: CommandModule<object, Options> = {
       describe: 'Emit machine-readable JSON output',
     });
   },
-  handler(argv: ArgumentsCamelCase<Options>) {
-    const list = getAllAdapters().map((a) => ({
+  async handler(argv: ArgumentsCamelCase<Options>): Promise<void> {
+    // await needed: getAllAdapters() is async
+    const adapters = await getAllAdapters();
+
+    const list = adapters.map((a) => ({
       id: a.id,
-      proofSystem: a.proofSystem,
-      framework: a.framework,
+      proofSystem: a.proofSystem ?? '',
+      framework: a.framework ?? '',
     }));
 
     if (argv.json) {
@@ -42,10 +61,14 @@ export const adaptersCmd: CommandModule<object, Options> = {
       return;
     }
 
-    const rows: string[][] = [
-      ['ID', 'Proof system', 'Framework'],
-      ...list.map((a) => [a.id, a.proofSystem, a.framework]),
-    ];
+    const rows: string[][] =
+      list.length === 0
+        ? []
+        : [
+            ['ID', 'Proof system', 'Framework'],
+            ...list.map((a) => [a.id, a.proofSystem, a.framework]),
+          ];
+
     console.log(formatTable(rows));
   },
 };

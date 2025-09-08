@@ -1,83 +1,117 @@
 import type { Adapter } from "../registry/types.js";
 
-// Utilities: normalize input fields across potential shapes
+/** ---------- JSON típusok (any nélkül) ---------- */
+type JsonPrimitive = string | number | boolean | null;
+type Json = JsonPrimitive | Json[] | JsonObject;
+type JsonObject = { [k: string]: Json };
+
+/** ---------- Utilok ---------- */
 function toLower(x: unknown): string | undefined {
   return typeof x === "string" ? x.toLowerCase() : undefined;
 }
 
-function isObject(x: unknown): x is Record<string, unknown> {
-  return typeof x === "object" && x !== null;
+function isJsonObject(x: unknown): x is JsonObject {
+  return typeof x === "object" && x !== null && !Array.isArray(x);
 }
 
-function get<T = unknown>(o: unknown, key: string): T | undefined {
-  if (!isObject(o)) return undefined;
-  const v = (o as Record<string, unknown>)[key];
-  return v as T | undefined;
+function get<T extends Json = Json>(o: unknown, key: string): T | undefined {
+  if (!isJsonObject(o)) return undefined;
+  return o[key] as T | undefined;
 }
 
 function ensureHexStrings(arr: unknown): string[] | undefined {
   if (!Array.isArray(arr)) return undefined;
   const out: string[] = [];
   for (const v of arr) {
-    if (typeof v === "string") out.push(v);
-    else if (typeof v === "number") out.push("0x" + v.toString(16));
-    else return undefined;
+    if (typeof v === "string") {
+      out.push(v);
+    } else if (typeof v === "number") {
+      out.push("0x" + v.toString(16));
+    } else {
+      return undefined;
+    }
   }
   return out;
 }
 
-// Detect if the input looks like a ZoKrates Groth16 verification record/bundle
+/** ---------- Heurisztikus felismerés ---------- */
 function looksZoKratesGroth16(input: unknown): boolean {
-  // Accept explicit meta markers first
+  // explicit meta
   const proofSystem =
-    toLower(get(input, "proofSystem")) ?? toLower(get(get(input, "meta"), "proofSystem"));
+    toLower(get(input, "proofSystem")) ??
+    toLower(get(get(input, "meta"), "proofSystem"));
   const framework =
-    toLower(get(input, "framework")) ?? toLower(get(get(input, "meta"), "framework"));
+    toLower(get(input, "framework")) ??
+    toLower(get(get(input, "meta"), "framework"));
 
   if (proofSystem === "groth16" && framework === "zokrates") return true;
 
-  // Heuristic by shape: presence of "proof" with a/b/c, plus "inputs" or "publicInputs"
+  // shape-alapú: proof {a,b,c} + inputs/publicInputs/bundle.publicSignals
   const proof = get(input, "proof");
-  const a = get<unknown[]>(proof, "a");
-  const b = get<unknown[]>(proof, "b");
-  const c = get<unknown[]>(proof, "c");
-  const inputs = get(input, "inputs") ?? get(input, "publicInputs") ?? get(get(input, "bundle"), "publicSignals");
+  const a = get<Json[]>(proof, "a");
+  const b = get<Json[][]>(proof, "b");
+  const c = get<Json[]>(proof, "c");
+  const inputs =
+    get(input, "inputs") ??
+    get(input, "publicInputs") ??
+    get(get(input, "bundle"), "publicSignals");
 
   if (Array.isArray(a) && Array.isArray(b) && Array.isArray(c) && Array.isArray(inputs)) {
     return true;
   }
-
   return false;
 }
 
-// Extract a normalized ZoKrates verify tuple: (vkey, proof, inputs)
-function extractZoKratesArgs(input: unknown): { vkey: unknown; proof: unknown; inputs: string[] } | null {
-  const vkey =
+/** ---------- Normalizált argumentumok kinyerése ---------- */
+type ExtractedArgs = {
+  vkey: JsonObject; // ZoKrates verify első paramétere: object
+  proofABC: { a: Json[]; b: Json[][]; c: Json[] };
+  inputs: string[];
+};
+
+function extractZoKratesArgs(input: unknown): ExtractedArgs | null {
+  const vkeyRaw =
     get(input, "verificationKey") ??
     get(get(input, "meta"), "verificationKey") ??
     get(input, "vkey") ??
     get(get(input, "bundle"), "verificationKey");
+
+  if (!isJsonObject(vkeyRaw)) return null;
+
   const proof = get(input, "proof") ?? get(get(input, "bundle"), "proof");
+  const a = get<Json[]>(proof, "a");
+  const b = get<Json[][]>(proof, "b");
+  const c = get<Json[]>(proof, "c");
+  if (!Array.isArray(a) || !Array.isArray(b) || !Array.isArray(c)) return null;
+
   const inputsRaw =
     get(input, "inputs") ??
     get(input, "publicInputs") ??
     get(get(input, "bundle"), "publicSignals") ??
     get(get(input, "meta"), "publicInputs");
 
-  if (!vkey || !proof || !Array.isArray(inputsRaw)) return null;
-
+  if (!Array.isArray(inputsRaw)) return null;
   const inputs = ensureHexStrings(inputsRaw);
   if (!inputs) return null;
 
-  // Quick shape guard for Groth16 a/b/c to avoid passing junk to the wasm
-  const a = get<unknown[]>(proof, "a");
-  const b = get<unknown[]>(proof, "b");
-  const c = get<unknown[]>(proof, "c");
-  if (!Array.isArray(a) || !Array.isArray(b) || !Array.isArray(c)) return null;
-
-  return { vkey, proof, inputs };
+  return { vkey: vkeyRaw, proofABC: { a, b, c }, inputs };
 }
 
+/** ---------- ZoKrates minimál típusok ---------- */
+type ZoKratesProof = {
+  a: Json[];        // [x,y]
+  b: Json[][];      // [[x,y],[x,y]]
+  c: Json[];        // [x,y]
+  inputs: string[]; // public inputs (string)
+};
+type ZoKratesProvider = {
+  verify: (verificationKey: object, proof: ZoKratesProof) => boolean;
+};
+function isZoKratesProvider(x: unknown): x is ZoKratesProvider {
+  return typeof x === "object" && x !== null && typeof (x as { verify?: unknown }).verify === "function";
+}
+
+/** ---------- Adapter ---------- */
 export const zokratesGroth16: Adapter = {
   id: "zokrates-groth16",
   proofSystem: "groth16",
@@ -88,29 +122,41 @@ export const zokratesGroth16: Adapter = {
   },
 
   async verify(input: unknown) {
-    // Extract normalized args; if not present, mark as invalid_input
+    // 1) args kinyerés
     const args = extractZoKratesArgs(input);
     if (!args) {
       return { ok: false, adapter: this.id, error: "invalid_input" as const };
     }
 
-    // Lazy import to avoid pulling wasm unless actually used
-    let provider: { verify: (vk: unknown, proof: unknown, inputs: string[]) => unknown };
+    // 2) zokrates-js lazy import + init
+    let provider: ZoKratesProvider;
     try {
-      const { initialize } = await import("zokrates-js");
-      provider = await initialize();
-    } catch (_e) {
-      // If zokrates-js is not installed/available, degrade gracefully.
+      const mod = (await import("zokrates-js")) as { initialize: () => Promise<unknown> };
+      const p = await mod.initialize();
+      if (!isZoKratesProvider(p)) {
+        return { ok: false, adapter: this.id, error: "not_implemented" as const };
+      }
+      provider = p;
+    } catch {
       return { ok: false, adapter: this.id, error: "not_implemented" as const };
     }
 
+    // 3) proof összeállítás ZoKrates formára
+    const zkProof: ZoKratesProof = {
+      a: args.proofABC.a,
+      b: args.proofABC.b,
+      c: args.proofABC.c,
+      inputs: args.inputs,
+    };
+
+    // 4) verify (ZoKrates sync boolean)
     try {
-      const verdict = await provider.verify(args.vkey, args.proof, args.inputs);
-      const ok = verdict === true;
-      return ok ? { ok: true, adapter: this.id } : { ok: false, adapter: this.id, error: "verification_failed" as const };
+      const verdict = provider.verify(args.vkey, zkProof);
+      return verdict
+        ? { ok: true, adapter: this.id }
+        : { ok: false, adapter: this.id, error: "verification_failed" as const };
     } catch (err) {
-      // Map any internal error as adapter error (keep it opaque to the CLI)
-      const msg = (err as Error)?.message ?? String(err);
+      const msg = err instanceof Error ? err.message : String(err);
       return { ok: false, adapter: this.id, error: msg };
     }
   },

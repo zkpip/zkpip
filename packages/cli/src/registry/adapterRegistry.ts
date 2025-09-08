@@ -1,23 +1,39 @@
-import type { Adapter } from './types.js';
-import { snarkjsGroth16 } from '../adapters/snarkjs-groth16.js';
-import { snarkjsPlonk } from '../adapters/snarkjs-plonk.js';
-import { zokratesGroth16 } from "../adapters/zokrates-groth16.js";
+// NodeNext ESM, no "any". Registry for id→adapter module (no detection logic).
+// ExactOptionalPropertyTypes-friendly.
 
-const ADAPTERS: Adapter[] = [snarkjsGroth16, snarkjsPlonk, zokratesGroth16];
+import type { VerifyOutcome } from '../adapters/types.js';
 
-// Derive the detection input type from the Adapter interface
-type DetectInput = Parameters<Adapter['canHandle']>[0];
+// 1) Supported adapter IDs (extend as you add more)
+export const availableAdapterIds = ['snarkjs-groth16'] as const;
+export type AdapterId = typeof availableAdapterIds[number];
 
-export function getAllAdapters(): readonly Adapter[] {
-  return ADAPTERS;
+// 2) Minimal adapter module shape (matches new adapters)
+export type AdapterModule = {
+  id: AdapterId;
+  verify: (bundlePath: string) => Promise<VerifyOutcome<AdapterId>>;
+  proofSystem?: string;
+  framework?: string;
+};
+
+export async function getAdapterById(id: AdapterId): Promise<AdapterModule | undefined> {
+  switch (id) {
+    case 'snarkjs-groth16': {
+      const mod = await import('../adapters/snarkjs-groth16.js');
+      return {
+        id: mod.id,
+        verify: mod.verify,
+        // fallback-ek, ha nem exportálnád a konstansokat:
+        proofSystem: mod.proofSystem ?? 'groth16',
+        framework: mod.framework ?? 'snarkjs',
+      } satisfies AdapterModule;
+    }
+    default:
+      return undefined;
+  }
 }
 
-export function pickAdapter(bundle: DetectInput): Adapter | undefined {
-  return ADAPTERS.find((a) => a.canHandle(bundle));
+export async function getAllAdapters(): Promise<readonly AdapterModule[]> {
+  const mods = await Promise.all(availableAdapterIds.map(getAdapterById));
+  return mods.filter((m): m is AdapterModule => !!m);
 }
 
-export function getAdapterById(id: string): Adapter | undefined {
-  return ADAPTERS.find((a) => a.id === id);
-}
-
-export const availableAdapterIds = ADAPTERS.map((a) => a.id);

@@ -107,4 +107,6 @@ describe("adapter: zokrates-groth16", () => {
         // Should not happen, but makes TS happy and test explicit
         throw new Error("Expected adapter to fail when provider throws");
     }
+  });
+
 });

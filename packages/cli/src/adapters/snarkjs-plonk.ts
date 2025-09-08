@@ -68,7 +68,7 @@ export const snarkjsPlonk: Adapter = {
       return ok
         ? { ok: true, adapter: this.id }
         : { ok: false, adapter: this.id, error: 'verification_failed' };
-    } catch (_e) {
+    } catch {
       return {
         ok: false,
         adapter: this.id,

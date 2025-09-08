@@ -153,3 +153,7 @@ packages/**/src/**/*.js.map
 # prevent stray JS artifacts in source
 packages/**/src/**/*.js
 packages/**/src/**/*.js.map
+
+# zkpip local artifacts
+packages/cli/e2e-artifacts/
+tmp-schemas/
