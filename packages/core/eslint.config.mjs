@@ -1,5 +1,5 @@
 // packages/core/eslint.config.mjs
-import tseslint from 'typescript-eslint';
+import { configs } from "typescript-eslint";
 import js from '@eslint/js';
 import globals from 'globals';
 
@@ -18,7 +18,7 @@ export default [
     },
   },
 
-  ...tseslint.configs.recommendedTypeChecked.map((cfg) => ({
+  configs.recommendedTypeChecked.map((cfg) => ({
     ...cfg,
     files: ['src/**/*.ts', 'scripts/**/*.ts'],
     languageOptions: {

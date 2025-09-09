@@ -12,6 +12,9 @@
 
     "strict": true,
     "skipLibCheck": true,
-    "noEmit": false
+    "noEmit": false,
+
+    "baseUrl": ".",
+    // "paths": { "@zkpip/core": ["packages/core/src"] }    
   }
 }

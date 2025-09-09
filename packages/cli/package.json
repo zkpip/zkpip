@@ -17,19 +17,45 @@
     "node": ">=20.10"
   },
   "scripts": {
-    "clean": "rimraf dist tsconfig.tsbuildinfo",
-    "build": "tsc -b && node ./scripts/make-executable.mjs",
-    "build:watch": "tsc -b -w",
-    "test": "vitest run",
     "lint": "ESLINT_USE_FLAT_CONFIG=true eslint .",
+    
+    "build:watch": "tsc -b -w",
+
+    "test": "vitest run",
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
+
     "format:check": "prettier -c \"src/**/*.{ts,js,mjs,cjs,md,json,yml,yaml}\"",
-    "format": "prettier -w \"src/**/*.{ts,js,mjs,cjs,md,json,yml,yaml}\""
+    "format": "prettier -w \"src/**/*.{ts,js,mjs,cjs,md,json,yml,yaml}\"",
+
+    "smoke:valid": "node dist/index.js verify --no-schema --bundle /tmp/ci-inline.valid.json --adapter snarkjs-groth16 --json --use-exit-codes",
+    "smoke:invalid": "node dist/index.js verify --no-schema --bundle /tmp/ci-inline.invalid.json --adapter snarkjs-groth16 --json --use-exit-codes",
+    "smoke": "npm run -ws build && node packages/cli/dist/index.js verify --verification packages/core/schemas/tests/vectors/mvs/verification/valid.groth16.snarkjs.json --exit-codes && node packages/cli/dist/index.js verify --verification packages/core/schemas/tests/vectors/mvs/verification/invalid.groth16.snarkjs.json --exit-codes || true",
+
+    "vectors:plonk:gen": "bash ./scripts/run-plonk-vectors.sh",
+    "smoke:plonk": "bash ./scripts/smoke-plonk-cli.sh",
+    "test:smoke:plonk": "vitest run src/__tests__/plonk.cli.smoke.test.ts",
+
+    "selftest:groth16": "node scripts/groth16-adapter-selftest.mjs /tmp/ci-inline.valid.json /tmp/ci-inline.invalid.json",
+    "selftest:plonk": "node scripts/plonk-adapter-selftest.mjs /tmp/ci-inline.plonk.valid.json /tmp/ci-inline.plonk.invalid.json",
+    
+    "clean": "rimraf dist tsconfig.tsbuildinfo",
+    "build": "tsc -b",
+    "postbuild": "node ./scripts/make-executable.mjs",
+
+    "e2e:snarkjs": "E2E_ADAPTER=snarkjs-groth16 tsx packages/cli/scripts/e2e.ts",
+    "e2e:discover": "tsx scripts/e2e-discover.ts",
+    "e2e": "tsx scripts/e2e.ts"
   },
   "dependencies": {
     "@types/yargs": "^17.0.33",
     "snarkjs": "^0.7.5",
-    "yargs": "^18.0.0"
+    "yargs": "^18.0.0",
+    "@zkpip/core": "0.1.0",
+    "tsx": "^4.19.0",
+    "rimraf": "^6.0.0"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4"
   }
 }

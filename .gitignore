@@ -1,3 +1,13 @@
+# PLONK vector generator artefacts (kept local)
+packages/cli/scripts/multiplier2.circom
+packages/cli/scripts/multiplier2.r1cs
+packages/cli/scripts/multiplier2.sym
+packages/cli/scripts/multiplier2_js/
+packages/cli/scripts/witness.wtns
+packages/cli/scripts/circuit_final.zkey
+packages/cli/scripts/pot10_final.ptau
+packages/cli/scripts/input.json
+
 # coverage / build / caches
 coverage/
 dist/
@@ -153,3 +163,7 @@ packages/**/src/**/*.js.map
 # prevent stray JS artifacts in source
 packages/**/src/**/*.js
 packages/**/src/**/*.js.map
+
+# zkpip local artifacts
+packages/cli/e2e-artifacts/
+tmp-schemas/

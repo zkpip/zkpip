@@ -27,6 +27,22 @@ function listJsonFiles(root: string): string[] {
   return out.sort((a, b) => a.localeCompare(b));
 }
 
+function shouldSchemaValidate(vectorsRoot: string, absPath: string): boolean {
+  const rp = norm(path.relative(vectorsRoot, absPath));
+  if (rp.startsWith('mvs/verification/proofBundle/')) return false;     // komponens minták
+  if (rp.startsWith('mvs/verification/test/groth16/')) return false;    // komponens minták
+  return true;
+}
+
+function makeSchemaValidButCryptoInvalidSet(vectorsRoot: string) {
+  const allowRel = new Set<string>([
+    'mvs/verification/proof-bundle.invalid.json',
+  ]);
+  const allowAbs = new Set<string>();
+  for (const r of allowRel) allowAbs.add(norm(path.join(vectorsRoot, r)));
+  return { allowAbs };
+}
+
 // Mark files as “invalid” if name or any path segment contains “invalid”
 function isInvalidVector(file: string): boolean {
   const base = path.basename(file).toLowerCase();
@@ -35,20 +51,10 @@ function isInvalidVector(file: string): boolean {
 }
 
 // Expected-fail allowlist (relative to vectorsRoot)
-function makeExpectedFailSet(vectorsRoot: string) {
-  const expectedRel = new Set<string>([
-    'mvs/cir/cir-valid-1.json',
-    'mvs/cir/cir-valid-2.json',
-    'mvs/cir/cir-valid-3.json',
-    'mvs/proofBundle/proofBundle-valid-1.json',
-    'mvs/proofBundle/proofBundle-valid-2.json',
-    'mvs/proofBundle/proofBundle-valid-3.json',
-  ]);
-  const expectedAbs = new Set<string>();
-  for (const r of expectedRel) {
-    expectedAbs.add(norm(path.join(vectorsRoot, r)));
-  }
-  return { expectedAbs };
+function makeExpectedFailSet(vectorsRoot: string): { expectedAbs: Set<string> } {
+  // explicitly mark param as used to satisfy no-unused-vars
+  void vectorsRoot; // paths do not exist anymore
+  return { expectedAbs: new Set<string>() };
 }
 
 async function main() {
@@ -62,17 +68,24 @@ async function main() {
   }
 
   const { expectedAbs } = makeExpectedFailSet(vectorsRoot);
+  const { allowAbs: schemaValidButCryptoInvalid } = makeSchemaValidButCryptoInvalidSet(vectorsRoot);
 
-  const allFiles = listJsonFiles(vectorsRoot);
-  const invalidFiles = allFiles.filter(isInvalidVector);
-  const validFiles = allFiles.filter((f) => !isInvalidVector(f));
+  // 1) Összes JSON
+  const allFilesRaw = listJsonFiles(vectorsRoot);
+  // 2) Csak a sémával validálandó tartomány
+  const allFiles = allFilesRaw.filter((f) => shouldSchemaValidate(vectorsRoot, f));
+
+  // 3) Felosztás — DE a "schema-valid but crypto-invalid" fájlokat mindig a VALID halmazba tesszük
+  const rawInvalid = allFiles.filter(isInvalidVector);
+  const validFiles = allFiles.filter((f) => !isInvalidVector(f) || schemaValidButCryptoInvalid.has(norm(f)));
+  const invalidFiles = rawInvalid.filter((f) => !schemaValidButCryptoInvalid.has(norm(f)));
 
   const validPassed: string[] = [];
   const validFailed: Array<{ file: string; error: unknown }> = [];
   const invalidFailedAsExpected: string[] = [];
   const invalidUnexpectedPassed: string[] = [];
 
-  // VALID: should pass, except xfail (these should fail)
+  // VALID: should pass (kivéve xfail)
   for (const f of validFiles) {
     const isXFail = expectedAbs.has(norm(f));
     if (!isXFail) {
@@ -86,7 +99,6 @@ async function main() {
         validFailed.push({ file: f, error: err });
       }
     } else {
-      // xfail: expected to fail
       try {
         await validatePath(f);
         console.error(`✗ xfail   ${rel(f)} → should fail (expected), but passed`);
@@ -98,7 +110,7 @@ async function main() {
     }
   }
 
-  // INVALID: should fail
+  // INVALID: should fail (ezek tényleg schema-invalidak)
   for (const f of invalidFiles) {
     try {
       await validatePath(f);

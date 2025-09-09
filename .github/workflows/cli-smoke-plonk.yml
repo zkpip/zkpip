@@ -1,0 +1,106 @@
+name: cli-smoke-plonk
+
+on:
+  push:
+    branches: [ feat/cli-esm-verify-refactor ]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke-plonk:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]    # lokálisan 22-vel ment; itt lefuttatjuk 20 és 22 alatt is
+    name: PLONK smoke (Node ${{ matrix.node }})
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Clean dists
+        run: npx rimraf packages/**/dist packages/**/tsconfig.tsbuildinfo
+
+      - name: Build CLI
+        run: npm -w @zkpip/cli run build
+
+      - name: Smoke script (valid→0, invalid→1, broken json→2)
+        run: npm -w @zkpip/cli run smoke:plonk
+
+      - name: Vitest smoke
+        run: |
+          if npm -w @zkpip/cli run | grep -q "test:smoke:plonk"; then
+            npm -w @zkpip/cli run test:smoke:plonk
+          else
+            echo "No vitest smoke script found, skipping."
+          fi
+
+      # Valid (expect exit 0)
+      - name: verify plonk/valid (expect exit 0)
+        shell: bash
+        run: |
+          node packages/cli/dist/index.js verify \
+            --adapter snarkjs-plonk \
+            --verification packages/core/schemas/tests/vectors/mvs/verification/snarkjs-plonk/valid \
+            --json \
+            --use-exit-codes \
+            --no-schema
+
+      # Invalid (expect exit 1)
+      - name: verify plonk/invalid (expect exit 1)
+        shell: bash
+        run: |
+          set +e
+          node packages/cli/dist/index.js verify \
+            --adapter snarkjs-plonk \
+            --verification packages/core/schemas/tests/vectors/mvs/verification/snarkjs-plonk/invalid \
+            --json \
+            --use-exit-codes \
+            --no-schema
+          RC=$?
+          echo "verify returned exit code: $RC"
+          set -e
+          if [ "$RC" -ne 1 ]; then
+            echo "Expected exit 1, got $RC"
+            exit 1
+          fi
+          exit 0
+
+      # Adapter error via broken JSON (expect exit 2)
+      - name: verify plonk/broken JSON (expect exit 2)
+        shell: bash
+        run: |
+          set +e
+          node packages/cli/dist/index.js verify \
+            --adapter snarkjs-plonk \
+            --verification packages/core/schemas/tests/vectors/mvs/verification/snarkjs-plonk/invalid/broken_proof.json \
+            --json \
+            --use-exit-codes \
+            --no-schema
+          RC=$?
+          echo "verify returned exit code: $RC"
+          set -e
+          if [ "$RC" -ne 2 ]; then
+            echo "Expected exit 2, got $RC"
+            exit 1
+          fi
+          exit 0
+
+      # --- Optional fallback: if the PLONK vectors directory is NOT committed, generate it.
+      # WARNING: this requires the circom + snarkjs toolchain on the runner and will slow down CI.
+      # - name: Generate PLONK vectors (fallback)
+      #   # Note: GitHub Actions doesn't have an `exists()` function. Use hashFiles instead:
+      #   # if: ${{ hashFiles('packages/core/schemas/tests/vectors/mvs/verification/snarkjs-plonk/valid/verification_key.json') == '' }}
+      #   # If you still want to keep the intent visible, you can leave the line below as a comment:
+      #   # if: ${{ !exists('packages/core/schemas/tests/vectors/mvs/verification/snarkjs-plonk/valid/verification_key.json') }}
+      #   run: npm -w @zkpip/cli run vectors:plonk:gen          

@@ -1,0 +1,47 @@
+name: smoke
+on:
+  push:
+    branches: [ feat/cli-esm-verify-refactor ]
+  pull_request:
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: npm ci
+      - run: npx rimraf packages/**/dist packages/**/tsconfig.tsbuildinfo
+      - run: npm -w @zkpip/core run build
+      - run: npm -w @zkpip/cli run build
+      - name: make valid bundle
+        run: |
+          VALID="packages/core/schemas/tests/vectors/mvs/verification/snarkjs-groth16/valid/proof-bundle.valid.json"
+          OUT="/tmp/ci-inline.valid.json"
+          node packages/core/scripts/make-ci-bundle.mjs "$VALID" "$OUT"
+      - name: verify valid (exit 0)
+        run: node packages/cli/dist/index.js verify --no-schema --bundle /tmp/ci-inline.valid.json --adapter snarkjs-groth16 --json --use-exit-codes
+      - name: bitflip → invalid
+        run: |
+          INV="/tmp/ci-inline.invalid.json"
+          cp /tmp/ci-inline.valid.json "$INV"
+          node -e 'const fs=require("fs");const f=process.argv[1];const j=JSON.parse(fs.readFileSync(f,"utf8")); j.result.proof.pi_a[0]=(BigInt(j.result.proof.pi_a[0])+1n).toString(10); fs.writeFileSync(f,JSON.stringify(j));' "$INV"
+      - name: verify invalid (exit 1)
+        shell: bash
+        run: |
+          set +e
+          node packages/cli/dist/index.js verify \
+            --no-schema \
+            --bundle /tmp/ci-inline.invalid.json \
+            --adapter snarkjs-groth16 \
+            --json \
+            --use-exit-codes
+          RC=$?
+          echo "verify returned exit code: $RC"
+          set -e
+          if [ "$RC" -ne 1 ]; then
+            echo "Expected exit 1, got $RC"
+            exit 1
+          fi
+          # explicitly succeed this step
+          exit 0

@@ -1,208 +1,185 @@
-import fs from 'node:fs';
-import path from 'node:path';
+// packages/cli/src/adapters/snarkjs-groth16.ts
 import * as snarkjs from 'snarkjs';
-import type { Adapter } from '../registry/types.js';
+import type { Adapter, VerifyOutcome } from '../registry/types.js';
+import {
+  isObj, get, getPath,
+  deepFindFirst, deepFindByKeys, 
+  parseJsonIfString, normalizePublicSignals,
+  materializeInput, errorMessage,
+  PublicSignal
+} from './_shared.js';
 
-// ---- minimal type model for snarkjs.groth16 we actually use ------------
-type Groth16 = {
-  verify(vkey: unknown, publicSignals: unknown, proof: unknown): Promise<boolean>;
+const { groth16 } = snarkjs;
+
+/* ----------------------------- JSON typings ----------------------------- */
+type JsonPrimitive = string | number | boolean | null;
+type Json = JsonPrimitive | Json[] | JsonObject;
+type JsonObject = { [k: string]: Json };
+
+/* ------------------------ Groth16 minimal typings ----------------------- */
+type Groth16Proof = {
+  readonly pi_a: readonly Json[];
+  readonly pi_b: readonly Json[][];
+  readonly pi_c: readonly Json[];
 };
-const groth16: Groth16 = (snarkjs as unknown as { groth16: Groth16 }).groth16;
+type VerificationKey = JsonObject;
 
-// ---- narrow helpers (no any) --------------------------------------------
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
+/* -------------------------- structure detectors ------------------------- */
+function looksGroth16Proof(p: unknown): p is Groth16Proof {
+  if (!isObj(p)) return false;
+  const a = get<readonly Json[]>(p, 'pi_a');
+  const b = get<readonly Json[][]>(p, 'pi_b');
+  const c = get<readonly Json[]>(p, 'pi_c');
+  return Array.isArray(a) && Array.isArray(b) && Array.isArray(c);
 }
 
-function readStr(x: unknown): string {
-  return (x ?? '').toString();
-}
-function readLower(x: unknown): string {
-  return readStr(x).toLowerCase();
+type ProofWithParents = { proof: Groth16Proof; parents: ReadonlyArray<Record<string, unknown>> };
+
+/* ----------------------------- extraction ------------------------------ */
+type Extracted = {
+  vkey?: VerificationKey;
+  proof?: Groth16Proof;
+  publics?: ReadonlyArray<PublicSignal>;
+};
+
+function normalizeProof(p: unknown): Groth16Proof | undefined {
+  // accept stringified JSON
+  const val = parseJsonIfString(p);
+
+  if (looksGroth16Proof(val)) return val as Groth16Proof;
+
+  // common nesting: { proof: {...} } vagy result.proof
+  const inner = isObj(val) ? (get(val, 'proof') ?? getPath(val, 'result.proof')) : undefined;
+  if (looksGroth16Proof(inner)) return inner as Groth16Proof;
+
+  // deep fallback
+  const deep = deepFindFirst(val, looksGroth16Proof);
+  return looksGroth16Proof(deep) ? (deep as Groth16Proof) : undefined;
 }
 
-/**
- * Biztonságos, laza lekérés több elérési útból (pl. "meta.proof").
- * Ha bármelyik útvonalon értelmes (nem null/undefined) érték található, visszaadja.
- */
-function getField<T>(obj: unknown, paths: string[]): T | undefined {
-  for (const p of paths) {
-    const segs = p.split('.');
-    let cur: unknown = obj;
-    for (const key of segs) {
-      if (!isObject(cur)) {
-        cur = undefined;
-        break;
-      }
-      cur = cur[key];
-      if (cur === undefined) break;
+function extractFrom(input: unknown): Extracted {
+  const out: Extracted = {};
+
+  // --- 1) Direkt, a diagnosztika alapján ---
+  // vkey: top-level "verificationKey"
+  const vkeyTop = get(input, 'verificationKey');
+  if (isObj(vkeyTop)) {
+    out.vkey = vkeyTop as VerificationKey;
+  } else {
+    // string → próbáld JSON-ként
+    const parsed = parseJsonIfString(vkeyTop);
+    if (isObj(parsed)) out.vkey = parsed as VerificationKey;
+  }
+
+  // result.*
+  const resultObj = get(input, 'result');
+  if (isObj(resultObj)) {
+    // proof: result.proof (vagy result.proof.proof)
+    const proofDirect = get(resultObj, 'proof') ?? getPath(resultObj, 'proof.proof');
+    const proofNorm = normalizeProof(proofDirect);
+    if (proofNorm) out.proof = proofNorm;
+
+    // publics: result.publicSignals
+    const publicsRaw = get(resultObj, 'publicSignals') ?? get(resultObj, 'public_inputs');
+    const publics = normalizePublicSignals(publicsRaw);
+    if (publics.length > 0) out.publics = publics;
+  }
+
+  // --- 2) Gyors fallback a korábbi helyekre, ha bármi hiányzik ---
+  if (!out.proof) {
+    const altProof =
+      getPath(input, 'bundle.proof') ??
+      getPath(input, 'artifacts.proof') ??
+      getPath(input, 'verification.proof') ??
+      deepFindFirst(input, looksGroth16Proof);
+    const norm = normalizeProof(altProof);
+    if (norm) out.proof = norm;
+  }
+
+  if (!out.vkey) {
+    const vkeyDirect =
+      getPath(input, 'result.verificationKey') ??
+      get(input, 'vkey') ??
+      getPath(input, 'bundle.verificationKey') ??
+      getPath(input, 'meta.verificationKey') ??
+      getPath(input, 'artifacts.verificationKey') ??
+      getPath(input, 'artifacts.vkey') ??
+      getPath(input, 'verification.verificationKey') ??
+      deepFindByKeys(input, ['verificationKey', 'vkey', 'vk', 'key']) ??
+      deepFindFirst(input, (n) => isObj(n) && Array.isArray((n as { IC?: unknown }).IC as unknown[]));
+
+    const parsed = parseJsonIfString(vkeyDirect);
+    if (isObj(parsed)) out.vkey = parsed as VerificationKey;
+    else if (isObj(vkeyDirect)) out.vkey = vkeyDirect as VerificationKey;
+  }
+
+  if (!out.publics || out.publics.length === 0) {
+    let publics =
+      normalizePublicSignals(
+        getPath(input, 'bundle.publicSignals') ??
+          getPath(input, 'artifacts.publicSignals') ??
+          getPath(input, 'verification.publicSignals') ??
+          get(input, 'publicSignals') ??
+          get(input, 'publicInputs') ??
+          get(input, 'inputs')
+      );
+
+    if (publics.length === 0) {
+      const deepArray = deepFindByKeys(input, ['publicSignals', 'public_inputs', 'publicInputs', 'inputs']);
+      publics = normalizePublicSignals(deepArray);
     }
-    if (cur !== undefined && cur !== null) return cur as T;
+    if (publics.length > 0) out.publics = publics;
   }
-  return undefined;
+
+  return out;
 }
 
-function ensureArray<T>(x: unknown): T[] {
-  if (Array.isArray(x)) return x as T[];
-  if (x === undefined || x === null) return [];
-  return [x as T];
+/* ------------------------------ heuristics ----------------------------- */
+function looksSnarkjsGroth16(input: unknown): boolean {
+  if (!isObj(input)) return false;
+  const ps = (get<string>(input, 'proofSystem') ?? getPath(input, 'meta.proofSystem')) as string | undefined;
+  const fw = (get<string>(input, 'framework') ?? getPath(input, 'meta.framework')) as string | undefined;
+  if (typeof ps === 'string' && ps.toLowerCase() === 'groth16') return true;
+  if (typeof fw === 'string' && fw.toLowerCase() === 'snarkjs') return true;
+  const proof =
+    get(input, 'proof') ??
+    getPath(input, 'result.proof') ??
+    getPath(input, 'bundle.proof') ??
+    getPath(input, 'verification.proof');
+  return looksGroth16Proof(proof) || (isObj(proof) && looksGroth16Proof(get(proof, 'proof')));
 }
 
-/**
- * snarkjs-hez normalizáljuk a public signal-okat stringgé:
- * - bigint → decimális string
- * - number → egészre vágott decimális string
- * - hex (0x...) → BigInt → decimális string
- * - minden más → String(v)
- */
-function normalizeSignals(arr: unknown[]): string[] {
-  return arr.map((v) => {
-    if (typeof v === 'bigint') return v.toString(10);
-    if (typeof v === 'number') return Math.trunc(v).toString(10);
-    const s = String(v);
-    if (/^0x[0-9a-f]+$/i.test(s)) return BigInt(s).toString(10);
-    return s;
-  });
-}
+/* -------------------------------- adapter ------------------------------ */
+const ID = 'snarkjs-groth16' as const;
 
-/**
- * Ha a bemenet string és JSON literálnak tűnik → JSON.parse.
- * Ha string és fájlútvonal → beolvas és parse.
- * Egyébként visszaadja az értéket változatlanul.
- */
-async function loadJsonMaybeFile(inputDir: string, valueOrPath: unknown): Promise<unknown> {
-  if (typeof valueOrPath === 'string') {
-    const p = valueOrPath.trim();
-    if (p.startsWith('{') || p.startsWith('[')) return JSON.parse(p);
-    const abs = path.isAbsolute(p) ? p : path.resolve(inputDir, p);
-    const txt = fs.readFileSync(abs, 'utf8');
-    return JSON.parse(txt);
-  }
-  return valueOrPath;
-}
-
-function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
-
-// ---- bundle alak (laza, de típusos) -------------------------------------
-type BundleLike = {
-  proofSystem?: string;
-  framework?: string;
-  system?: string;
-  provingScheme?: string;
-  tool?: string;
-  library?: string;
-  publicSignals?: unknown;
-  publicInputs?: unknown;
-  verificationKey?: unknown;
-  vkey?: unknown;
-  vk?: unknown;
-  proof?: unknown;
-  groth16Proof?: unknown;
-  meta?: {
-    proofSystem?: string;
-    framework?: string;
-    publicSignals?: unknown;
-    publicInputs?: unknown;
-    verificationKey?: unknown;
-    vkey?: unknown;
-    vk?: unknown;
-    proof?: unknown;
-    groth16Proof?: unknown;
-  };
-};
-
-// ---- adapter --------------------------------------------------------------
 export const snarkjsGroth16: Adapter = {
-  id: 'snarkjs-groth16',
-  proofSystem: 'Groth16',
+  id: ID,
+  proofSystem: 'groth16',
   framework: 'snarkjs',
 
-  canHandle(bundle: unknown): boolean {
-    const b = bundle as BundleLike;
-
-    const ps =
-      getField<string>(b, ['proofSystem', 'meta.proofSystem', 'system', 'provingScheme']) ?? '';
-    const fw =
-      getField<string>(b, ['framework', 'meta.framework', 'tool', 'library', 'prover.name']) ?? '';
-
-    const psL = readLower(ps);
-    const fwL = readLower(fw);
-
-    const isGroth = psL.includes('groth') || psL === 'g16' || psL === 'groth16';
-    const isSnarkjs = fwL.includes('snarkjs') || fwL.includes('circom') || fwL.includes('zkey');
-
-    const hasProof =
-      getField<unknown>(b, ['proof', 'groth16Proof', 'meta.proof', 'meta.groth16Proof']) !==
-      undefined;
-    const hasPublic =
-      getField<unknown>(b, [
-        'publicSignals',
-        'publicInputs',
-        'meta.publicSignals',
-        'meta.publicInputs',
-      ]) !== undefined;
-    const hasVkey =
-      getField<unknown>(b, [
-        'verificationKey',
-        'vkey',
-        'vk',
-        'meta.verificationKey',
-        'meta.vkey',
-        'meta.vk',
-      ]) !== undefined;
-
-    return (isGroth && isSnarkjs) || (hasProof && hasPublic && hasVkey);
+  canHandle(input: unknown): boolean {
+    if (typeof input === 'string') return input.endsWith('.json') || input.startsWith('{') || input.startsWith('[');
+    return looksSnarkjsGroth16(input);
   },
 
-  async verify(bundle: unknown) {
-    try {
-      const b = bundle as BundleLike;
-      const baseDir = process.cwd();
-
-      // verification key
-      const vkeyCandidate = getField<unknown>(b, [
-        'verificationKey',
-        'vkey',
-        'vk',
-        'meta.verificationKey',
-        'meta.vkey',
-        'meta.vk',
-      ]);
-      if (vkeyCandidate === undefined) {
-        return { ok: false, adapter: this.id, error: 'missing_verification_key' };
-      }
-      const vkey = await loadJsonMaybeFile(baseDir, vkeyCandidate);
-
-      // proof
-      const proofCandidate = getField<unknown>(b, [
-        'proof',
-        'groth16Proof',
-        'meta.proof',
-        'meta.groth16Proof',
-      ]);
-      if (proofCandidate === undefined) {
-        return { ok: false, adapter: this.id, error: 'missing_proof' };
-      }
-      const proof = await loadJsonMaybeFile(baseDir, proofCandidate);
-
-      // public signals / inputs
-      const publicCandidate =
-        getField<unknown>(b, [
-          'publicSignals',
-          'publicInputs',
-          'meta.publicSignals',
-          'meta.publicInputs',
-        ]) ?? [];
-      const publicSignals = normalizeSignals(ensureArray<unknown>(publicCandidate));
-
-      const ok = await groth16.verify(vkey, publicSignals, proof);
-      return ok
-        ? { ok: true, adapter: this.id }
-        : { ok: false, adapter: this.id, error: 'verification_failed' };
+async verify(input: unknown): Promise<VerifyOutcome<typeof ID>> {
+  try {
+    const root = materializeInput(input);   
+    const ex = extractFrom(root);          
+    if (!ex.vkey || !ex.proof || !ex.publics?.length) {
+      return {
+        ok: false,
+        adapter: ID,
+        error: 'adapter_error',
+        message: 'Missing vkey/proof/publicSignals for groth16',
+      };
+    }
+    const ok = await groth16.verify(ex.vkey, ex.publics, ex.proof);
+    return ok
+      ? { ok: true, adapter: ID }
+      : { ok: false, adapter: ID, error: 'verification_failed' };
     } catch (err: unknown) {
-      return { ok: false, adapter: this.id, error: errorMessage(err) };
+      return { ok: false, adapter: ID, error: 'adapter_error', message: errorMessage(err) };
     }
   },
 };

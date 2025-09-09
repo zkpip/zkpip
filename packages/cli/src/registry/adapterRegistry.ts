@@ -1,23 +1,37 @@
+// packages/cli/src/registry/adapterRegistry.ts
 import type { Adapter } from './types.js';
-import { snarkjsGroth16 } from '../adapters/snarkjs-groth16.js';
-import { snarkjsPlonkStub } from '../stubs/snarkjs-plonk.stub.js';
-import { zokratesGroth16Stub } from '../stubs/zokrates-groth16.stub.js';
 
-const ADAPTERS: Adapter[] = [snarkjsGroth16, snarkjsPlonkStub, zokratesGroth16Stub];
+type ModGroth16 = typeof import('../adapters/snarkjs-groth16.js');
+type ModPlonk   = typeof import('../adapters/snarkjs-plonk.js');
+type ModZoG16   = typeof import('../adapters/zokrates-groth16.js');
 
-// Derive the detection input type from the Adapter interface
-type DetectInput = Parameters<Adapter['canHandle']>[0];
+const LOADERS = {
+  'snarkjs-groth16': async () =>
+    (await import('../adapters/snarkjs-groth16.js') as ModGroth16).snarkjsGroth16,
+  'snarkjs-plonk': async () =>
+    (await import('../adapters/snarkjs-plonk.js') as ModPlonk).snarkjsPlonk,
+  'zokrates-groth16': async () =>
+    (await import('../adapters/zokrates-groth16.js') as ModZoG16).zokratesGroth16,
+} as const;
 
-export function getAllAdapters(): readonly Adapter[] {
-  return ADAPTERS;
+export type AdapterId = keyof typeof LOADERS;
+export const availableAdapterIds = Object.keys(LOADERS) as readonly AdapterId[];
+
+// Narrow string → AdapterId
+export function isAdapterId(s: string): s is AdapterId {
+  return (availableAdapterIds as readonly string[]).includes(s);
 }
 
-export function pickAdapter(bundle: DetectInput): Adapter | undefined {
-  return ADAPTERS.find((a) => a.canHandle(bundle));
+// Typed returns
+export async function getAllAdapters(): Promise<Adapter<AdapterId>[]> {
+  const out: Adapter<AdapterId>[] = [];
+  for (const id of availableAdapterIds) {
+    const a = (await LOADERS[id]()) as Adapter<AdapterId>;
+    out.push(a);
+  }
+  return out;
 }
 
-export function getAdapterById(id: string): Adapter | undefined {
-  return ADAPTERS.find((a) => a.id === id);
+export async function getAdapterById(id: AdapterId): Promise<Adapter<AdapterId>> {
+  return LOADERS[id]() as Promise<Adapter<AdapterId>>;
 }
-
-export const availableAdapterIds = ADAPTERS.map((a) => a.id);

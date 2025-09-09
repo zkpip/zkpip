@@ -1,6 +1,7 @@
 // packages/cli/src/commands/validate.ts
 // CLI entry for JSON Schema validation.
 // Uses schemaUtils bootstrap (createAjv + addCoreSchemas) and the filename-based picker.
+// English comments, no `any`.
 
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
@@ -11,27 +12,34 @@ import { createAjv, addCoreSchemas } from '@zkpip/core';
 import { pickSchemaId } from './pickSchemaId.js';
 
 type ErrorObject = {
-  path?: string;
-  instancePath?: string;
-  message?: string;
-  keyword?: string;
+  readonly path?: string;
+  readonly instancePath?: string;
+  readonly message?: string;
+  readonly keyword?: string;
 };
 
-type AjvErrorCarrier = Error & { errors?: ErrorObject[] | null };
+type AjvErrorCarrier = Error & { errors?: ReadonlyArray<ErrorObject> | null };
 
 /* ---------------------------------------------------------------------- */
 /*                          schemasRoot                                    */
 /* ---------------------------------------------------------------------- */
 
-function getArgValue(flags: string[]): string | undefined {
-  const argv = process.argv;
+// Safe argv flag reader (supports --flag value and --flag=value forms)
+// Guards against undefined elements (noUncheckedIndexedAccess-friendly)
+function getArgValue(flags: ReadonlyArray<string>): string | undefined {
+  const argv: ReadonlyArray<string> = process.argv;
   for (let i = 0; i < argv.length; i++) {
-    if (flags.includes(argv[i])) {
-      const v = argv[i + 1];
-      if (v && !v.startsWith('-')) return v;
+    const arg = argv[i] ?? '';
+
+    // --flag=value
+    const eq = flags.find((f) => arg.startsWith(f + '='));
+    if (eq) return arg.slice(eq.length + 1);
+
+    // --flag value
+    if (flags.includes(arg)) {
+      const next = argv[i + 1];
+      if (typeof next === 'string' && !next.startsWith('-')) return next;
     }
-    const eq = flags.find((f) => argv[i].startsWith(f + '='));
-    if (eq) return argv[i].slice(eq.length + 1);
   }
   return undefined;
 }
@@ -41,6 +49,7 @@ function getArgValue(flags: string[]): string | undefined {
  * Monorepo dev → <repo>/packages/core/schemas
  */
 function inferCoreSchemasRoot(): string | undefined {
+  // 1) Resolve from installed package location
   try {
     const require = createRequire(import.meta.url);
     const corePkgJson = require.resolve('@zkpip/core/package.json');
@@ -48,7 +57,7 @@ function inferCoreSchemasRoot(): string | undefined {
     const candidate = path.resolve(coreDir, 'schemas');
     if (existsSync(candidate)) return candidate;
   } catch {
-    return undefined;
+    // fall through to monorepo guess
   }
 
   // 2) Monorepo: <this_file>/../../../core/schemas
@@ -57,7 +66,7 @@ function inferCoreSchemasRoot(): string | undefined {
     const candidate = path.resolve(here, '../../../core/schemas');
     if (existsSync(candidate)) return candidate;
   } catch {
-    return undefined;
+    // ignore
   }
 
   return undefined;
@@ -95,12 +104,18 @@ export async function validatePath(inputPath: string): Promise<void> {
 
   const schemasRoot = resolveSchemasRootFromEnvArgsOrInfer();
 
-  (addCoreSchemas as unknown as (a: unknown, o?: { schemasRoot?: string }) => void)(ajv, {
-    schemasRoot,
-  });
+  // Build options object conditionally (exactOptionalPropertyTypes-friendly)
+  const opts: { schemasRoot?: string } = {};
+  if (typeof schemasRoot === 'string' && schemasRoot.length > 0) {
+    opts.schemasRoot = schemasRoot;
+  }
+  (addCoreSchemas as unknown as (a: unknown, o?: { schemasRoot?: string }) => void)(
+    ajv,
+    Object.keys(opts).length > 0 ? opts : undefined
+  );
 
   // Pick target schema based on filename heuristics
-  const schemaId = pickSchemaId(abs);
+  const schemaId = pickSchemaId(abs, schemasRoot);
 
   const validate = ajv.getSchema(schemaId);
   if (!validate) {
@@ -118,7 +133,7 @@ export async function validatePath(inputPath: string): Promise<void> {
     // Build a readable error message; attach raw errors for tests if needed
     const msg = ajv.errorsText(validate.errors, { separator: '\n' });
     const err: AjvErrorCarrier = new Error(
-      `Validation failed for ${abs}\nSchema: ${schemaId}\n${msg}`,
+      `Validation failed for ${abs}\nSchema: ${schemaId}\n${msg}`
     );
     err.errors = validate.errors ?? null;
     throw err;

@@ -1,33 +1,27 @@
-#!/usr/bin/env node
-import { access, readFile, writeFile, chmod } from 'node:fs/promises';
-import { constants as FS } from 'node:fs';
+// Injects a shebang into dist/index.js and makes it executable.
+// English comments, no CommonJS (ESM only).
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const distEntry = fileURLToPath(new URL('../dist/index.js', import.meta.url));
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const CLI_ROOT = path.resolve(__dirname, '..');
+const OUT = path.join(CLI_ROOT, 'dist', 'index.js');
+const SHEBANG = '#!/usr/bin/env node\n';
 
 async function main() {
-  try {
-    await access(distEntry, FS.F_OK);
-  } catch {
-    console.error(`make-executable: dist entry not found: ${distEntry}`);
-    process.exit(1);
+  let src = await fs.readFile(OUT, 'utf8').catch(() => {
+    throw new Error(`Cannot read ${OUT} – did you run "npm -w @zkpip/cli run build"?`);
+  });
+
+  if (!src.startsWith(SHEBANG)) {
+    await fs.writeFile(OUT, SHEBANG + src, 'utf8');
   }
-
-  const content = await readFile(distEntry, 'utf8');
-
-  if (!content.startsWith('#!')) {
-    await writeFile(distEntry, `#!/usr/bin/env node\n${content}`, 'utf8');
-    console.log(`Shebang added to ${distEntry}`);
-  } else {
-    console.log(`Shebang already present in ${distEntry}`);
-  }
-
-  await chmod(distEntry, 0o755);
-  console.log(`Set executable bit on ${distEntry}`);
-  console.log('make-executable: done.');
+  await fs.chmod(OUT, 0o755);
+  console.log(`Made executable: ${OUT}`);
 }
 
-main().catch((err) => {
-  console.error('make-executable: failed:', err?.stack ?? String(err));
+main().catch((e) => {
+  console.error('[make-executable] failed:', e instanceof Error ? e.message : String(e));
   process.exit(1);
 });

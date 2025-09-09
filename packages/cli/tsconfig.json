@@ -1,24 +1,42 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "types": ["node", "vitest"],
     "target": "ES2022",
     "lib": ["ES2022"],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "moduleDetection": "force",
-    "strict": true,
+
+    "baseUrl": ".",
+    "paths": {
+      "@zkpip/core": ["../core/dist/index.d.ts", "../core/src/index.ts"],
+      "@zkpip/core/*": ["../core/dist/*"]
+    },    
+
+    "rootDir": "src",
+    "outDir": "dist",
+    "declaration": true,
     "sourceMap": true,
-    "verbatimModuleSyntax": true,
-    "resolveJsonModule": true,
-    "noEmit": false,
-    "outDir": "./dist",
-    "rootDir": "./src",
     "composite": true,
-    "skipLibCheck": true
+
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
+    "noEmitOnError": true,
+
+    "types": ["node"],
+    "skipLibCheck": true,
+
+    "resolveJsonModule": true,
   },
-  "include": ["src", "src/**/*.ts", "src/**/*.d.ts"],
-  "exclude": ["dist", "**/*.test.ts"],
-  "references": [{ "path": "../core" }],
-  "typeRoots": ["./src/types", "./types", "../../node_modules/@types"]
+  "include": ["src/**/*"],
+  "exclude": [
+    "scripts/**",
+    "e2e-artifacts/**",
+    "**/__tests__/**",
+    "**/*.test.ts",
+    "**/*.expect.json"
+  ],
+  "references": [{ "path": "../core" }]
 }

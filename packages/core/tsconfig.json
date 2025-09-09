@@ -1,25 +1,47 @@
 {
   "extends": "../../tsconfig.base.json",
+
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./schemas/*": "./dist/schemas/*"
+  },    
+    
   "compilerOptions": {
     "target": "ES2022",
     "lib": ["ES2022"],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "moduleDetection": "force",
-    "strict": true,
+
+    "rootDir": "src",
+    "outDir": "dist",
+    
     "declaration": true,
     "declarationMap": true,
+
     "sourceMap": true,
-    "verbatimModuleSyntax": true,
-    "resolveJsonModule": true,
-    "allowArbitraryExtensions": false,
-    "outDir": "./dist",
-    "rootDir": "./src",
     "composite": true,
-    "stripInternal": true,
+
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
+    "noEmitOnError": true,
+
+    "resolveJsonModule": true,
     "skipLibCheck": true,
-    "types": ["node", "vitest"]
+    "types": ["node"],
   },
-  "include": ["src", "schemas"],
-  "exclude": ["dist", "**/*.test.ts"]
+  "include": ["src/**/*.ts"],
+  "exclude": [
+    "dist",
+    "scripts/**",
+    "schemas/**",
+    "**/*.test.ts",
+    "**/__tests__/**"
+  ]
 }

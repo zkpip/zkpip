@@ -4,7 +4,7 @@
   "scripts": {
     "clean:srcjs": "bash -lc 'find packages -path \"*/src/*\" -type f \\( -name \"*.js\" -o -name \"*.js.map\" \\) -delete'",
     "build": "npm run clean:srcjs && tsc -b",
-    "test": "npm run clean:srcjs && vitest run",
+    "test": "npm run clean:srcjs && npm run -ws build && vitest run",
     "clean": "rimraf dist",
     "cli:build": "npm --prefix packages/cli run build",
     "cli:test": "npm --prefix packages/cli run test",
@@ -19,10 +19,15 @@
     "core:validate": "npm --prefix packages/core run validate-schemas",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "lint": "eslint . --ext .ts"
+    "lint": "eslint . --ext .ts,.tsx,.js,.mjs,.cjs --max-warnings=0",
+    "lint:fix": "eslint . --ext .ts,.tsx,.js,.mjs,.cjs --fix",
+    "vectors:gen": "tsx packages/core/scripts/gen-invalid-vectors.ts",
+    "e2e:discover": "tsx packages/cli/scripts/e2e-discover.ts",
+    "e2e": "tsx packages/cli/scripts/e2e.ts"
   },
   "dependencies": {
-    "tsx": "^4.20.5"
+    "tsx": "^4.20.5",
+    "zokrates-js": "^1.1.9"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",
@@ -36,7 +41,8 @@
     "eslint-plugin-vitest": "^0.5.4",
     "prettier": "^3.6.2",
     "rimraf": "^6.0.1",
-    "typescript": "5.5",
+    "snarkjs": "^0.7.5",
+    "typescript": "^5.9.2",
     "typescript-eslint": "^8.42.0",
     "vitest": "^3.2.4"
   },

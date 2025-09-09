@@ -1,0 +1,54 @@
+name: Schema Validation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/core/schemas/**'
+      - 'packages/core/scripts/validateSchemas.ts'
+      - 'packages/core/src/**'
+      - 'packages/core/package.json'
+      - 'packages/core/package-lock.json'
+      - 'package.json'
+      - 'package-lock.json'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packages/core/schemas/**'
+      - 'packages/core/scripts/validateSchemas.ts'
+      - 'packages/core/src/**'
+      - 'packages/core/package.json'
+      - 'packages/core/package-lock.json'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+
+jobs:
+  validate-schemas:
+    name: Validate JSON Schemas
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: schema-validation-${{ github.ref }}
+      cancel-in-progress: true
+    defaults:
+      run:
+        working-directory: packages/core
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            packages/core/package-lock.json
+
+      - name: Install core deps (npm ci)
+        run: npm ci --no-audit --fund=false
+
+      - name: Validate MVS schemas (core)
+        run: npm run validate-schemas

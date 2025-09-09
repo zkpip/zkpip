@@ -1,0 +1,5 @@
+{
+  "ok": false,
+  "adapter": "snarkjs-groth16",
+  "error": "verification_failed"
+}

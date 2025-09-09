@@ -49,14 +49,15 @@ function readSchemaId(baseDir: string, filename: string): string | null {
 }
 
 /** From a list of candidate filenames, return the first existing file's $id. */
-function readFirstExisting(baseDir: string, candidates: string[]): string {
+function readFirstExisting(baseDir: string, candidates: readonly string[]): string {
   for (const fn of candidates) {
     const id = readSchemaId(baseDir, fn);
     if (id) return id;
   }
-  // If none exists or no $id found, return the first candidate name as a marker.
-  // This helps downstream error messages point to the expected filename.
-  return candidates[0];
+  // If none exists or no $id found, fall back to the first candidate name (for error hints).
+  const first = candidates[0];
+  if (typeof first === 'string') return first;
+  throw new Error('No candidate filenames provided to readFirstExisting');
 }
 
 /** Load all known schema $id values (MVS set). */
