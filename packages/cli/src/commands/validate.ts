@@ -115,7 +115,7 @@ export async function validatePath(inputPath: string): Promise<void> {
   );
 
   // Pick target schema based on filename heuristics
-  const schemaId = pickSchemaId(abs);
+  const schemaId = pickSchemaId(abs, schemasRoot);
 
   const validate = ajv.getSchema(schemaId);
   if (!validate) {

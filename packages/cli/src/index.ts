@@ -6,8 +6,6 @@ import yargs, { type CommandModule } from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import { adaptersCmd } from './commands/adapters.js';
 
-// Minimal, duplicate builder for verify flags (so strict() nem akad fenn),
-// a valódi logikát a ./commands/verify.js handler futtatja.
 const verifyLazyCmd: CommandModule = {
   command: 'verify',
   describe: 'Verify a proof bundle or a verification JSON input',
@@ -51,6 +49,16 @@ const verifyLazyCmd: CommandModule = {
         default: false,
         describe: 'Verbose error output on failures',
       })
+      .option('schema', {
+        type: 'boolean',
+        default: true,
+        describe: 'Enable MVS schema validation (use --no-schema to skip)',
+      })
+      .option('skip-schema', {
+        type: 'boolean',
+        default: false,
+        describe: 'Alias for --no-schema (force skip)',
+      })      
       .parserConfiguration({ 'camel-case-expansion': true })
       .check((argv) => {
         if (argv['list-adapters']) return true;

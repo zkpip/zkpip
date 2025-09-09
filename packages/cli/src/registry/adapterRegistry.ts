@@ -1,39 +1,37 @@
-// NodeNext ESM, no "any". Registry for id→adapter module (no detection logic).
-// ExactOptionalPropertyTypes-friendly.
+// packages/cli/src/registry/adapterRegistry.ts
+import type { Adapter } from './types.js';
 
-import type { VerifyOutcome } from '../adapters/types.js';
+type ModGroth16 = typeof import('../adapters/snarkjs-groth16.js');
+type ModPlonk   = typeof import('../adapters/snarkjs-plonk.js');
+type ModZoG16   = typeof import('../adapters/zokrates-groth16.js');
 
-// 1) Supported adapter IDs (extend as you add more)
-export const availableAdapterIds = ['snarkjs-groth16'] as const;
-export type AdapterId = typeof availableAdapterIds[number];
+const LOADERS = {
+  'snarkjs-groth16': async () =>
+    (await import('../adapters/snarkjs-groth16.js') as ModGroth16).snarkjsGroth16,
+  'snarkjs-plonk': async () =>
+    (await import('../adapters/snarkjs-plonk.js') as ModPlonk).snarkjsPlonk,
+  'zokrates-groth16': async () =>
+    (await import('../adapters/zokrates-groth16.js') as ModZoG16).zokratesGroth16,
+} as const;
 
-// 2) Minimal adapter module shape (matches new adapters)
-export type AdapterModule = {
-  id: AdapterId;
-  verify: (bundlePath: string) => Promise<VerifyOutcome<AdapterId>>;
-  proofSystem?: string;
-  framework?: string;
-};
+export type AdapterId = keyof typeof LOADERS;
+export const availableAdapterIds = Object.keys(LOADERS) as readonly AdapterId[];
 
-export async function getAdapterById(id: AdapterId): Promise<AdapterModule | undefined> {
-  switch (id) {
-    case 'snarkjs-groth16': {
-      const mod = await import('../adapters/snarkjs-groth16.js');
-      return {
-        id: mod.id,
-        verify: mod.verify,
-        // fallback-ek, ha nem exportálnád a konstansokat:
-        proofSystem: mod.proofSystem ?? 'groth16',
-        framework: mod.framework ?? 'snarkjs',
-      } satisfies AdapterModule;
-    }
-    default:
-      return undefined;
+// Narrow string → AdapterId
+export function isAdapterId(s: string): s is AdapterId {
+  return (availableAdapterIds as readonly string[]).includes(s);
+}
+
+// Typed returns
+export async function getAllAdapters(): Promise<Adapter<AdapterId>[]> {
+  const out: Adapter<AdapterId>[] = [];
+  for (const id of availableAdapterIds) {
+    const a = (await LOADERS[id]()) as Adapter<AdapterId>;
+    out.push(a);
   }
+  return out;
 }
 
-export async function getAllAdapters(): Promise<readonly AdapterModule[]> {
-  const mods = await Promise.all(availableAdapterIds.map(getAdapterById));
-  return mods.filter((m): m is AdapterModule => !!m);
+export async function getAdapterById(id: AdapterId): Promise<Adapter<AdapterId>> {
+  return LOADERS[id]() as Promise<Adapter<AdapterId>>;
 }
-
