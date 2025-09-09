@@ -28,8 +28,17 @@
     "format:check": "prettier -c \"src/**/*.{ts,js,mjs,cjs,md,json,yml,yaml}\"",
     "format": "prettier -w \"src/**/*.{ts,js,mjs,cjs,md,json,yml,yaml}\"",
 
+    "smoke:valid": "node dist/index.js verify --no-schema --bundle /tmp/ci-inline.valid.json --adapter snarkjs-groth16 --json --use-exit-codes",
+    "smoke:invalid": "node dist/index.js verify --no-schema --bundle /tmp/ci-inline.invalid.json --adapter snarkjs-groth16 --json --use-exit-codes",
     "smoke": "npm run -ws build && node packages/cli/dist/index.js verify --verification packages/core/schemas/tests/vectors/mvs/verification/valid.groth16.snarkjs.json --exit-codes && node packages/cli/dist/index.js verify --verification packages/core/schemas/tests/vectors/mvs/verification/invalid.groth16.snarkjs.json --exit-codes || true",
 
+    "vectors:plonk:gen": "bash ./scripts/run-plonk-vectors.sh",
+    "smoke:plonk": "bash ./scripts/smoke-plonk-cli.sh",
+    "test:smoke:plonk": "vitest run src/__tests__/plonk.cli.smoke.test.ts",
+
+    "selftest:groth16": "node scripts/groth16-adapter-selftest.mjs /tmp/ci-inline.valid.json /tmp/ci-inline.invalid.json",
+    "selftest:plonk": "node scripts/plonk-adapter-selftest.mjs /tmp/ci-inline.plonk.valid.json /tmp/ci-inline.plonk.invalid.json",
+    
     "clean": "rimraf dist tsconfig.tsbuildinfo",
     "build": "tsc -b",
     "postbuild": "node ./scripts/make-executable.mjs",
