@@ -27,6 +27,21 @@ jobs:
           cp /tmp/ci-inline.valid.json "$INV"
           node -e 'const fs=require("fs");const f=process.argv[1];const j=JSON.parse(fs.readFileSync(f,"utf8")); j.result.proof.pi_a[0]=(BigInt(j.result.proof.pi_a[0])+1n).toString(10); fs.writeFileSync(f,JSON.stringify(j));' "$INV"
       - name: verify invalid (exit 1)
+        shell: bash
         run: |
           set +e
-          node packages/cli/dist/index.js verify --no-schema --bundle /tmp/ci-inline.invalid.json --adapter snarkjs-groth16 --json --use-exit-codes
+          node packages/cli/dist/index.js verify \
+            --no-schema \
+            --bundle /tmp/ci-inline.invalid.json \
+            --adapter snarkjs-groth16 \
+            --json \
+            --use-exit-codes
+          RC=$?
+          echo "verify returned exit code: $RC"
+          set -e
+          if [ "$RC" -ne 1 ]; then
+            echo "Expected exit 1, got $RC"
+            exit 1
+          fi
+          # explicitly succeed this step
+          exit 0

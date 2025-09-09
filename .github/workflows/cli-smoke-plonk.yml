@@ -31,22 +31,70 @@ jobs:
       - name: Clean dists
         run: npx rimraf packages/**/dist packages/**/tsconfig.tsbuildinfo
 
-      # Ha a PLONK vektorok commitolva vannak, NEM kell generálni őket.
-      # (Ha mégsem lennének, kommentben hagytam egy opcionális lépést lejjebb.)
-
       - name: Build CLI
         run: npm -w @zkpip/cli run build
 
       - name: Smoke script (valid→0, invalid→1, broken json→2)
         run: npm -w @zkpip/cli run smoke:plonk
 
-      - name: Vitest smoke (opcionális, ha felvetted)
+      - name: Vitest smoke
         run: |
           if npm -w @zkpip/cli run | grep -q "test:smoke:plonk"; then
             npm -w @zkpip/cli run test:smoke:plonk
           else
             echo "No vitest smoke script found, skipping."
           fi
+
+      # Valid (expect exit 0)
+      - name: verify plonk/valid (expect exit 0)
+        shell: bash
+        run: |
+          node packages/cli/dist/index.js verify \
+            --adapter snarkjs-plonk \
+            --verification packages/core/schemas/tests/vectors/mvs/verification/snarkjs-plonk/valid \
+            --json \
+            --use-exit-codes \
+            --no-schema
+
+      # Invalid (expect exit 1)
+      - name: verify plonk/invalid (expect exit 1)
+        shell: bash
+        run: |
+          set +e
+          node packages/cli/dist/index.js verify \
+            --adapter snarkjs-plonk \
+            --verification packages/core/schemas/tests/vectors/mvs/verification/snarkjs-plonk/invalid \
+            --json \
+            --use-exit-codes \
+            --no-schema
+          RC=$?
+          echo "verify returned exit code: $RC"
+          set -e
+          if [ "$RC" -ne 1 ]; then
+            echo "Expected exit 1, got $RC"
+            exit 1
+          fi
+          exit 0
+
+      # Adapter error via broken JSON (expect exit 2)
+      - name: verify plonk/broken JSON (expect exit 2)
+        shell: bash
+        run: |
+          set +e
+          node packages/cli/dist/index.js verify \
+            --adapter snarkjs-plonk \
+            --verification packages/core/schemas/tests/vectors/mvs/verification/snarkjs-plonk/invalid/broken_proof.json \
+            --json \
+            --use-exit-codes \
+            --no-schema
+          RC=$?
+          echo "verify returned exit code: $RC"
+          set -e
+          if [ "$RC" -ne 2 ]; then
+            echo "Expected exit 2, got $RC"
+            exit 1
+          fi
+          exit 0
 
       # --- Optional fallback: if the PLONK vectors directory is NOT committed, generate it.
       # WARNING: this requires the circom + snarkjs toolchain on the runner and will slow down CI.
