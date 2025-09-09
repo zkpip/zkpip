@@ -46,6 +46,7 @@ function resolveVerificationArg(raw: string): unknown {
 export type VerifyHandlerArgs = {
   adapter: string;
   verification?: string;
+  bundle?: string; 
   json?: boolean;
   useExitCodes?: boolean;
   noSchema?: boolean;
@@ -56,7 +57,8 @@ export async function verifyCommand(opts: VerifyHandlerArgs): Promise<void> {
   try {
     const adapterId = toAdapterId(opts.adapter);
     const adapter = await getAdapterById(adapterId);
-    const input = resolveVerificationArg(opts.verification ?? '');
+    const raw = opts.verification ?? opts.bundle ?? '';   // <-- accept both flags
+    const input = resolveVerificationArg(raw);
 
     const out = await adapter.verify(input);
 
