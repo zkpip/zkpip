@@ -8,7 +8,7 @@
 
     "baseUrl": ".",
     "paths": {
-      "@zkpip/core": ["../core/dist/index.d.ts"],
+      "@zkpip/core": ["../core/dist/index.d.ts", "../core/src/index.ts"],
       "@zkpip/core/*": ["../core/dist/*"]
     },    
 
@@ -26,7 +26,9 @@
     "noEmitOnError": true,
 
     "types": ["node"],
-    "skipLibCheck": true
+    "skipLibCheck": true,
+
+    "resolveJsonModule": true,
   },
   "include": ["src/**/*"],
   "exclude": [
