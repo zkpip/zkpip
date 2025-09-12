@@ -13,6 +13,9 @@ coverage/
 dist/
 .vscode/
 
+# temp log files
+packages/cli/.tmp/
+
 # OS junk
 .DS_Store
 Thumbs.db

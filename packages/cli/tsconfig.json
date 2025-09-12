@@ -10,7 +10,7 @@
     "paths": {
       "@zkpip/core": ["../core/dist/index.d.ts", "../core/src/index.ts"],
       "@zkpip/core/*": ["../core/dist/*"]
-    },    
+    },
 
     "rootDir": "src",
     "outDir": "dist",
@@ -25,10 +25,12 @@
     "noUncheckedIndexedAccess": true,
     "noEmitOnError": true,
 
-    "types": ["node"],
+    "types": ["node", "vitest"],
     "skipLibCheck": true,
 
     "resolveJsonModule": true,
+
+    "esModuleInterop": true
   },
   "include": ["src/**/*"],
   "exclude": [

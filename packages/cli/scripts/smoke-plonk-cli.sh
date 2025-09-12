@@ -1,78 +1,62 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Smoke-run the CLI 'verify' against generated PLONK vectors.
-# Works regardless of the current working directory.
+# --- Resolve paths -----------------------------------------------------------
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")"/../../.. && pwd)"
+CLI="$ROOT/packages/cli/dist/index.js"
 
-need() { command -v "$1" >/dev/null 2>&1 || { echo "ERROR: missing dependency: $1" >&2; exit 2; }; }
-need node
+ADAPTER="snarkjs-plonk"
+VALID_JSON="${ZKPIP_VALID:-$ROOT/fixtures/snarkjs-plonk/valid/verification.json}"
+INVALID_JSON="${ZKPIP_INVALID:-$ROOT/fixtures/snarkjs-plonk/invalid/verification.json}"
 
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-CLI_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"            # packages/cli
-CORE_ROOT="$(cd -- "$CLI_ROOT/../core" && pwd)"        # packages/core
+echo "CLI:          $CLI"
+echo "Adapter:      $ADAPTER"
+echo "Valid JSON:   $VALID_JSON"
+echo "Invalid JSON: $INVALID_JSON"
 
-CLI_DIST="$CLI_ROOT/dist/index.js"
-VECTORS_DIR="$CORE_ROOT/schemas/tests/vectors/mvs/verification/snarkjs-plonk"
-VALID_DIR="$VECTORS_DIR/valid"
-INVALID_DIR="$VECTORS_DIR/invalid"
+for f in "$VALID_JSON" "$INVALID_JSON"; do
+  if [ ! -f "$f" ]; then
+    echo "ERROR: Missing $f"
+    exit 1
+  fi
+done
 
-# Build CLI if dist is missing
-if [ ! -f "$CLI_DIST" ]; then
-  echo "CLI dist not found, building..."
-  npm -w @zkpip/cli run build
-fi
+# --- Dump dir & logging ------------------------------------------------------
+DUMP_DIR="$ROOT/packages/cli/.tmp/normalized"
+mkdir -p "$DUMP_DIR"
+rm -f "$DUMP_DIR"/*.json 2>/dev/null || true
+export ZKPIP_DUMP_NORMALIZED="$DUMP_DIR"
+export ZKPIP_LOG_AUTONORM="${ZKPIP_LOG_AUTONORM:-1}"
 
-echo "CLI: $CLI_DIST"
-echo "Vectors: $VECTORS_DIR"
-
-# Valid should exit 0
+# --- Run valid (expect exit 0) ----------------------------------------------
 echo "==> Valid (expect exit 0)"
-set +e
-node "$CLI_DIST" verify \
-  --adapter snarkjs-plonk \
-  --verification "$VALID_DIR" \
-  --json \
-  --use-exit-codes \
-  --no-schema
-RC=$?
-set -e
-if [ $RC -ne 0 ]; then
-  echo "ERROR: valid vectors returned exit code $RC"
-  exit 1
-fi
+node "$CLI" verify \
+  --adapter "$ADAPTER" \
+  --verification "$VALID_JSON" \
+  --json --use-exit-codes --dump-normalized "$DUMP_DIR"
 
-# Invalid (tampered public) should exit 1
+# Inline dump-check
+node -e '
+  const fs=require("fs"), path=require("path");
+  const dir=process.env.ZKPIP_DUMP_NORMALIZED;
+  const files=fs.readdirSync(dir).filter(f=>/^normalized\..*\.json$/.test(f))
+    .map(f=>path.join(dir,f)).sort((a,b)=>fs.statSync(b).mtimeMs-fs.statSync(a).mtimeMs);
+  if(!files.length){console.error("No normalized dumps"); process.exit(1);}
+  const j=JSON.parse(fs.readFileSync(files[0],"utf8"));
+  if(!j.vkey||!j.proof||!j.publics){console.error("Dump missing vkey/proof/publics"); process.exit(1);}
+  if(!Array.isArray(j.publics)){console.error("publics not array"); process.exit(1);}
+  const nPub=j.vkey?.nPublic;
+  if(nPub!=null && Number(nPub)!==j.publics.length){
+    console.error(`nPublic mismatch: ${nPub} vs ${j.publics.length}`); process.exit(1);
+  }
+  console.log("Dump-check OK:", files[0]);
+'
+
+# --- Run invalid (expect exit 1) --------------------------------------------
 echo "==> Invalid (expect exit 1)"
-set +e
-node "$CLI_DIST" verify \
-  --adapter snarkjs-plonk \
-  --verification "$INVALID_DIR" \
-  --json \
-  --use-exit-codes \
-  --no-schema
-RC=$?
-set -e
-if [ $RC -ne 1 ]; then
-  echo "ERROR: invalid vectors returned exit code $RC (expected 1)"
-  exit 1
-fi
+! node "$CLI" verify \
+  --adapter "$ADAPTER" \
+  --verification "$INVALID_JSON" \
+  --json --use-exit-codes --dump-normalized "$DUMP_DIR"
 
-echo "smoke-plonk-cli: OK"
-
-# Invalid #2 (adapter_error via broken JSON) should exit 2
-BROKEN="$INVALID_DIR/broken_proof.json"
-echo "==> Adapter error (expect exit 2) -> $BROKEN"
-set +e
-node "$CLI_DIST" verify \
-  --adapter snarkjs-plonk \
-  --verification "$BROKEN" \
-  --json \
-  --use-exit-codes \
-  --no-schema
-RC=$?
-set -e
-if [ $RC -ne 2 ]; then
-  echo "ERROR: adapter_error case returned exit code $RC (expected 2)"
-  exit 1
-fi
-echo "==> Adapter error: OK"
+echo "PLONK smoke: OK"

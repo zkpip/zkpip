@@ -1,5 +1,5 @@
 // packages/core/src/validation/ajv.ts
-import { createAjv as createAjvFactory } from "./createAjv.js";
+import { createAjv as createAjvFactory } from './createAjv.js';
 
 export type AjvLike = ReturnType<typeof createAjvFactory>;
 
@@ -8,4 +8,3 @@ export function createAjv(): AjvLike {
 }
 
 export type AjvInstance = ReturnType<typeof createAjv>;
-

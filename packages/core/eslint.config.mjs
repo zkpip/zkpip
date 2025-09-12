@@ -1,5 +1,5 @@
 // packages/core/eslint.config.mjs
-import { configs } from "typescript-eslint";
+import { configs } from 'typescript-eslint';
 import js from '@eslint/js';
 import globals from 'globals';
 

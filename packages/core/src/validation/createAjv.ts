@@ -1,12 +1,12 @@
 // Keep comments in English only (OSS).
-import type { Options as AjvOptions, ErrorObject, ValidateFunction } from "ajv";
-import * as AjvNS from "ajv";            // value import → ensures runtime emit
-import * as AjvFormatsNS from "ajv-formats"; // value import → ensures runtime emit
+import type { Options as AjvOptions, ErrorObject, ValidateFunction } from 'ajv';
+import * as AjvNS from 'ajv'; // value import → ensures runtime emit
+import * as AjvFormatsNS from 'ajv-formats'; // value import → ensures runtime emit
 
 /** Narrow runtime surface we rely on across the codebase. */
 export interface AjvInstance {
   addSchema(schema: object | object[], key?: string): AjvInstance;
-  addFormat(name: string, format: unknown): AjvInstance;   // ⬅️ added
+  addFormat(name: string, format: unknown): AjvInstance; // ⬅️ added
   getSchema(id: string): ValidateFunction | undefined;
   compile<T = unknown>(schema: object): ValidateFunction<T>;
   validate(schemaKeyRef: string | object, data: unknown): boolean;
@@ -44,7 +44,11 @@ interface AjvCoreWithFormat extends AjvCore {
   addFormat(name: string, format: unknown): unknown;
 }
 function hasAddFormat(x: unknown): x is AjvCoreWithFormat {
-  return typeof x === "object" && x !== null && typeof (x as { addFormat?: unknown }).addFormat === "function";
+  return (
+    typeof x === 'object' &&
+    x !== null &&
+    typeof (x as { addFormat?: unknown }).addFormat === 'function'
+  );
 }
 
 /** ESM-native Ajv factory with stable defaults. */

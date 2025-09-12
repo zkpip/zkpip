@@ -111,7 +111,7 @@ export async function validatePath(inputPath: string): Promise<void> {
   }
   (addCoreSchemas as unknown as (a: unknown, o?: { schemasRoot?: string }) => void)(
     ajv,
-    Object.keys(opts).length > 0 ? opts : undefined
+    Object.keys(opts).length > 0 ? opts : undefined,
   );
 
   // Pick target schema based on filename heuristics
@@ -133,7 +133,7 @@ export async function validatePath(inputPath: string): Promise<void> {
     // Build a readable error message; attach raw errors for tests if needed
     const msg = ajv.errorsText(validate.errors, { separator: '\n' });
     const err: AjvErrorCarrier = new Error(
-      `Validation failed for ${abs}\nSchema: ${schemaId}\n${msg}`
+      `Validation failed for ${abs}\nSchema: ${schemaId}\n${msg}`,
     );
     err.errors = validate.errors ?? null;
     throw err;

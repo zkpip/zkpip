@@ -2,11 +2,15 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { snarkjsGroth16 } from '../dist/adapters/snarkjs-groth16.js';
 
-function loadJson(p) { return JSON.parse(readFileSync(p, 'utf8')); }
-function clone(x) { return JSON.parse(JSON.stringify(x)); }
+function loadJson(p) {
+  return JSON.parse(readFileSync(p, 'utf8'));
+}
+function clone(x) {
+  return JSON.parse(JSON.stringify(x));
+}
 
-const VALID = process.argv[2];               // /tmp/ci-inline.valid.json
-let   INVALID = process.argv[3];             // optional: /tmp/ci-inline.invalid.json
+const VALID = process.argv[2]; // /tmp/ci-inline.valid.json
+let INVALID = process.argv[3]; // optional: /tmp/ci-inline.invalid.json
 
 if (!VALID) {
   console.error('usage: node scripts/groth16-adapter-selftest.mjs <valid.json> [invalid.json]');
@@ -29,12 +33,12 @@ const tests = [
   {
     name: 'path input (valid)',
     input: VALID,
-    expect: { ok: true }
+    expect: { ok: true },
   },
   {
     name: 'inline object (valid)',
     input: validObj,
-    expect: { ok: true }
+    expect: { ok: true },
   },
   {
     name: 'stringified verificationKey (valid)',
@@ -43,7 +47,7 @@ const tests = [
       j.verificationKey = JSON.stringify(j.verificationKey);
       return j;
     })(),
-    expect: { ok: true }
+    expect: { ok: true },
   },
   {
     name: 'stringified publicSignals (valid)',
@@ -52,7 +56,7 @@ const tests = [
       j.result.publicSignals = JSON.stringify(j.result.publicSignals);
       return j;
     })(),
-    expect: { ok: true }
+    expect: { ok: true },
   },
   {
     name: 'CSV publicSignals (valid)',
@@ -62,7 +66,7 @@ const tests = [
       j.result.publicSignals = Array.isArray(arr) ? arr.join(',') : j.result.publicSignals;
       return j;
     })(),
-    expect: { ok: true }
+    expect: { ok: true },
   },
   {
     name: 'missing vkey → adapter_error',
@@ -74,12 +78,12 @@ const tests = [
       if (j.bundle) delete j.bundle.verificationKey;
       return j;
     })(),
-    expect: { ok: false, error: 'adapter_error' }
+    expect: { ok: false, error: 'adapter_error' },
   },
   {
     name: 'bitflip proof (invalid) → verification_failed',
     input: invalidObj,
-    expect: { ok: false, error: 'verification_failed' }
+    expect: { ok: false, error: 'verification_failed' },
   },
 ];
 
@@ -88,9 +92,9 @@ for (const t of tests) {
   // eslint-disable-next-line no-await-in-loop
   const res = await snarkjsGroth16.verify(t.input);
   const pass =
-    ('ok' in t.expect) ?
-      (res.ok === t.expect.ok && (!t.expect.ok ? res.error === t.expect.error : true)) :
-      false;
+    'ok' in t.expect
+      ? res.ok === t.expect.ok && (!t.expect.ok ? res.error === t.expect.error : true)
+      : false;
 
   const icon = pass ? '✅' : '❌';
   console.log(`${icon} ${t.name} →`, res);

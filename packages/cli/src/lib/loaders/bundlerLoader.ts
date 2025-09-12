@@ -14,11 +14,11 @@ import { fileURLToPath } from 'node:url';
 type Sha256 = { alg: 'sha256'; value: string };
 
 type ArtifactRef = {
-  path?: string;           // relative to the bundle.json directory
-  uri?: string;            // e.g. file:///abs/path/to/file.json
+  path?: string; // relative to the bundle.json directory
+  uri?: string; // e.g. file:///abs/path/to/file.json
   size?: number;
   mediaType?: string;
-  hash?: Sha256;           // optional SHA-256 hex of the raw file
+  hash?: Sha256; // optional SHA-256 hex of the raw file
 };
 
 type BundleArtifacts = Partial<{
@@ -31,8 +31,8 @@ type BundleArtifacts = Partial<{
 type Bundle = {
   artifacts?: BundleArtifacts;
   result?: {
-    proof?: unknown;            // kept as unknown; adapter knows snarkjs shape
-    publicSignals?: unknown[];  // normalized later to string[]
+    proof?: unknown; // kept as unknown; adapter knows snarkjs shape
+    publicSignals?: unknown[]; // normalized later to string[]
   };
   // other fields are ignored by the loader
 };

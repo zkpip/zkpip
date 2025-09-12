@@ -16,7 +16,7 @@ type JSONObject = { readonly [k: string]: JSONValue };
 // ---------- Mutable JSON types (for controlled writes in this generator) ----------
 type MutableJSONPrimitive = JSONPrimitive;
 type MutableJSONValue = MutableJSONPrimitive | MutableJSONObject | MutableJSONArray;
-interface MutableJSONArray extends Array<MutableJSONValue> {}
+export type MutableJSONArray = MutableJSONValue[];
 type MutableJSONObject = { [k: string]: MutableJSONValue };
 
 // ---------- Type guards ----------
@@ -24,7 +24,8 @@ const isMutableObject = (v: unknown): v is MutableJSONObject =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 
 const isTwoDimStringArray = (v: unknown): v is string[][] =>
-  Array.isArray(v) && v.every((row) => Array.isArray(row) && row.every((x) => typeof x === 'string'));
+  Array.isArray(v) &&
+  v.every((row) => Array.isArray(row) && row.every((x) => typeof x === 'string'));
 
 // ---------- FS helpers ----------
 async function readJson<T>(fp: string): Promise<T> {
@@ -83,7 +84,7 @@ const ROOT = path.resolve(__dirname, '../../..');
 
 const VECTORS_ROOT = path.join(
   ROOT,
-  'packages/core/schemas/tests/vectors/mvs/verification/snarkjs-groth16'
+  'packages/core/schemas/tests/vectors/mvs/verification/snarkjs-groth16',
 );
 const VALID_DIR = path.join(VECTORS_ROOT, 'valid');
 const INVALID_DIR = path.join(VECTORS_ROOT, 'invalid');
@@ -98,9 +99,7 @@ async function pickBaseValid(): Promise<string> {
   for (const cand of SRC_VALID_CANDIDATES) {
     if (await fileExists(cand)) return cand;
   }
-  throw new Error(
-    `Base valid bundle not found. Checked:\n- ${SRC_VALID_CANDIDATES.join('\n- ')}`
-  );
+  throw new Error(`Base valid bundle not found. Checked:\n- ${SRC_VALID_CANDIDATES.join('\n- ')}`);
 }
 
 async function main(): Promise<void> {
@@ -130,9 +129,10 @@ async function main(): Promise<void> {
   {
     const m = cloneMutable(base);
     const result = isMutableObject(m['result']) ? m['result'] : null;
-    const pub = result && Array.isArray(result['publicSignals'])
-      ? (result['publicSignals'] as MutableJSONArray)
-      : null;
+    const pub =
+      result && Array.isArray(result['publicSignals'])
+        ? (result['publicSignals'] as MutableJSONArray)
+        : null;
 
     if (pub && typeof pub[0] === 'string') {
       const inc = (BigInt(pub[0]) + 1n).toString();
@@ -152,7 +152,8 @@ async function main(): Promise<void> {
   {
     const m = cloneMutable(base);
     const result = isMutableObject(m['result']) ? m['result'] : null;
-    const proof = result && isMutableObject(result['proof']) ? (result['proof'] as MutableJSONObject) : null;
+    const proof =
+      result && isMutableObject(result['proof']) ? (result['proof'] as MutableJSONObject) : null;
     const pi_a = proof && Array.isArray(proof['pi_a']) ? (proof['pi_a'] as MutableJSONArray) : null;
 
     if (pi_a && typeof pi_a[0] === 'string') {
@@ -175,7 +176,8 @@ async function main(): Promise<void> {
   {
     const m = cloneMutable(base);
     const result = isMutableObject(m['result']) ? m['result'] : null;
-    const proof = result && isMutableObject(result['proof']) ? (result['proof'] as MutableJSONObject) : null;
+    const proof =
+      result && isMutableObject(result['proof']) ? (result['proof'] as MutableJSONObject) : null;
     const pi_c = proof && Array.isArray(proof['pi_c']) ? (proof['pi_c'] as MutableJSONArray) : null;
 
     if (pi_c && typeof pi_c[0] === 'string') {
@@ -198,7 +200,8 @@ async function main(): Promise<void> {
   {
     const m = cloneMutable(base);
     const result = isMutableObject(m['result']) ? m['result'] : null;
-    const proof = result && isMutableObject(result['proof']) ? (result['proof'] as MutableJSONObject) : null;
+    const proof =
+      result && isMutableObject(result['proof']) ? (result['proof'] as MutableJSONObject) : null;
     const pi_b = proof && Array.isArray(proof['pi_b']) ? (proof['pi_b'] as MutableJSONArray) : null;
 
     if (pi_b && isTwoDimStringArray(pi_b)) {

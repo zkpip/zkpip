@@ -32,11 +32,7 @@ function collectSchemaIds(root: string): string[] {
       try {
         const raw = readFileSync(full, 'utf8');
         const obj = JSON.parse(raw) as unknown;
-        if (
-          obj &&
-          typeof obj === 'object' &&
-          typeof (obj as { $id?: unknown }).$id === 'string'
-        ) {
+        if (obj && typeof obj === 'object' && typeof (obj as { $id?: unknown }).$id === 'string') {
           ids.push((obj as { $id: string }).$id);
         }
       } catch {
@@ -59,9 +55,7 @@ function includesAny(haystack: string, needles: ReadonlyArray<string>): boolean 
 export function pickSchemaId(absPath: string, schemasRoot?: string): string {
   const base = path.basename(absPath).toLowerCase();
   const allIds: ReadonlyArray<string> =
-    typeof schemasRoot === 'string' && schemasRoot.length > 0
-      ? collectSchemaIds(schemasRoot)
-      : [];
+    typeof schemasRoot === 'string' && schemasRoot.length > 0 ? collectSchemaIds(schemasRoot) : [];
 
   const findId = (needles: string[]): string | undefined =>
     allIds.find((id) => includesAny(id, needles));
@@ -90,6 +84,6 @@ export function pickSchemaId(absPath: string, schemasRoot?: string): string {
       (hasRoot
         ? `Checked ${allIds.length} schemas under ${schemasRoot}.\n`
         : `No schemasRoot provided; pass --schemas-root ./packages/core/schemas or set ZKPIP_SCHEMAS_ROOT.\n`) +
-      `Rename the file to include a hint (e.g. "proof-bundle", "groth16-evm") or pass --schema-id explicitly.`
+      `Rename the file to include a hint (e.g. "proof-bundle", "groth16-evm") or pass --schema-id explicitly.`,
   );
 }

@@ -1,135 +1,93 @@
-import { describe, it, expect, beforeAll } from "vitest";
-import { spawnSync } from "node:child_process";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import fs from "node:fs";
-import os from "node:os";
+import { describe, it, expect } from 'vitest';
+import { runCli, fixturesPath, parseJson } from './helpers/cliRunner.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+type Ok = { ok: true };
+type Err = {
+  ok: false;
+  error:
+    | 'verification_failed'
+    | 'adapter_not_found'
+    | 'schema_invalid'
+    | 'io_error'
+    | 'adapter_error';
+  stage?: 'verify' | 'schema' | 'io' | string;
+  message?: string;
+};
 
-// The built CLI
-const CLI = path.resolve(__dirname, "..", "dist", "index.js");
-
-// Use proofBundle vectors (SnarkJS Groth16 canonical shape)
-const VALID = path.resolve(
-  __dirname,
-  "../../../core/schemas/tests/vectors/mvs/verification/proofBundle/proof-bundle.valid.json"
-);
-const INVALID = path.resolve(
-  __dirname,
-  "../../../core/schemas/tests/vectors/mvs/verification/proofBundle/proof-bundle.invalid.json"
-);
-
-// Helper for CLI
-function run(args: string[]) {
-  return spawnSync(process.execPath, [CLI, ...args], {
-    encoding: "utf8",
-  });
-}
-
-describe("verify --exit-codes E2E", () => {
-  let schemaInvalidPath: string;
-
-  beforeAll(() => {
-    // Temporary, schema-invalid input (missing required fields)
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "zkpip-cli-"));
-    schemaInvalidPath = path.join(tmpDir, "schema-invalid.json");
-    fs.writeFileSync(
-      schemaInvalidPath,
-      JSON.stringify(
-        {
-          // Looks like 'verification' but intentionally fails schema
-          proofSystem: "groth16",
-          framework: "snarkjs",
-          bundle: {
-            proof: {},
-            publicSignals: [],
-          },
-        },
-        null,
-        2
-      ),
-      "utf8"
+describe('verify --use-exit-codes E2E', () => {
+  it('0 → valid bundle (verify success)', async () => {
+    const r = await runCli(
+      [
+        'verify',
+        '--adapter',
+        'snarkjs-plonk',
+        '--verification',
+        fixturesPath('snarkjs-plonk/valid/verification.json'),
+      ],
+      { json: true, useExitCodes: true },
     );
-  });
-
-  it("0 → valid bundle (verify success)", () => {
-    const r = run([
-      "verify",
-      "--verification",
-      VALID,
-      "--adapter",
-      "snarkjs-groth16", // force adapter for stability
-      "--exit-codes",
-      "--json",
-    ]);
-    if (r.status !== 0) {
-      // Helpful debug when this fails in CI
-      // eslint-disable-next-line no-console
-      console.error("STDOUT:", r.stdout);
-      // eslint-disable-next-line no-console
-      console.error("STDERR:", r.stderr);
-    }
-    expect(r.status).toBe(0);
-    const out = JSON.parse(r.stdout || "{}");
+    expect(r.exitCode).toBe(0);
+    expect(r.stderr).toBe('');
+    const out = parseJson<Ok>(r.stdout);
     expect(out.ok).toBe(true);
-    expect(typeof out.adapter).toBe("string");
   });
 
-  it("1 → verification failed (invalid bundle content)", () => {
-    const r = run([
-      "verify",
-      "--verification",
-      INVALID,
-      "--adapter",
-      "snarkjs-groth16", // force adapter for stability
-      "--exit-codes",
-      "--json",
-    ]);
-    expect(r.status).toBe(1);
-    const err = JSON.parse(r.stderr || "{}");
+  it('1 → verification failed (invalid bundle content)', async () => {
+    const r = await runCli(
+      [
+        'verify',
+        '--adapter',
+        'snarkjs-plonk',
+        '--verification',
+        fixturesPath('snarkjs-plonk/invalid/verification.json'),
+      ],
+      { json: true, useExitCodes: true },
+    );
+    expect(r.exitCode).toBe(1);
+    expect(r.stdout).toBe('');
+    const err = parseJson<Err>(r.stderr);
     expect(err.ok).toBe(false);
-    expect(err.stage).toBe("verify");
+    expect(err.error).toBe('verification_failed');
   });
 
-  it("2 → adapter not found (forced bad adapter)", () => {
-    const r = run([
-      "verify",
-      "--verification",
-      VALID,
-      "--adapter",
-      "does-not-exist",
-      "--exit-codes",
-      "--json",
-    ]);
-    expect(r.status).toBe(2);
-    const err = JSON.parse(r.stderr || "{}");
-    expect(err.ok).toBe(false);
-    expect(err.stage).toBe("adapter");
+  it('4 → adapter not found (forced bad adapter)', async () => {
+    const r = await runCli(
+      [
+        'verify',
+        '--adapter',
+        'not-a-real-adapter',
+        '--verification',
+        fixturesPath('snarkjs-plonk/valid/verification.json'),
+      ],
+      { json: true, useExitCodes: true },
+    );
+    expect(r.exitCode).toBe(4);
+    expect(r.stdout).toBe('');
+    const err = parseJson<Err>(r.stderr);
+    expect(err.error).toBe('adapter_not_found');
   });
 
-  it("3 → schema invalid (fails MVS schema validation)", () => {
-    const r = run([
-      "verify",
-      "--verification",
-      schemaInvalidPath,
-      "--exit-codes",
-      "--json",
-    ]);
-    expect(r.status).toBe(3);
-    const err = JSON.parse(r.stderr || "{}");
-    expect(err.ok).toBe(false);
-    expect(err.stage).toBe("schema");
-    expect(Array.isArray(err.errors)).toBe(true);
+  it('3 → schema invalid (quick schema failure)', async () => {
+    const r = await runCli(
+      ['verify', '--adapter', 'snarkjs-plonk', '--verification', '{"proof":""}'],
+      { json: true, useExitCodes: true },
+    );
+    expect(r.exitCode).toBe(3);
+    expect(r.stdout).toBe('');
+    const err = parseJson<Err>(r.stderr);
+    expect(err.error).toBe('schema_invalid');
+    expect(err.stage).toBe('schema');
   });
 
-  it("4 → I/O error (ENOENT)", () => {
-    const missingPath = path.resolve(__dirname, "definitely-does-not-exist.json");
-    const r = run(["verify", "--verification", missingPath, "--exit-codes", "--json"]);
-    expect(r.status).toBe(4);
-    const err = JSON.parse(r.stderr || "{}");
-    expect(err.ok).toBe(false);
-    expect(err.stage).toBe("io");
+  it('2 → I/O error (ENOENT)', async () => {
+    const r = await runCli(
+      ['verify', '--adapter', 'snarkjs-plonk', '--verification', 'definitely-does-not-exist.json'],
+      { json: true, useExitCodes: true },
+    );
+    expect(r.exitCode).toBe(2);
+    expect(r.stdout).toBe('');
+    const err = parseJson<Err>(r.stderr);
+    expect(err.error).toBe('io_error');
+    expect(err.stage).toBe('io');
   });
 });

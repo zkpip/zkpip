@@ -30,15 +30,15 @@ type EntryMeta = Readonly<{
 }>;
 
 type IndexRow = Readonly<{
-  path: string;      // relative to VECTORS_ROOT
-  adapter?: string;  // adapter folder if any
+  path: string; // relative to VECTORS_ROOT
+  adapter?: string; // adapter folder if any
   set?: 'valid' | 'invalid' | 'other';
   size: number;
   sha256: string;
   parseOk: boolean;
   meta?: EntryMeta;
-  error?: string;    // parse error only
-  kind,
+  error?: string; // parse error only
+  kind;
 }>;
 
 type RunInfo = Readonly<{
@@ -68,10 +68,7 @@ const CLI_ROOT = path.resolve(__dirname, '..');
 const REPO_ROOT = path.resolve(CLI_ROOT, '..', '..');
 
 // Default vectors root (monorepo layout)
-const VECTORS_ROOT = path.join(
-  REPO_ROOT,
-  'packages/core/schemas/tests/vectors/mvs/verification'
-);
+const VECTORS_ROOT = path.join(REPO_ROOT, 'packages/core/schemas/tests/vectors/mvs/verification');
 
 const ENV_ADAPTER = process.env.E2E_ADAPTER; // e.g. "snarkjs-groth16"
 const ENV_PROFILE = (process.env.E2E_PROFILE ?? 'core') as 'core' | 'debug' | 'deep';
@@ -90,7 +87,10 @@ function isoNow(): string {
 
 function tryGit(cmd: string): string | undefined {
   try {
-    const out = cp.execSync(cmd, { stdio: ['ignore', 'pipe', 'ignore'] }).toString('utf8').trim();
+    const out = cp
+      .execSync(cmd, { stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString('utf8')
+      .trim();
     return out || undefined;
   } catch {
     return undefined;
@@ -99,7 +99,8 @@ function tryGit(cmd: string): string | undefined {
 
 function listDirs(abs: string): string[] {
   return fssync.existsSync(abs)
-    ? fssync.readdirSync(abs, { withFileTypes: true })
+    ? fssync
+        .readdirSync(abs, { withFileTypes: true })
         .filter((d) => d.isDirectory())
         .map((d) => d.name)
     : [];
@@ -128,7 +129,10 @@ function relToVectors(abs: string): string {
   return path.relative(VECTORS_ROOT, abs).replace(/\\/g, '/');
 }
 
-function pick<T extends JSONValue = JSONValue>(o: unknown, paths: readonly string[]): T | undefined {
+function pick<T extends JSONValue = JSONValue>(
+  o: unknown,
+  paths: readonly string[],
+): T | undefined {
   for (const p of paths) {
     const v = getPath<T>(o, p);
     if (v !== undefined) return v;
@@ -148,10 +152,11 @@ function getPath<T extends JSONValue = JSONValue>(o: unknown, pathStr: string): 
 }
 
 function extractMeta(data: unknown): EntryMeta {
-  const schemaVersion = (pick<string>(data, ['schemaVersion', 'meta.schemaVersion']) ?? undefined);
-  const bundleId = (pick<string>(data, ['bundleId', 'meta.bundleId']) ?? undefined);
-  const proofSystem = (pick<string>(data, ['proofSystem', 'meta.proofSystem', 'verifier.proofSystem']) ?? undefined);
-  const curve = (pick<string>(data, ['curve', 'meta.curve', 'verifier.curve']) ?? undefined);
+  const schemaVersion = pick<string>(data, ['schemaVersion', 'meta.schemaVersion']) ?? undefined;
+  const bundleId = pick<string>(data, ['bundleId', 'meta.bundleId']) ?? undefined;
+  const proofSystem =
+    pick<string>(data, ['proofSystem', 'meta.proofSystem', 'verifier.proofSystem']) ?? undefined;
+  const curve = pick<string>(data, ['curve', 'meta.curve', 'verifier.curve']) ?? undefined;
 
   const publicSignals = pick<JSONArray>(data, [
     'publicSignals',
@@ -160,9 +165,10 @@ function extractMeta(data: unknown): EntryMeta {
     'result.bundle.publicSignals',
   ]);
   const pubLen = Array.isArray(publicSignals) ? publicSignals.length : 0;
-  const pubFirst = Array.isArray(publicSignals) && publicSignals.length > 0
-    ? String(publicSignals[0] as JSONPrimitive)
-    : undefined;
+  const pubFirst =
+    Array.isArray(publicSignals) && publicSignals.length > 0
+      ? String(publicSignals[0] as JSONPrimitive)
+      : undefined;
 
   return {
     schemaVersion,
@@ -183,7 +189,9 @@ async function main(): Promise<void> {
   const chosenAdapters = ENV_ADAPTER ? allAdapters.filter((a) => a === ENV_ADAPTER) : allAdapters;
 
   // Prepare output folder
-  const runId = isoNow().replace(/[:-]/g, '').replace(/\.\d+Z$/, 'Z'); // e.g. 20250908T093012Z
+  const runId = isoNow()
+    .replace(/[:-]/g, '')
+    .replace(/\.\d+Z$/, 'Z'); // e.g. 20250908T093012Z
   const OUT_DIR = path.join(ENV_OUT, runId);
   await ensureDir(OUT_DIR);
 
@@ -244,8 +252,9 @@ async function main(): Promise<void> {
         }
 
         // ✅ compute kind from REL (not abs), and INSIDE the loop
-        const kind: 'bundle' | 'expect' =
-          path.basename(rel).includes('.expect.') ? 'expect' : 'bundle';
+        const kind: 'bundle' | 'expect' = path.basename(rel).includes('.expect.')
+          ? 'expect'
+          : 'bundle';
 
         indexRows.push({
           path: rel,
@@ -256,7 +265,7 @@ async function main(): Promise<void> {
           parseOk,
           meta,
           error: errMsg,
-          kind, 
+          kind,
         });
       }
     }

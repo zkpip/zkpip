@@ -1,0 +1,37 @@
+name: cli-smoke-zokrates
+
+on:
+  push:
+    branches: [feat/cli-esm-verify-refactor]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke-zokrates:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
+    name: ZoKrates smoke (Node ${{ matrix.node }})
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npx rimraf packages/**/dist packages/**/tsconfig.tsbuildinfo
+      - run: npm -w @zkpip/cli run build
+
+      # We assume zokrates-groth16 vectors are committed
+      - name: Smoke (valid→0, invalid→1, broken json→2)
+        run: npm -w @zkpip/cli run smoke:zokrates
+
+      # If vectors are NOT committed, you could generate them locally (requires Docker or local zokrates):
+      # - name: Generate ZoKrates vectors (fallback)
+      #   run: npm -w @zkpip/cli run vectors:zokrates:gen

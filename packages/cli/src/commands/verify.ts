@@ -1,92 +1,181 @@
-import fs from 'node:fs';
-import { exitNow } from '../utils/exitNow.js';
+// ESM + NodeNext, no `any`; single-line JSON outputs; strict exit-code mapping.
+
+import { readFile } from 'node:fs/promises';
+import type { VerifyHandlerArgs, VerifyErr, VerifyOutcomeU, VerifyOk } from '../types/cli.js';
 import { getAdapterById, isAdapterId, type AdapterId } from '../registry/adapterRegistry.js';
 import { errorMessage } from '../adapters/_shared.js';
+import { computeUseExit, getVerificationRaw } from '../utils/argvFlags.js';
+import { writeJsonStderr, writeJsonStdout } from '../utils/ioJson.js';
+import { resolveVerificationArg } from '../utils/resolveVerificationArg.js';
+import type { Json, JsonObject } from '../types/json.js';
+import { mapVerifyOutcomeToExitCode } from '../utils/exitCodeMap.js';
 
-// Narrow string → AdapterId (throws on unknown)
 function toAdapterId(s: string): AdapterId {
   if (isAdapterId(s)) return s;
   throw new Error(`Unknown adapter: ${s}`);
 }
 
-// Accept dir path (pass-through), JSON file path (parse), inline JSON (parse),
-// else raw string. Invalid JSON FILE should throw to be caught as stage:"io".
-function resolveVerificationArg(raw: string): unknown {
-  const s = raw.trim();
-
-  // Inline JSON
-  if (s.startsWith('{') || s.startsWith('[')) {
-    return JSON.parse(s); // throw on invalid → stage:"io"
-  }
-
-  // Local path?
-  let st: fs.Stats | undefined;
-  try {
-    st = fs.statSync(s);
-  } catch {
-    // Not a local path → hand over as-is (URL, etc.)
-    return s;
-  }
-
-  if (st.isDirectory()) {
-    // Directory is passed to adapter (dir triplet case)
-    return s;
-  }
-
-  if (st.isFile()) {
-    // IMPORTANT: do not swallow JSON.parse error → let it throw
-    const txt = fs.readFileSync(s, 'utf8');
-    return JSON.parse(txt); // throw on invalid → stage:"io"
-  }
-
-  // Fallback: pass through
-  return s;
+function isJsonObject(j: Json): j is JsonObject {
+  return typeof j === 'object' && j !== null && !Array.isArray(j);
 }
 
-export type VerifyHandlerArgs = {
-  adapter: string;
-  verification?: string;
-  bundle?: string; 
-  json?: boolean;
-  useExitCodes?: boolean;
-  noSchema?: boolean;
-};
+function normalizeVerifyResult(res: unknown): boolean {
+  if (typeof res === 'boolean') return res;
+  if (res && typeof res === 'object' && 'ok' in (res as Record<string, unknown>)) {
+    return Boolean((res as Record<string, unknown>).ok);
+  }
+  return Boolean(res);
+}
 
-// Keep return type Promise<void> so index.ts “handler: (a) => void|Promise<void>” elég
-export async function verifyCommand(opts: VerifyHandlerArgs): Promise<void> {
+export async function verifyCommand(argv: VerifyHandlerArgs): Promise<void> {
+  const jsonMode = Boolean(argv.json);
+  const useExit = computeUseExit(argv);
+
+  // Lock a numeric exit code very early so late handlers can't override to 1.
+  if (typeof process.exitCode !== 'number') {
+    process.exitCode = 0; // success-by-default; error paths will overwrite
+  }
+
+  let normalizedOut: VerifyOutcomeU;
+
+  // 1) Adapter
+  const adapterRaw = String(argv.adapter ?? '').trim();
+  if (!adapterRaw) {
+    normalizedOut = {
+      ok: false,
+      stage: 'adapter',
+      error: 'adapter_not_found',
+      message: 'Missing --adapter',
+    };
+    return emit(normalizedOut);
+  }
+
+  let adapterId: AdapterId;
   try {
-    const adapterId = toAdapterId(opts.adapter);
-    const adapter = await getAdapterById(adapterId);
-    const raw = opts.verification ?? opts.bundle ?? '';   // <-- accept both flags
-    const input = resolveVerificationArg(raw);
+    adapterId = toAdapterId(adapterRaw);
+  } catch (err) {
+    normalizedOut = {
+      ok: false,
+      stage: 'adapter',
+      error: 'adapter_not_found',
+      message: errorMessage(err) ?? `Unknown adapter: ${adapterRaw}`,
+    };
+    return emit(normalizedOut);
+  }
 
-    const out = await adapter.verify(input);
+  const adapter = await getAdapterById(adapterId);
 
-    if (opts.json) {
-      // eslint-disable-next-line no-console
-      console.log(JSON.stringify(out));
+  // 2) --verification kötelező
+  const raw = getVerificationRaw(argv);
+  if (!raw) {
+    normalizedOut = {
+      ok: false,
+      stage: 'io',
+      error: 'io_error',
+      message: 'Missing --verification',
+    };
+    return emit(normalizedOut);
+  }
+
+  // 3) Resolver (inline JSON vagy path → read+parse)
+  let verificationJson: Json;
+  try {
+    const resolved = await resolveVerificationArg(raw);
+    if (typeof resolved === 'string') {
+      const text = await readFile(resolved, 'utf8');
+      verificationJson = JSON.parse(text) as Json;
+    } else {
+      verificationJson = resolved;
     }
+  } catch (err) {
+    normalizedOut = {
+      ok: false,
+      stage: 'io',
+      error: 'io_error',
+      message: errorMessage(err) ?? String(err),
+    };
+    return emit(normalizedOut);
+  }
 
-    if (out.ok) return exitNow(0);
-    if (out.error === 'verification_failed') return exitNow(1);
-    return exitNow(2);
-  } catch (err: unknown) {
-    const msg = errorMessage(err);
-    if (opts.json) {
-      // eslint-disable-next-line no-console
-      console.log(
-        JSON.stringify(
-          msg
-            ? { ok: false, stage: 'io', error: 'adapter_error', message: msg }
-            : { ok: false, stage: 'io', error: 'adapter_error' }
-        )
+  // 3/b) Quick schema precheck (only if schema is enabled)
+  const schemaDisabled = argv.noSchema === true;
+  if (!schemaDisabled) {
+    if (!isJsonObject(verificationJson)) {
+      normalizedOut = {
+        ok: false,
+        stage: 'schema',
+        error: 'schema_invalid',
+        message: 'verification must be a JSON object (quick precheck)',
+      };
+      return emit(normalizedOut);
+    }
+    const fw = verificationJson['framework'];
+    const ps = verificationJson['proofSystem'];
+    if (typeof fw !== 'string' || typeof ps !== 'string') {
+      normalizedOut = {
+        ok: false,
+        stage: 'schema',
+        error: 'schema_invalid',
+        message: 'missing framework/proofSystem in verification JSON (quick precheck)',
+      };
+      return emit(normalizedOut);
+    }
+  }
+
+  // 4) Verify
+  try {
+    const res = await adapter.verify(verificationJson);
+    const ok = normalizeVerifyResult(res);
+    normalizedOut = ok
+      ? ({ ok: true, adapter: adapterId } satisfies VerifyOk)
+      : ({ ok: false, stage: 'verify', error: 'verification_failed' } satisfies VerifyErr);
+  } catch (err) {
+    const msg = errorMessage(err) ?? String(err);
+    const isSchema =
+      /\b(schema|ajv|json.?schema|invalid\s+type|required\s+(?:field|property)|additional\s+properties|must\s+be|expected|missing\s+(?:field|property)|TypeError|Cannot\s+read|cannot\s+destructure|undefined|null)\b/i.test(
+        msg,
       );
+    normalizedOut = isSchema
+      ? { ok: false, stage: 'schema', error: 'schema_invalid', message: msg }
+      : { ok: false, stage: 'verify', error: 'adapter_error', message: msg };
+  }
+
+  return emit(normalizedOut);
+
+  // ---- output + exit-code ----
+  function emit(out: VerifyOutcomeU): void {
+    if (jsonMode) {
+      if (out.ok) writeJsonStdout(out as VerifyOk);
+      else writeJsonStderr(out as VerifyErr);
+    } else {
+      // helyes stream: success→stdout, fail→stderr
+      // eslint-disable-next-line no-console
+      (out.ok ? console.log : console.error)(out.ok ? 'OK' : 'ERROR');
     }
-    return exitNow(2);
+
+    // Exit-kód szerződés:
+    // - Siker → MINDIG 0 (stabilizál)
+    // - Hiba → map szerint, de csak ha kérték (useExit)
+    if (out.ok) {
+      process.exitCode = 0;
+    } else if (useExit) {
+      process.exitCode = mapVerifyOutcomeToExitCode(out);
+    }
   }
 }
 
-// <-- NEW: export a handler that index.ts elvár
 export async function handler(argv: VerifyHandlerArgs): Promise<void> {
-  await verifyCommand(argv);
+  try {
+    await verifyCommand(argv);
+  } catch (err) {
+    const out: VerifyErr = {
+      ok: false,
+      stage: 'verify',
+      error: 'adapter_error',
+      message: errorMessage(err) ?? String(err),
+    };
+    if (argv.json) writeJsonStderr(out);
+    else console.error('ERROR:', out.message);
+    if (computeUseExit(argv)) process.exitCode = mapVerifyOutcomeToExitCode(out);
+  }
 }

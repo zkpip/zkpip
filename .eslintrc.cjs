@@ -22,8 +22,16 @@ module.exports = {
       rules: {},
     },
     {
-      files: ['**/*.js', '**/*.mjs', '**/*.cjs'],
+      files: ['**/*.js', '**/*.mjs'],
       parserOptions: { ecmaVersion: 'latest', sourceType: 'module' },
+    },
+    {
+      files: ['**/*.cjs', 'packages/**/scripts/**/*.js'],
+      parserOptions: { ecmaVersion: 'latest', sourceType: 'script' },
+      rules: {
+        'import/no-commonjs': 'off',
+        '@typescript-eslint/no-var-requires': 'off',
+      },
     },
   ],
   settings: {

@@ -1,27 +1,24 @@
-import { describe, it, expect } from "vitest";
-import { spawnSync } from "node:child_process";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { describe, it, expect } from 'vitest';
+import { runCli, parseJson } from './helpers/cliRunner.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const CLI = path.resolve(__dirname, "..", "dist", "index.js");
-
-function run(args: string[]) {
-  return spawnSync(process.execPath, [CLI, ...args], { encoding: "utf8" });
+interface AdapterRow {
+  readonly id: string;
+  readonly proofSystem: string;
+  readonly framework: string;
 }
 
-describe("adapters --json smoke", () => {
-  it("prints a non-empty adapter list with id/proofSystem/framework", () => {
-    const r = run(["adapters", "--json"]);
-    expect(r.status).toBe(0);
-    const out = JSON.parse(r.stdout || "{}");
-    expect(out.ok).toBe(true);
-    expect(Array.isArray(out.adapters)).toBe(true);
-    expect(out.adapters.length).toBeGreaterThan(0);
-    const first = out.adapters[0];
-    expect(first).toHaveProperty("id");
-    expect(first).toHaveProperty("proofSystem");
-    expect(first).toHaveProperty("framework");
+describe('adapters --json smoke', () => {
+  it('prints a non-empty adapter list with id/proofSystem/framework', async () => {
+    const r = await runCli(['adapters', '--json'], { json: false, useExitCodes: true });
+    expect(r.exitCode).toBe(0);
+    expect(r.stderr).toBe('');
+    const arr = parseJson<readonly AdapterRow[]>(r.stdout);
+    expect(Array.isArray(arr)).toBe(true);
+    expect(arr.length).toBeGreaterThan(0);
+    for (const a of arr) {
+      expect(typeof a.id).toBe('string');
+      expect(typeof a.proofSystem).toBe('string');
+      expect(typeof a.framework).toBe('string');
+    }
   });
 });

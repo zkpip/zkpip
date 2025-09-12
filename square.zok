@@ -1,0 +1,4 @@
+def main(private field a, field b) {
+  field c = a * a;
+  assert(c == b);
+}
