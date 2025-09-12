@@ -33,11 +33,11 @@ jobs:
       - name: Prettier check
         run: npm run format:check
 
-      - name: ESLint
-        run: npm run lint
-
       - name: Typecheck (tsc -b)
         run: npx tsc -b --pretty false
+
+      - name: ESLint
+        run: npm run lint
 
   # 2) CLI build + vitest + E2E smoke (PLONK + ZoKrates) több Node verzióval
   cli-test:

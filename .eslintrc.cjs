@@ -33,6 +33,15 @@ module.exports = {
         '@typescript-eslint/no-var-requires': 'off',
       },
     },
+    {
+      files: [
+        'packages/cli/scripts/groth16-adapter-selftest.mjs',
+        'packages/cli/scripts/plonk-adapter-selftest.mjs',
+      ],
+      rules: {
+        'import/no-unresolved': 'off',
+      },
+    },
   ],
   settings: {
     'import/resolver': {
