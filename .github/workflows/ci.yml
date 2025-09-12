@@ -2,47 +2,29 @@ name: CI
 
 on:
   push:
-    branches: [main, feat/**]
-    paths:
-      - 'packages/cli/**'
-      - 'packages/*/src/**'
-      - 'packages/*/tsconfig.json'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'pnpm-lock.yaml'
-      - '.github/workflows/**'
+    branches: [main, develop, feat/**]
   pull_request:
-    paths:
-      - 'packages/cli/**'
-      - 'packages/*/src/**'
-      - 'packages/*/tsconfig.json'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'pnpm-lock.yaml'
-      - '.github/workflows/**'
+    branches: [main, develop, feat/**]
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  cli:
-    name: CLI • Lint, Build & Test
+  build-test-cli:
+    name: Build & Test (CLI)
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: npm
+          node-version: '22.x'
+          cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
@@ -53,8 +35,46 @@ jobs:
       - name: ESLint
         run: npm run lint
 
+      - name: Build (monorepo)
+        run: npm run build
+
+      - name: Prepare fixtures (snarkjs-plonk)
+        run: |
+          mkdir -p fixtures/snarkjs-plonk/{valid,invalid}
+
+          node scripts/make-bundles-from-local.mjs \
+            --dir packages/core/schemas/tests/vectors/mvs/verification/snarkjs-plonk/valid \
+            --out fixtures/snarkjs-plonk/valid
+
+          node scripts/make-bundles-from-local.mjs \
+            --dir packages/core/schemas/tests/vectors/mvs/verification/snarkjs-plonk/invalid \
+            --out fixtures/snarkjs-plonk/invalid
+
+          node scripts/make-verification-json.mjs \
+            --framework=snarkjs --proofSystem=plonk \
+            --in=fixtures/snarkjs-plonk/valid/proof-bundle.valid.json \
+            --out=fixtures/snarkjs-plonk/valid/verification.json
+
+          node scripts/make-verification-json.mjs \
+            --framework=snarkjs --proofSystem=plonk \
+            --in=fixtures/snarkjs-plonk/invalid/proof-bundle.invalid.json \
+            --out=fixtures/snarkjs-plonk/invalid/verification.json
+
+          echo "peek valid:" && head -c 120 fixtures/snarkjs-plonk/valid/verification.json || true
+          echo; echo "peek invalid:" && head -c 120 fixtures/snarkjs-plonk/invalid/verification.json || true
+
       - name: Build CLI
         run: npm -w @zkpip/cli run build
 
-      - name: Test CLI (vitest)
+      - name: Run CLI tests (vitest)
         run: npm -w @zkpip/cli run test
+
+      - name: Upload fixtures on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fixtures-and-logs
+          path: |
+            fixtures/**
+            packages/cli/.tmp/**
+          if-no-files-found: ignore

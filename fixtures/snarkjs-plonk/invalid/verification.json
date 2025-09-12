@@ -1,13 +1,1 @@
-{
-  "framework": "snarkjs",
-  "proofSystem": "plonk",
-  "artifacts": {
-    "verificationKey": {
-      "path": "/home/tony/projects/zkpip/zkpip/fixtures/snarkjs-plonk/verification_key.json"
-    },
-    "proof": { "path": "/home/tony/projects/zkpip/zkpip/fixtures/snarkjs-plonk/proof.valid.json" },
-    "publicSignals": {
-      "path": "/home/tony/projects/zkpip/zkpip/fixtures/snarkjs-plonk/public.invalid.json"
-    }
-  }
-}
+{ "framework": "snarkjs", "proofSystem": "plonk", "artifacts": {} }
