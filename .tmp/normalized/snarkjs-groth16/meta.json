@@ -1,0 +1,6 @@
+{
+  "timestamp": "2025-09-12T17:58:46.868Z",
+  "phase": "postVerify",
+  "adapterId": "snarkjs-groth16",
+  "verifyOk": false
+}

@@ -6,7 +6,7 @@
     "version": "1.0.0"
   },
   "schemaVersion": "1.0.0",
-  "bundleId": "37dd28ba-5598-4f0c-9917-aecf42412951",
+  "bundleId": "7df617b9-f483-49ea-aede-16598389dbe2",
   "proofSystem": "groth16",
   "curve": "bn128",
   "prover": {

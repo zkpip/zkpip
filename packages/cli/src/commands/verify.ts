@@ -9,6 +9,8 @@ import { writeJsonStderr, writeJsonStdout } from '../utils/ioJson.js';
 import { resolveVerificationArg } from '../utils/resolveVerificationArg.js';
 import type { Json, JsonObject } from '../types/json.js';
 import { mapVerifyOutcomeToExitCode } from '../utils/exitCodeMap.js';
+import { normalizeVerification } from '../utils/normalizeVerification.js';
+import { dumpNormalized } from '../utils/dumpNormalized.js';
 
 function toAdapterId(s: string): AdapterId {
   if (isAdapterId(s)) return s;
@@ -65,7 +67,15 @@ export async function verifyCommand(argv: VerifyHandlerArgs): Promise<void> {
 
   const adapter = await getAdapterById(adapterId);
 
-  // 2) --verification kötelező
+  // 2) --verification
+  // Optional: preExtract meta (helps triage if dumps are "meta-only")
+  await dumpNormalized(adapterId, 'preExtract', {
+    meta: {
+      inputKind: 'verification-json',
+      verificationPath: getVerificationRaw(argv),
+    },
+  });
+
   const raw = getVerificationRaw(argv);
   if (!raw) {
     normalizedOut = {
@@ -122,9 +132,26 @@ export async function verifyCommand(argv: VerifyHandlerArgs): Promise<void> {
     }
   }
 
-  // 4) Verify
+  // 4.1) Normalize
+  let bundle: { verification_key: Json; proof: Json; public: Json };
   try {
-    const res = await adapter.verify(verificationJson);
+    bundle = normalizeVerification(verificationJson);
+  } catch (err) {
+    const out = {
+      ok: false as const,
+      stage: 'schema' as const,
+      error: 'schema_invalid' as const,
+      message: err instanceof Error ? err.message : String(err),
+    };
+    if (jsonMode) writeJsonStderr(out);
+    else console.error('ERROR:', out.message);
+    if (useExit) process.exitCode = mapVerifyOutcomeToExitCode(out); // -> 3
+    return;
+  }
+
+  // 4.2) Verify
+  try {
+    const res = await adapter.verify(bundle);
     const ok = normalizeVerifyResult(res);
     normalizedOut = ok
       ? ({ ok: true, adapter: adapterId } satisfies VerifyOk)

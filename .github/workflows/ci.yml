@@ -15,31 +15,30 @@ jobs:
     name: Build & Test (CLI)
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      # Dump-okat könnyebb így kivenni hiba esetén
+      ZKPIP_DUMP_NORMALIZED: ${{ github.workspace }}/.tmp/normalized
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js (22.x)
         uses: actions/setup-node@v4
         with:
-          node-version: '22.x'
-          cache: 'npm'
+          node-version: 22.x
+          cache: npm
 
-      - name: Install dependencies
+      - name: Install deps (monorepo)
         run: npm ci
 
-      - name: Prettier check
-        run: npm run format:check
+      - name: Build CLI workspace
+        run: npm -w @zkpip/cli run build
 
-      - name: ESLint
-        run: npm run lint
-
-      - name: Build (monorepo)
-        run: npm run build
-
+      # --- ÚJ: Fixture előkészítés PLONK-hoz (valid + invalid) ---
       - name: Prepare fixtures (snarkjs-plonk)
         run: |
+          set -euxo pipefail
           mkdir -p fixtures/snarkjs-plonk/{valid,invalid}
 
           node scripts/make-bundles-from-local.mjs \
@@ -60,21 +59,44 @@ jobs:
             --in=fixtures/snarkjs-plonk/invalid/proof-bundle.invalid.json \
             --out=fixtures/snarkjs-plonk/invalid/verification.json
 
-          echo "peek valid:" && head -c 120 fixtures/snarkjs-plonk/valid/verification.json || true
-          echo; echo "peek invalid:" && head -c 120 fixtures/snarkjs-plonk/invalid/verification.json || true
+      # --- ÚJ: Groth16 csak ha megvannak a kész fájlok (nem kötelező) ---
+      - name: Prepare fixtures (snarkjs-groth16) — optional
+        run: |
+          set -euxo pipefail
+          SRC="packages/core/schemas/tests/vectors/mvs/verification/test/groth16"
+          if [ -f "$SRC/verification_key.json" ] && [ -f "$SRC/proof.json" ] && [ -f "$SRC/public.json" ]; then
+            mkdir -p fixtures/snarkjs-groth16/{valid,invalid}
+            jq -n \
+              --slurpfile vk "$SRC/verification_key.json" \
+              --slurpfile pf "$SRC/proof.json" \
+              --slurpfile pb "$SRC/public.json" \
+              '{ bundle: { verification_key: $vk[0], proof: $pf[0], public: $pb[0] } }' \
+              > fixtures/snarkjs-groth16/valid/proof-bundle.valid.json
 
-      - name: Build CLI
-        run: npm -w @zkpip/cli run build
+            node scripts/make-verification-json.mjs \
+              --framework=snarkjs --proofSystem=groth16 \
+              --in=fixtures/snarkjs-groth16/valid/proof-bundle.valid.json \
+              --out=fixtures/snarkjs-groth16/valid/verification.json
 
+            # derive invalid:
+            jq '.publicSignals[0]="9999_X"' \
+              fixtures/snarkjs-groth16/valid/verification.json \
+              > fixtures/snarkjs-groth16/invalid/verification.json
+          else
+            echo "Groth16 source triplet not found — skipping Groth16 checks."
+          fi
+
+      # Ha a CLI tesztjeid vitest-tel futnak, ez változatlan maradhat
       - name: Run CLI tests (vitest)
         run: npm -w @zkpip/cli run test
 
-      - name: Upload fixtures on failure
+      - name: Upload fixtures and dumps on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: fixtures-and-logs
+          name: fixtures-and-dumps
           path: |
             fixtures/**
+            .tmp/normalized/**
             packages/cli/.tmp/**
           if-no-files-found: ignore

@@ -1,58 +1,110 @@
-// packages/cli/src/utils/dumpNormalized.ts
-// ESM-only, strict TS, no "any"
+// src/utils/dumpNormalized.ts
+// ESM-only, strict TS, no "any". Sync writes, async signature for compatibility.
+
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-export type DumpMeta = Readonly<Record<string, string | number | boolean>>;
 export type JsonPrimitive = string | number | boolean | null;
-export type JsonValue = JsonPrimitive | JsonObject | JsonArray;
-export type JsonObject = { [k: string]: JsonValue };
-// accept both mutable and readonly arrays
-export type JsonArray = Array<JsonValue> | ReadonlyArray<JsonValue>;
+export type JsonValue = JsonPrimitive | { readonly [k: string]: JsonValue } | readonly JsonValue[];
 
-export function dumpNormalized(
-  adapterId: string,
-  payload: {
-    vkey?: Record<string, unknown>;
-    proof?: unknown;
-    publics?: ReadonlyArray<string>;
-    meta?: Record<string, JsonValue>;
-  },
-): void {
-  const dirFromEnv = process.env.ZKPIP_DUMP_NORMALIZED;
-  if (!dirFromEnv) return;
+export type DumpPhase = 'preExtract' | 'postExtract' | 'postVerify';
+export type DumpMeta = Readonly<Record<string, JsonValue>>;
 
-  const dir = resolve(dirFromEnv);
-  const ts = Date.now().toString();
-  const id = adapterId.replace(/[^a-z0-9._-]/gi, '_'); // sanitize
+/** Wide payload types: real artifacts vary across frameworks. */
+export interface DumpPayload {
+  readonly meta?: DumpMeta;
 
-  try {
-    mkdirSync(dir, { recursive: true });
-  } catch {
-    return; // ignore fs errors silently
-  }
+  /** Verification key (shape varies) */
+  readonly vkey?: unknown;
 
-  const write = (name: string, data: unknown): void => {
-    try {
-      writeFileSync(join(dir, `${name}.${id}.${ts}.json`), JSON.stringify(data, null, 2), 'utf8');
-    } catch {
-      /* ignore */
-    }
+  /** Proof object or encoded string */
+  readonly proof?: unknown;
+
+  /** Raw public inputs before stringification */
+  readonly publics?: readonly unknown[];
+
+  /** Already-normalized triplet ready to persist */
+  readonly normalized?: {
+    readonly verificationKey: unknown;
+    readonly proof: unknown;
+    readonly publics: readonly string[];
   };
 
-  // keep legacy separate files
-  if (payload.vkey) write('vk', payload.vkey);
-  if (payload.proof) write('proof', payload.proof);
-  if (payload.publics) write('publics', payload.publics);
-  if (payload.meta) write('meta', payload.meta);
+  /** Optional root override; otherwise ZKPIP_DUMP_NORMALIZED is used */
+  readonly dirOverride?: string;
+}
 
-  // NEW: combined normalized.*.json if we have any of the normalized fields
-  if (payload.vkey || payload.proof || (payload.publics && payload.publics.length > 0)) {
-    const normalized = {
-      ...(payload.vkey ? { vkey: payload.vkey } : {}),
-      ...(payload.proof ? { proof: payload.proof } : {}),
-      ...(payload.publics ? { publics: payload.publics } : {}),
-    } as const;
-    write('normalized', normalized);
+/** Stable stringify of public inputs to string[], tolerant to bigint/number/mixed. */
+export function stringifyPublics(values: readonly unknown[]): readonly string[] {
+  return values.map((v) => {
+    if (typeof v === 'string') return v;
+    if (typeof v === 'number') return String(v);
+    if (typeof v === 'bigint') return v.toString(10);
+    try {
+      const s = (v as { toString?: () => string } | null)?.toString?.();
+      if (s && s !== '[object Object]') return String(s);
+    } catch {
+      /* noop */
+    }
+    return JSON.stringify(v);
+  });
+}
+
+function writeJson(filePath: string, obj: unknown): void {
+  writeFileSync(filePath, JSON.stringify(obj, null, 2), { encoding: 'utf8' });
+}
+
+/**
+ * Flexible signature:
+ *  - dumpNormalized(id, payload)
+ *  - dumpNormalized(id, phase, payload?)
+ *
+ * Returns Promise<void> so callers may `await` it; internally uses sync I/O.
+ */
+export async function dumpNormalized(
+  adapterId: string,
+  phaseOrPayload?: DumpPhase | DumpPayload,
+  maybePayload?: DumpPayload,
+): Promise<void> {
+  const isPhase = typeof phaseOrPayload === 'string';
+  const phase: DumpPhase | undefined = isPhase ? (phaseOrPayload as DumpPhase) : undefined;
+  const payload: DumpPayload | undefined = isPhase
+    ? maybePayload
+    : (phaseOrPayload as DumpPayload | undefined);
+
+  const root = payload?.dirOverride?.trim() || process.env.ZKPIP_DUMP_NORMALIZED?.trim();
+
+  if (!root) return; // dumping disabled
+
+  const dir = resolve(root, adapterId);
+  mkdirSync(dir, { recursive: true });
+
+  // Always write/update meta.json
+  const meta = {
+    timestamp: new Date().toISOString(),
+    ...(phase ? { phase } : null),
+    adapterId,
+    ...(payload?.meta ?? {}),
+  };
+  writeJson(join(dir, 'meta.json'), meta);
+
+  // Optional artifacts (only when provided)
+  if (payload?.vkey !== undefined) {
+    writeJson(join(dir, 'verification_key.json'), payload.vkey);
+  }
+  if (payload?.proof !== undefined) {
+    writeJson(join(dir, 'proof.json'), payload.proof);
+  }
+  if (payload?.publics !== undefined) {
+    const publics = stringifyPublics(payload.publics);
+    writeJson(join(dir, 'public.json'), publics);
+  }
+  if (payload?.normalized !== undefined) {
+    const combined = {
+      verificationKey: payload.normalized.verificationKey,
+      proof: payload.normalized.proof,
+      publics: payload.normalized.publics,
+    };
+    writeJson(join(dir, 'normalized.json'), combined);
   }
 }
