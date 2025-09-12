@@ -17,6 +17,7 @@
     "node": ">=20.10"
   },
   "scripts": {
+    "pretest": "npm run build",
     "lint": "ESLINT_USE_FLAT_CONFIG=true eslint .",
     "format": "prettier -w \"src/**/*.{ts,js,mjs,cjs,md,json,yml,yaml}\"",
     "format:check": "prettier -c \"src/**/*.{ts,js,mjs,cjs,md,json,yml,yaml}\"",
