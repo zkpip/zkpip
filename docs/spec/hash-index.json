@@ -16,12 +16,12 @@
   },
   "can:zokrates:groth16:demo:valid": {
     "path": "fixtures/zokrates-groth16/valid/verification.json",
-    "sha256": "ee8972409a30f4145c83bcfacadf3a12410f556f409c51950242613ee167dd8c",
-    "size": 2933
+    "sha256": "99f914ef70e10ccd1986fa504530c23620396f06febfe744aef9ac01dfab5873",
+    "size": 2444
   },
   "can:zokrates:groth16:demo:invalid": {
     "path": "fixtures/zokrates-groth16/invalid/verification.json",
-    "sha256": "f73c84332e79465df2815bbf34b29d93d60a6b7d4995a9d41c341c4a13787c46",
-    "size": 3007
+    "sha256": "968cdbe636e947d8b061c1aacb8b501353f87b02dd0e48fd0e2ea6d14d3a590c",
+    "size": 2451
   }
 }

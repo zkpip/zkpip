@@ -49,8 +49,23 @@ describe('adapters.smoke (CLI roundtrip via fixtures)', () => {
 
   // --- ZoKrates Groth16 (optional: run only if valid fixture exists) ---
   const zoValid = fixturesPath('zokrates-groth16/valid/verification.json');
+
   itIf(existsSync(zoValid))('zokrates-groth16 valid → exit 0', async () => {
-    const p = await runCli(['verify', '--adapter', 'zokrates-groth16', '--verification', zoValid]);
+    const p = await runCli(
+      ['verify', '--adapter', 'zokrates-groth16', '--verification', zoValid],
+      { env: { ZKPIP_DEBUG: '1' } } // optional: richer adapter logs
+    );
+
+    // 👇 debug on failure: show exactly why the adapter/CLI failed
+    if (p.exitCode !== 0) {
+      // eslint-disable-next-line no-console
+      console.error('--- zokrates-groth16 smoke debug ---');
+      // eslint-disable-next-line no-console
+      console.error('STDERR:\n', p.stderr);
+      // eslint-disable-next-line no-console
+      console.error('STDOUT:\n', p.stdout);
+    }
+
     expect(p.exitCode).toBe(0);
     const out = parseJson<VerifyOk>(p.stdout, p.stderr);
     expect(out.ok).toBe(true);

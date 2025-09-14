@@ -86,20 +86,6 @@ jobs:
             echo "Groth16 source triplet not found — skipping Groth16 checks."
           fi
 
-      - name: Install ZoKrates CLI
-        shell: bash
-        run: |
-          curl -LSfs get.zokrat.es | sh
-          echo "$HOME/.zokrates/bin" >> "$GITHUB_PATH"
-          "$HOME/.zokrates/bin/zokrates" --version
-
-      - name: Export ZOKRATES_BIN and verify PATH
-        shell: bash
-        run: |
-          echo "ZOKRATES_BIN=$HOME/.zokrates/bin/zokrates" >> "$GITHUB_ENV"
-          which zokrates || true
-          echo "PATH=$PATH"
-
       - name: Run CLI tests (vitest)
         env:
           ZOKRATES_BIN: ${{ env.HOME }}/.zokrates/bin/zokrates

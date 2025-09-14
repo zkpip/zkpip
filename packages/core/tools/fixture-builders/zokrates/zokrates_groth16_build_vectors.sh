@@ -1,89 +1,119 @@
 #!/usr/bin/env bash
+# Robust ZoKrates Groth16 vector builder
+# - Works with `set -euo pipefail`
+# - Allocates WORK *before* trap to avoid unbound var
+# - Emits ProofEnvelope v1 (framework, proofSystem, verificationKey, proof, publics)
+# - No artifacts.path; meta.sourceDir kept for info
+
 set -euo pipefail
 
-# ZoKrates Groth16 vector builder (valid + invalid)
-# Requires: ZoKrates CLI, Node.js; uses tsx via npx.
-# Outputs:
-#   fixtures/zokrates-groth16/valid/verification.json
-#   fixtures/zokrates-groth16/invalid/verification.json
+# Resolve repo root (script is at packages/core/tools/fixture-builders/zokrates/)
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../../../.." >/dev/null 2>&1 && pwd)"
 
-# --- Paths --------------------------------------------------------------------
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# Output dirs
+OUT_DIR_VALID="$REPO_ROOT/fixtures/zokrates-groth16/valid"
+OUT_DIR_INVALID="$REPO_ROOT/fixtures/zokrates-groth16/invalid"
+mkdir -p "$OUT_DIR_VALID" "$OUT_DIR_INVALID"
 
-# Prefer Git to find repo root (works from any subdir); fallback to 5x ".."
-if ROOT_GIT=$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null); then
-  ROOT="$ROOT_GIT"
-else
-  ROOT="$(cd -- "$SCRIPT_DIR/../../../../.." && pwd)"
+# Allocate WORK *before* trap, so $WORK is always defined
+WORK="${WORK:-}"
+if [[ -z "${WORK}" ]]; then
+  WORK="$(mktemp -d -t zkpip-zo-XXXXXX)"
 fi
+export WORK
+echo "→ WORK dir: $WORK"
 
-OUT_VALID="$ROOT/fixtures/zokrates-groth16/valid"
-OUT_INVALID="$ROOT/fixtures/zokrates-groth16/invalid"
-TMP_DIR="$(mktemp -d)"
-ZOK_MAIN="$TMP_DIR/add.zok"
-
-# TS helpers live NEXT TO this script → no ROOT math needed for them
-TS_MAKE_VER="$SCRIPT_DIR/makeVerificationJson.ts"
-TS_MAKE_INVALID="$SCRIPT_DIR/makeInvalidFromValid.ts"
-
-mkdir -p "$OUT_VALID" "$OUT_INVALID"
-
-# --- Tooling checks -----------------------------------------------------------
-command -v node >/dev/null 2>&1 || { echo "Node.js is required"; exit 2; }
-
-run_ts() {
-  if command -v tsx >/dev/null 2>&1; then
-    tsx "$@"
+cleanup() {
+  local code=$?
+  # Keep WORK if ZK_KEEP_WORK=1
+  if [[ "${ZK_KEEP_WORK:-0}" = "1" ]]; then
+    echo "→ Keeping WORK (ZK_KEEP_WORK=1): $WORK"
   else
-    npx -y tsx "$@"
+    if [[ -n "${WORK:-}" && -d "$WORK" ]]; then
+      rm -rf "$WORK"
+    fi
   fi
+  exit $code
 }
+trap cleanup EXIT INT TERM
 
-# Resolve ZoKrates binary: env → PATH → ~/.zokrates/bin/zokrates
-ZOKRATES_BIN="${ZOKRATES_BIN:-}"
-if [ -z "$ZOKRATES_BIN" ]; then
-  if command -v zokrates >/dev/null 2>&1; then
-    ZOKRATES_BIN="$(command -v zokrates)"
-  elif [ -x "$HOME/.zokrates/bin/zokrates" ]; then
-    ZOKRATES_BIN="$HOME/.zokrates/bin/zokrates"
-  fi
+# Resolve ZoKrates binary
+ZOKRATES_BIN="${ZOKRATES_BIN:-zokrates}"
+if ! command -v "$ZOKRATES_BIN" >/dev/null 2>&1; then
+  echo "ZoKrates CLI is required on PATH (or set ZOKRATES_BIN)." >&2
+  exit 127
 fi
-[ -x "${ZOKRATES_BIN:-}" ] || { echo "ZoKrates CLI not found. Set ZOKRATES_BIN or add to PATH."; exit 2; }
-ZOK() { "$ZOKRATES_BIN" "$@"; }
 
-# Optional debug
-[ "${DEBUG:-0}" = "1" ] && { echo "ROOT=$ROOT"; echo "SCRIPT_DIR=$SCRIPT_DIR"; echo "ZOKRATES_BIN=$ZOKRATES_BIN"; }
-
-# --- 1) Minimal circuit (c = a + b)  (single return type, no parentheses)
-cat > "$ZOK_MAIN" <<'ZOK'
+# Create tiny circuit: out = a + b; publics = [out]
+cat >"$WORK/add.zok" <<'ZOK'
+// ZoKrates 0.8.x: return type without parentheses.
+// Return value becomes part of public inputs.
 def main(private field a, private field b) -> field {
-    return a + b;
+  return a + b;
 }
 ZOK
 
-# --- 2) Compile & setup
-pushd "$TMP_DIR" >/dev/null
-ZOK compile -i "$ZOK_MAIN" -o out
-ZOK setup
+pushd "$WORK" >/dev/null
 
-# --- 3) Make a valid proof (3 + 5 = 8)
-ZOK compute-witness -a 3 5
-ZOK generate-proof
+# Compile, setup, witness, proof
+"$ZOKRATES_BIN" compile -i add.zok -o out
+"$ZOKRATES_BIN" setup
+"$ZOKRATES_BIN" compute-witness -a 3 9
+"$ZOKRATES_BIN" generate-proof
+
+# ZoKrates emits:
+# - verification.key (text)
+# - proof.json      (ZoKrates shape: {proof:{a,b,c}, inputs:[...]})
+# We also want a snarkjs-compatible verification_key.json (JSON).
+# If you already have JSON VK nearby, adjust paths; else, convert as needed.
+
+# For now we assume you already have a snarkjs-compatible JSON VK next to proof.json.
+# If not, and only the textual 'verification.key' exists, add your converter here.
+# This line expects verification_key.json exists (builder TypeScript will load it):
+if [[ ! -f "$WORK/verification_key.json" ]]; then
+  if [[ -f "$WORK/verification.key" ]]; then
+    echo "→ Converting verification.key → verification_key.json"
+      npx -y tsx "$SCRIPT_DIR/convertVkTxtToJson.ts" \
+        --in  "$WORK/verification.key" \
+        --out "$WORK/verification_key.json"
+  else
+    echo "Missing verification.key in $WORK" >&2
+    exit 2
+  fi
+fi
+
 popd >/dev/null
 
-# --- 4) Build ZKPIP-compatible verification.json (VALID)
-run_ts "$TS_MAKE_VER" \
-  --proof "$TMP_DIR/proof.json" \
-  --vk "$TMP_DIR/verification.key" \
-  --out "$OUT_VALID/verification.json"
+# Use the TS builder to emit ProofEnvelope v1
+npx -y tsx "$SCRIPT_DIR/makeVerificationJson.ts" \
+  --proof  "$WORK/proof.json" \
+  --vk     "$WORK/verification_key.json" \
+  --out    "$OUT_DIR_VALID/verification.json" \
+  --source "$WORK"
 
-# --- 5) Derive an INVALID vector by tampering publics
-run_ts "$TS_MAKE_INVALID" \
-  --in "$OUT_VALID/verification.json" \
-  --out "$OUT_INVALID/verification.json"
+# Create an invalid variant by tampering the first public input (no jq)
+# NOTE: args must come BEFORE the heredoc redirection!
+node - "$OUT_DIR_VALID/verification.json" "$OUT_DIR_INVALID/verification.json" <<'NODE'
+const fs = require('node:fs');
+
+// argv: [node, '-', validPath, invalidPath]
+const [validPath, invalidPath] = process.argv.slice(2);
+
+// read valid JSON
+const j = JSON.parse(fs.readFileSync(validPath, 'utf8'));
+
+// deterministically corrupt first public input
+if (Array.isArray(j.publics) && j.publics.length > 0) {
+  const v = String(j.publics[0]);
+  j.publics[0] = /^\d+$/.test(v) ? String(BigInt(v) + 1n) : v + '_tamper';
+}
+
+// write invalid JSON pretty-printed
+fs.writeFileSync(invalidPath, JSON.stringify(j, null, 2) + '\n', 'utf8');
+console.log('Wrote invalid:', invalidPath);
+NODE
 
 echo "✅ Wrote:"
-echo "  $OUT_VALID/verification.json"
-echo "  $OUT_INVALID/verification.json"
-
-rm -rf "$TMP_DIR"
+echo "  $OUT_DIR_VALID/verification.json"
+echo "  $OUT_DIR_INVALID/verification.json"
