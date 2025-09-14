@@ -1,0 +1,27 @@
+{
+  "can:snarkjs:plonk:demo:valid": {
+    "path": "fixtures/snarkjs-plonk/valid/verification.json",
+    "sha256": "5bccce73208f3226afad65ef72d19b309a85f5eb1bd76250303d8bac27c509fe",
+    "size": 3758
+  },
+  "can:snarkjs:plonk:demo:invalid": {
+    "path": "fixtures/snarkjs-plonk/invalid/verification.json",
+    "sha256": "ef0ed596d75cea0346a7ca03f7890ce275a50802bc9969598771b2de2722f37a",
+    "size": 3762
+  },
+  "can:snarkjs:groth16:demo:valid": {
+    "path": "fixtures/snarkjs-groth16/valid/verification.json",
+    "sha256": "28d27ebc6dd5708e7eca268e830ca9642dcaae3dee30616e971534af01ad743d",
+    "size": 3663
+  },
+  "can:zokrates:groth16:demo:valid": {
+    "path": "fixtures/zokrates-groth16/valid/verification.json",
+    "sha256": "ee8972409a30f4145c83bcfacadf3a12410f556f409c51950242613ee167dd8c",
+    "size": 2933
+  },
+  "can:zokrates:groth16:demo:invalid": {
+    "path": "fixtures/zokrates-groth16/invalid/verification.json",
+    "sha256": "f73c84332e79465df2815bbf34b29d93d60a6b7d4995a9d41c341c4a13787c46",
+    "size": 3007
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "version": "1",
+  "id": "can:snarkjs:groth16:demo:valid",
+  "framework": "snarkjs",
+  "proofSystem": "groth16",
+  "urls": [
+    "file:///home/tony/projects/zkpip/zkpip/fixtures/snarkjs-groth16/valid/verification.json"
+  ],
+  "sha256": "dae18a20aa0827b7897df196c851341e903dd5cfc228c004e605e92de351e054",
+  "size": 3663,
+  "meta": {
+    "sourcePath": "fixtures/snarkjs-groth16/valid/verification.json"
+  },
+  "kid": "dev-1"
+}

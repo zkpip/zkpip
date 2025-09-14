@@ -1,0 +1,15 @@
+{
+  "version": "1",
+  "id": "can:snarkjs:plonk:demo:invalid",
+  "framework": "snarkjs",
+  "proofSystem": "plonk",
+  "urls": [
+    "file:///home/tony/projects/zkpip/zkpip/fixtures/snarkjs-plonk/invalid/verification.json"
+  ],
+  "sha256": "6a41da787d7f1b9a016360a1a6892ec306be4222c9f599aa6bfa6d35ee51af08",
+  "size": 3762,
+  "meta": {
+    "sourcePath": "fixtures/snarkjs-plonk/invalid/verification.json"
+  },
+  "kid": "dev-1"
+}

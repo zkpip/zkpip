@@ -19,16 +19,22 @@
     "core:test:watch": "npm --prefix packages/core run test:watch",
     "core:cov": "npm --prefix packages/core run test:cov",
     "core:validate": "npm --prefix packages/core run validate-schemas",
+    "fixtures:zokrates:groth16": "bash packages/core/tools/fixture-builders/zokrates/zokrates_groth16_build_vectors.sh",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "check:all": "npm run format:check && npm run lint && npm -w @zkpip/cli run build && npm -w @zkpip/cli run test",
     "vectors:gen": "tsx packages/core/scripts/gen-invalid-vectors.ts",
     "e2e:discover": "tsx packages/cli/scripts/e2e-discover.ts",
     "e2e": "tsx packages/cli/scripts/e2e.ts",
-    "prepare": "husky"
+    "prepare": "husky",
+    "spec:hash": "tsx scripts/spec/build-hash-index.ts --map docs/spec/examples/vector-id-map.json --out docs/spec/hash-index.json",
+    "spec:manifests": "tsx scripts/spec/make-manifests.ts --index docs/spec/hash-index.json --outdir docs/spec/examples/canvectors --kid dev-1",
+    "spec:all": "npm run spec:hash && npm run spec:manifests",
+    "spec:validate": "tsx scripts/spec/validate-specs.ts",
+    "spec:manifests:quiet": "tsx scripts/spec/make-manifests.ts --index docs/spec/hash-index.json --outdir docs/spec/examples/canvectors --kid dev-1 --check-index=0",
+    "spec:sync": "tsx scripts/spec/make-manifests.ts --index docs/spec/hash-index.json --outdir docs/spec/examples/canvectors --kid dev-1 --check-index=1 --update-index=1"
   },
   "dependencies": {
-    "tsx": "^4.20.5",
     "zokrates-js": "^1.1.9"
   },
   "lint-staged": {
@@ -43,6 +49,8 @@
     "@types/node": "^24.3.0",
     "@typescript-eslint/eslint-plugin": "^8.42.0",
     "@typescript-eslint/parser": "^8.42.0",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-import-resolver-typescript": "^4.4.4",
@@ -54,6 +62,7 @@
     "prettier": "^3.6.2",
     "rimraf": "^6.0.1",
     "snarkjs": "^0.7.5",
+    "tsx": "^4.20.5",
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.42.0",
     "vitest": "^3.2.4"

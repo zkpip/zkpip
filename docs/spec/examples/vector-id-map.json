@@ -1,0 +1,7 @@
+{
+  "can:snarkjs:plonk:demo:valid": "fixtures/snarkjs-plonk/valid/verification.json",
+  "can:snarkjs:plonk:demo:invalid": "fixtures/snarkjs-plonk/invalid/verification.json",
+  "can:snarkjs:groth16:demo:valid": "fixtures/snarkjs-groth16/valid/verification.json",
+  "can:zokrates:groth16:demo:valid": "fixtures/zokrates-groth16/valid/verification.json",
+  "can:zokrates:groth16:demo:invalid": "fixtures/zokrates-groth16/invalid/verification.json"
+}
