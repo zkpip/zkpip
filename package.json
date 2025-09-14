@@ -32,7 +32,8 @@
     "spec:all": "npm run spec:hash && npm run spec:manifests",
     "spec:validate": "tsx scripts/spec/validate-specs.ts",
     "spec:manifests:quiet": "tsx scripts/spec/make-manifests.ts --index docs/spec/hash-index.json --outdir docs/spec/examples/canvectors --kid dev-1 --check-index=0",
-    "spec:sync": "tsx scripts/spec/make-manifests.ts --index docs/spec/hash-index.json --outdir docs/spec/examples/canvectors --kid dev-1 --check-index=1 --update-index=1"
+    "spec:sync": "tsx scripts/spec/make-manifests.ts --index docs/spec/hash-index.json --outdir docs/spec/examples/canvectors --kid dev-1 --check-index=1 --update-index=1",
+    "lint:fresh": "eslint . --ext .ts,.tsx --max-warnings=0 --no-cache"
   },
   "dependencies": {
     "zokrates-js": "^1.1.9"

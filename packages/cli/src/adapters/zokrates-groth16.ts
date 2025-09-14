@@ -98,21 +98,6 @@ function extractTriplet(input: unknown): Extracted {
   return { verificationKey: vkey, proof, publics };
 }
 
-/** Optional structural guard often used in unit tests. */
-// Soft-check: record mismatch but do not throw; snarkjs.verify will decide.
-function checkGammaAbcLength(
-  vk: Record<string, unknown>,
-  nPublics: number | undefined
-): { ok: boolean; expect?: number; got?: number } {
-  const gammaABC = (vk as Record<string, unknown>)['gamma_abc'] ?? (vk as Record<string, unknown>)['IC'];
-  if (Array.isArray(gammaABC) && typeof nPublics === 'number') {
-    const expect = nPublics + 1;
-    const got = gammaABC.length;
-    return { ok: got === expect, expect, got };
-  }
-  return { ok: true };
-}
-
 export function canHandle(input: unknown): boolean {
   try {
     const e = extractTriplet(input);
@@ -131,22 +116,13 @@ export type GrothInjectedVerify = (
   proof: object,
 ) => Promise<boolean> | boolean;
 
-// helper: normalize protocol strings to a common token
-function normProto(v: unknown): string | undefined {
-  if (typeof v !== 'string') return undefined;
-  const s = v.trim().toLowerCase();
-  if (s === 'groth16' || s === 'g16' || s === 'groth-16') return 'groth16';
-  return s;
-}
-
 /** Strict structural guard: throw if gamma_abc length != nPublics + 1 */
 function assertGammaAbcLengthStrict(
   vk: Record<string, unknown>,
   nPublics: number | undefined,
 ): void {
   const gammaABC =
-    (vk as Record<string, unknown>)['gamma_abc'] ??
-    (vk as Record<string, unknown>)['IC']; // ZoKrates JSON vs snarkjs naming
+    (vk as Record<string, unknown>)['gamma_abc'] ?? (vk as Record<string, unknown>)['IC']; // ZoKrates JSON vs snarkjs naming
 
   if (Array.isArray(gammaABC) && typeof nPublics === 'number') {
     const expect = nPublics + 1;
