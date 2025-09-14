@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:zkpip:schemas:proof-envelope:v1",
+  "title": "ZKPIP ProofEnvelope v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "proofSystem", "framework", "result"],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0.0",
+      "description": "Envelope schema version."
+    },
+    "proofSystem": {
+      "type": "string",
+      "enum": ["groth16", "plonk"],
+      "description": "Underlying proof system."
+    },
+    "framework": {
+      "type": "string",
+      "enum": ["snarkjs", "zokrates"],
+      "description": "Tooling or framework used to produce/verify the proof."
+    },
+    "curve": { "type": "string" },
+    "program": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" }
+      }
+    },
+    "bundleId": { "type": "string", "description": "Deterministic content hash or human ID." },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["publics"],
+      "properties": {
+        "publics": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Public inputs normalized to strings."
+        },
+        "proof": { "type": ["object", "string"] },
+        "verificationKey": { "type": ["object", "string"] }
+      }
+    },
+    "meta": { "type": "object", "additionalProperties": true }
+  }
+}

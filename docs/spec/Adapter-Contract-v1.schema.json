@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:zkpip:schemas:adapter-contract:v1",
+  "title": "ZKPIP Adapter → CLI Contract v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ok", "adapter"],
+  "properties": {
+    "ok": { "type": "boolean", "description": "Verification outcome." },
+    "adapter": { "type": "string", "description": "Adapter ID, e.g., 'snarkjs-plonk'." },
+    "error": {
+      "type": "string",
+      "enum": [
+        "verification_failed",
+        "adapter_error",
+        "signature_invalid",
+        "hash_mismatch",
+        "schema_invalid",
+        "not_implemented"
+      ],
+      "description": "Error taxonomy when ok=false."
+    },
+    "message": { "type": "string" },
+    "diagnostics": { "type": "object", "additionalProperties": true },
+    "timingMs": { "type": "number" }
+  }
+}
