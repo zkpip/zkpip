@@ -87,12 +87,23 @@ jobs:
           fi
 
       - name: Install ZoKrates CLI
+        shell: bash
         run: |
           curl -LSfs get.zokrat.es | sh
-          echo "$HOME/.zokrates/bin" >> $GITHUB_PATH
+          echo "$HOME/.zokrates/bin" >> "$GITHUB_PATH"
           "$HOME/.zokrates/bin/zokrates" --version
 
+      - name: Export ZOKRATES_BIN and verify PATH
+        shell: bash
+        run: |
+          echo "ZOKRATES_BIN=$HOME/.zokrates/bin/zokrates" >> "$GITHUB_ENV"
+          which zokrates || true
+          echo "PATH=$PATH"
+
       - name: Run CLI tests (vitest)
+        env:
+          PATH: ${{ env.HOME }}/.zokrates/bin:${{ env.PATH }}
+          ZOKRATES_BIN: ${{ env.HOME }}/.zokrates/bin/zokrates
         run: npm -w @zkpip/cli run test
 
       - name: Upload fixtures and dumps on failure
