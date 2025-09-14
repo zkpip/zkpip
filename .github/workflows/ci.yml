@@ -86,7 +86,12 @@ jobs:
             echo "Groth16 source triplet not found — skipping Groth16 checks."
           fi
 
-      # Ha a CLI tesztjeid vitest-tel futnak, ez változatlan maradhat
+      - name: Install ZoKrates CLI
+        run: |
+          curl -LSfs get.zokrat.es | sh
+          echo "$HOME/.zokrates/bin" >> $GITHUB_PATH
+          "$HOME/.zokrates/bin/zokrates" --version
+
       - name: Run CLI tests (vitest)
         run: npm -w @zkpip/cli run test
 
