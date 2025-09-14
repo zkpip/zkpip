@@ -102,7 +102,6 @@ jobs:
 
       - name: Run CLI tests (vitest)
         env:
-          PATH: ${{ env.HOME }}/.zokrates/bin:${{ env.PATH }}
           ZOKRATES_BIN: ${{ env.HOME }}/.zokrates/bin/zokrates
         run: npm -w @zkpip/cli run test
 
