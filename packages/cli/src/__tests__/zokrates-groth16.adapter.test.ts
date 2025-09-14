@@ -1,26 +1,51 @@
-/* Unit tests for zokrates-groth16 adapter: artifacts, shape assert, verify contract.
-   - Uses typed Vitest mocks (no `any`)
-   - Uses ZoKrates-native VK/Proof shapes (alpha/beta/gamma/delta + gamma_abc; proof a/b/c)
+/* Unit tests for zokrates-groth16 adapter: artifacts.path, structural guards, and verify contract.
+   - Typed Vitest mocks (no `any`)
+   - ZoKrates-native VK/Proof shapes (alpha/beta/gamma/delta + gamma_abc; proof a/b/c)
+   - Adapter verify returns boolean; protocol/shape mismatches throw
 */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import os from 'node:os';
 import path from 'node:path';
 import fsp from 'node:fs/promises';
-import { zokratesGroth16 } from '../adapters/zokrates-groth16.js';
 
-// --- typed mock for snarkjs groth16.verify ---------------------------------
+// Use named imports to avoid eslint import/no-named-as-default-member warnings
+import { verify as zoVerify, canHandle as zoCanHandle } from '../adapters/zokrates-groth16.js';
 
+/** Runtime verify signature used by the adapter. */
 type VerifyGroth16 = (
   vkey: object,
   publics: ReadonlyArray<string>,
   proof: object,
 ) => Promise<boolean>;
 
-const verifySpy = vi.fn<VerifyGroth16>();
+/** Typed mock for the runtime verifier: <ArgsTuple, ReturnPromise> */
+type VerifyGroth16Args = [object, ReadonlyArray<string>, object];
+type VerifyGroth16Ret = Promise<boolean>;
+const verifySpy = vi.fn<VerifyGroth16Args, VerifyGroth16Ret>();
 
 vi.mock('../adapters/snarkjsRuntime.js', () => ({
-  getGroth16Verify: async (): Promise<VerifyGroth16> => verifySpy,
+  getGroth16Verify: async (): Promise<VerifyGroth16> => verifySpy as unknown as VerifyGroth16,
+}));
+
+/** No-op dump to avoid filesystem writes during unit tests. Also export stringifyPublics for adapter import. */
+function stringifyPublics(values: readonly unknown[]): readonly string[] {
+  return values.map((v) => {
+    if (typeof v === 'string') return v;
+    if (typeof v === 'number') return String(v);
+    if (typeof v === 'bigint') return v.toString(10);
+    try {
+      const s = (v as { toString?: () => string } | null)?.toString?.();
+      if (s && s !== '[object Object]') return String(s);
+    } catch {
+      /* noop */
+    }
+    return JSON.stringify(v);
+  });
+}
+vi.mock('../utils/dumpNormalized.js', () => ({
+  dumpNormalized: async (): Promise<void> => {},
+  stringifyPublics,
 }));
 
 // --- helpers ----------------------------------------------------------------
@@ -28,13 +53,12 @@ vi.mock('../adapters/snarkjsRuntime.js', () => ({
 async function tmpDir(): Promise<string> {
   return fsp.mkdtemp(path.join(os.tmpdir(), 'zkpip-zo-'));
 }
-async function writeJson(p: string, data: unknown) {
+async function writeJson(p: string, data: unknown): Promise<void> {
   await fsp.writeFile(p, JSON.stringify(data), 'utf8');
 }
 
 // ZoKrates-native Groth16 verification key & proof.
 // gamma_abc length must equal publics.length + 1.
-
 const VK_ZO = {
   protocol: 'groth16',
   alpha: { x: '5', y: '6' }, // G1
@@ -56,71 +80,82 @@ const PROOF_ZO = {
 // --- tests ------------------------------------------------------------------
 
 describe('adapter: zokrates-groth16', () => {
-  beforeEach(() => verifySpy.mockReset());
+  beforeEach(() => {
+    verifySpy.mockReset();
+  });
 
-  it('verify → ok with artifacts.{path}', async () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('canHandle: true only for realistic inputs (bundle/artifacts.path)', async () => {
+    expect(zoCanHandle({})).toBe(false);
+    expect(zoCanHandle({ proofSystem: 'groth16' })).toBe(false);
+
+    const okBundle = {
+      bundle: {
+        verificationKey: VK_ZO,
+        proof: PROOF_ZO,
+        publicSignals: ['0x01'],
+      },
+    };
+    expect(zoCanHandle(okBundle)).toBe(true);
+
+    const dir = await tmpDir();
+    await writeJson(path.join(dir, 'verification_key.json'), VK_ZO);
+    await writeJson(path.join(dir, 'proof.json'), PROOF_ZO);
+    await writeJson(path.join(dir, 'public.json'), ['0x01']);
+    expect(zoCanHandle({ artifacts: { path: dir } })).toBe(true);
+  });
+
+  it('verify → true with artifacts.path directory (reads vk/proof/public)', async () => {
     verifySpy.mockResolvedValue(true);
 
     const dir = await tmpDir();
-    const vk = path.join(dir, 'vk.json');
-    const pf = path.join(dir, 'pf.json');
-    const pub = path.join(dir, 'pub.json');
+    await writeJson(path.join(dir, 'verification_key.json'), VK_ZO);
+    await writeJson(path.join(dir, 'proof.json'), PROOF_ZO);
+    await writeJson(path.join(dir, 'public.json'), ['0x01']); // publics length = 1 ⇒ gamma_abc must be 2 (OK)
 
-    // Files to be loaded via artifacts.{path}
-    await writeJson(vk, VK_ZO);
-    await writeJson(pf, PROOF_ZO); // allow nested { proof: {a,b,c} }
-    await writeJson(pub, ['0x01']); // publics len = 1 -> gamma_abc len must be 2 (OK)
-
-    const inlineArtifacts = {
-      artifacts: {
-        verificationKey: { path: vk },
-        proof: { path: pf },
-        publicSignals: { path: pub },
-      },
-    };
-
-    const out = await zokratesGroth16.verify(inlineArtifacts);
-    expect(out.ok).toBe(true);
+    const ok = await zoVerify({ artifacts: { path: dir } });
+    expect(ok).toBe(true);
     expect(verifySpy).toHaveBeenCalledTimes(1);
 
-    const [vkeyArg, publicsArg, proofArg] = verifySpy.mock.calls[0] as Parameters<VerifyGroth16>;
+    const [vkeyArg, publicsArg, proofArg] = verifySpy.mock.calls[0]!;
     expect(typeof vkeyArg).toBe('object');
     expect(Array.isArray(publicsArg)).toBe(true);
-    expect(typeof proofArg).toBe('object');
     expect(publicsArg.every((x) => typeof x === 'string')).toBe(true);
+    expect(typeof proofArg).toBe('object');
   });
 
-  it('verify → adapter_error when gamma_abc length mismatch (blocks verify call)', async () => {
-    verifySpy.mockResolvedValue(true); // should not be reached
+  it('verify → throws when gamma_abc length mismatches publics (guard blocks runtime call)', async () => {
+    verifySpy.mockResolvedValue(true); // should not be called if guard works
 
     const VK_BAD = {
       ...VK_ZO,
-      // publics len = 1 but gamma_abc has only 1 entry (should be 2)
-      gamma_abc: [{ x: '1', y: '2' }],
+      gamma_abc: [{ x: '1', y: '2' }], // publics len = 1 but gamma_abc = 1 (should be 2)
     };
 
-    const bad = await zokratesGroth16.verify({
-      verificationKey: VK_BAD,
-      publicSignals: ['0x01'],
-      proof: PROOF_ZO,
-    });
+    await expect(async () => {
+      await zoVerify({
+        verificationKey: VK_BAD,
+        publicSignals: ['0x01'],
+        proof: PROOF_ZO,
+      });
+    }).rejects.toThrow(/gamma_abc length mismatch/i);
 
-    expect(bad.ok).toBe(false);
-    if (!bad.ok) expect(bad.error).toBe('adapter_error');
     expect(verifySpy).not.toHaveBeenCalled();
   });
 
-  it('verify → verification_failed when provider returns false', async () => {
+  it('verify → false when runtime returns false', async () => {
     verifySpy.mockResolvedValue(false);
 
-    const out = await zokratesGroth16.verify({
+    const ok = await zoVerify({
       verificationKey: VK_ZO,
       publicSignals: ['0x01'],
       proof: PROOF_ZO,
     });
 
-    expect(out.ok).toBe(false);
-    if (!out.ok) expect(out.error).toBe('verification_failed');
+    expect(ok).toBe(false);
     expect(verifySpy).toHaveBeenCalledTimes(1);
   });
 });

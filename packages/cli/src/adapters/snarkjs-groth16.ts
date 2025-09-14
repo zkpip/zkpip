@@ -1,6 +1,8 @@
 // ESM + NodeNext, strict TS, no "any".
-// Adapter for snarkjs Groth16: robust extraction + dumps + runtime verify.
+// snarkjs Groth16 adapter with artifacts.path support + injected verify for unit tests.
 
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { getGroth16Verify } from '../adapters/snarkjsRuntime.js';
 import { dumpNormalized, stringifyPublics } from '../utils/dumpNormalized.js';
 
@@ -36,31 +38,44 @@ type Extracted = {
   readonly publics: readonly string[];
 };
 
+function readArtifactsFromDir(dir: string): Extracted {
+  const p = (name: string) => resolve(dir, name);
+  const vkey = JSON.parse(readFileSync(p('verification_key.json'), 'utf8')) as Record<
+    string,
+    unknown
+  >;
+  const proof = JSON.parse(readFileSync(p('proof.json'), 'utf8')) as Record<string, unknown>;
+  const publicsRaw = JSON.parse(readFileSync(p('public.json'), 'utf8')) as unknown[];
+  const publics = stringifyPublics(publicsRaw);
+  return { verificationKey: vkey, proof, publics };
+}
+
 function extractTriplet(input: unknown): Extracted {
   const root = getRec(input);
-  const bundle = getRec(root?.bundle);
   const artifacts = getRec(root?.artifacts);
-  const artBundle = getRec(artifacts?.bundle);
+  const artPath =
+    artifacts?.path && typeof artifacts.path === 'string' ? artifacts.path : undefined;
+  if (artPath) return readArtifactsFromDir(artPath);
+
+  const bundle = getRec(root?.bundle);
+  const result = getRec(root?.result);
 
   const vkey =
     getKey<Record<string, unknown>>(root, ['verificationKey', 'verification_key']) ??
     getKey<Record<string, unknown>>(bundle, ['verificationKey', 'verification_key']) ??
-    getKey<Record<string, unknown>>(artBundle, ['verificationKey', 'verification_key']) ??
-    getKey<Record<string, unknown>>(artifacts, ['verificationKey', 'verification_key']) ??
+    getKey<Record<string, unknown>>(result, ['verificationKey', 'verification_key']) ??
     {};
 
   const proof =
     getKey<Record<string, unknown>>(root, ['proof']) ??
     getKey<Record<string, unknown>>(bundle, ['proof']) ??
-    getKey<Record<string, unknown>>(artBundle, ['proof']) ??
-    getKey<Record<string, unknown>>(artifacts, ['proof']) ??
+    getKey<Record<string, unknown>>(result, ['proof']) ??
     {};
 
   const publicsUnknown =
-    getKey<readonly unknown[]>(root, ['publicSignals', 'publics', 'public']) ??
-    getKey<readonly unknown[]>(bundle, ['publicSignals', 'publics', 'public']) ??
-    getKey<readonly unknown[]>(artBundle, ['publicSignals', 'publics', 'public']) ??
-    getKey<readonly unknown[]>(artifacts, ['publicSignals', 'publics', 'public']) ??
+    getKey<readonly unknown[]>(root, ['publicSignals', 'publics', 'public', 'inputs']) ??
+    getKey<readonly unknown[]>(bundle, ['publicSignals', 'publics', 'public', 'inputs']) ??
+    getKey<readonly unknown[]>(result, ['publicSignals', 'publics', 'public', 'inputs']) ??
     [];
 
   const publics = Array.isArray(publicsUnknown) ? stringifyPublics(publicsUnknown) : [];
@@ -80,14 +95,28 @@ export function canHandle(input: unknown): boolean {
   }
 }
 
-export async function verify(input: unknown): Promise<boolean> {
-  dumpNormalized(ID, 'preExtract', {
+export type GrothInjectedVerify = (
+  vk: object,
+  publics: ReadonlyArray<string>,
+  proof: object,
+) => Promise<boolean> | boolean;
+
+export async function verify(
+  input: unknown,
+  opts?: { readonly verify?: GrothInjectedVerify },
+): Promise<boolean> {
+  await dumpNormalized(ID, 'preExtract', {
     meta: { framework: FRAMEWORK, proofSystem: PROOF_SYSTEM },
   });
 
   const ex = extractTriplet(input);
 
-  dumpNormalized(ID, 'postExtract', {
+  const proto = (ex.verificationKey as Record<string, unknown>)['protocol'];
+  if (typeof proto === 'string' && proto.toLowerCase() !== PROOF_SYSTEM) {
+    throw new Error(`protocol mismatch: expected ${PROOF_SYSTEM}, got ${proto}`);
+  }
+
+  await dumpNormalized(ID, 'postExtract', {
     vkey: ex.verificationKey,
     proof: ex.proof as Json,
     publics: ex.publics,
@@ -98,19 +127,17 @@ export async function verify(input: unknown): Promise<boolean> {
     },
   });
 
-  const doVerify = await getGroth16Verify();
+  const doVerify = opts?.verify ?? (await getGroth16Verify());
   const ok = await doVerify(ex.verificationKey, ex.publics, ex.proof);
 
-  dumpNormalized(ID, 'postVerify', { meta: { verifyOk: ok } });
+  await dumpNormalized(ID, 'postVerify', { meta: { verifyOk: ok } });
   return ok;
 }
 
-export const snarkjsGroth16Adapter = {
+export default {
   id: ID,
   proofSystem: PROOF_SYSTEM,
   framework: FRAMEWORK,
   canHandle,
   verify,
 };
-
-export default snarkjsGroth16Adapter;

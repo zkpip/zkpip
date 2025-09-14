@@ -1,8 +1,15 @@
 // ESM + NodeNext, strict TS, no "any".
-// Adapter for snarkjs PLONK: robust extraction + stringified publics + stable dumps.
+// snarkjs PLONK adapter with:
+// - robust extraction (bundle/flat/artifacts.path)
+// - publics → string[]
+// - optional injected verify() for tests
+// - protocol guard
+// - normalized dumps pre/post
 
-import { getPlonkVerify } from './snarkjsRuntime.js';
-import { dumpNormalized } from '../utils/dumpNormalized.js';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { getPlonkVerify } from '../adapters/snarkjsRuntime.js';
+import { dumpNormalized, stringifyPublics } from '../utils/dumpNormalized.js';
 
 export const ID = 'snarkjs-plonk' as const;
 export const PROOF_SYSTEM = 'plonk' as const;
@@ -11,12 +18,9 @@ export const FRAMEWORK = 'snarkjs' as const;
 function isRec(v: unknown): v is Record<string, unknown> {
   return !!v && typeof v === 'object' && !Array.isArray(v);
 }
-
 function getRec(v: unknown): Record<string, unknown> | undefined {
   return isRec(v) ? (v as Record<string, unknown>) : undefined;
 }
-
-/** Lookup helper that never returns boolean, only T | undefined. */
 function getKey<T>(
   obj: Record<string, unknown> | undefined,
   keys: readonly string[],
@@ -30,70 +34,61 @@ function getKey<T>(
   return undefined;
 }
 
-/** Make a stable string[] out of arbitrary mixed numeric/string inputs. */
-function toStringArray(values: readonly unknown[]): readonly string[] {
-  return values.map((v) => {
-    if (typeof v === 'string') return v;
-    if (typeof v === 'number') return String(v);
-    if (typeof v === 'bigint') return v.toString(10);
-    try {
-      const s = (v as { toString?: () => string } | null)?.toString?.();
-      if (s && s !== '[object Object]') return String(s);
-    } catch {
-      /* noop */
-    }
-    return JSON.stringify(v);
-  });
-}
-
 type Extracted = {
   readonly verificationKey: Record<string, unknown>;
   readonly proof: Record<string, unknown> | string;
   readonly publics: readonly string[];
 };
 
+function readArtifactsFromDir(dir: string): Extracted {
+  const p = (name: string) => resolve(dir, name);
+  const vkey = JSON.parse(readFileSync(p('verification_key.json'), 'utf8')) as Record<
+    string,
+    unknown
+  >;
+  const proof = JSON.parse(readFileSync(p('proof.json'), 'utf8')) as
+    | Record<string, unknown>
+    | string;
+  const publicsRaw = JSON.parse(readFileSync(p('public.json'), 'utf8')) as unknown[];
+  const publics = stringifyPublics(publicsRaw);
+  return { verificationKey: vkey, proof, publics };
+}
+
 /**
  * Accepts:
  *  - flat: { verification_key|verificationKey, proof, public|publics|publicSignals }
- *  - bundle: { bundle: { ...same keys... } }
- *  - artifacts: { artifacts: { bundle?: { ... }, verification_key?: ... , proof?: ... } }
+ *  - bundle: { bundle: { ... } }
+ *  - artifacts.path: { artifacts: { path: "/abs/or/rel/dir" } }  <-- unit tests expect this
  */
 function extractTriplet(input: unknown): Extracted {
   const root = getRec(input);
-  const bundle = getRec(root?.bundle);
   const artifacts = getRec(root?.artifacts);
-  const artBundle = getRec(artifacts?.bundle);
+  const artPath =
+    artifacts?.path && typeof artifacts.path === 'string' ? artifacts.path : undefined;
+  if (artPath) return readArtifactsFromDir(artPath);
 
-  // vkey
+  const bundle = getRec(root?.bundle);
+
   const vkey =
     getKey<Record<string, unknown>>(root, ['verificationKey', 'verification_key']) ??
     getKey<Record<string, unknown>>(bundle, ['verificationKey', 'verification_key']) ??
-    getKey<Record<string, unknown>>(artBundle, ['verificationKey', 'verification_key']) ??
-    getKey<Record<string, unknown>>(artifacts, ['verificationKey', 'verification_key']) ??
     {};
 
-  // proof (can be object or string, snarkjs tolerates both)
   const proof =
     getKey<Record<string, unknown> | string>(root, ['proof']) ??
     getKey<Record<string, unknown> | string>(bundle, ['proof']) ??
-    getKey<Record<string, unknown> | string>(artBundle, ['proof']) ??
-    getKey<Record<string, unknown> | string>(artifacts, ['proof']) ??
     {};
 
-  // publics
   const publicsUnknown =
     getKey<readonly unknown[]>(root, ['publicSignals', 'publics', 'public']) ??
     getKey<readonly unknown[]>(bundle, ['publicSignals', 'publics', 'public']) ??
-    getKey<readonly unknown[]>(artBundle, ['publicSignals', 'publics', 'public']) ?? // usually 'public' here
-    getKey<readonly unknown[]>(artifacts, ['publicSignals', 'publics', 'public']) ??
     [];
 
-  const publics = Array.isArray(publicsUnknown) ? toStringArray(publicsUnknown) : [];
+  const publics = Array.isArray(publicsUnknown) ? stringifyPublics(publicsUnknown) : [];
 
   return { verificationKey: vkey, proof, publics };
 }
 
-// ---- Capability detection ----
 export function canHandle(input: unknown): boolean {
   try {
     const e = extractTriplet(input);
@@ -107,22 +102,31 @@ export function canHandle(input: unknown): boolean {
   }
 }
 
-// ---- Verify ----
-export async function verify(input: unknown): Promise<boolean> {
-  // preExtract meta (sync dump)
-  dumpNormalized(ID, 'preExtract', {
-    meta: {
-      framework: 'snarkjs',
-      proofSystem: 'plonk',
-      node: process.version,
-      inputKind: 'verification-json',
-    },
+export type PlonkInjectedVerify = (
+  vk: object,
+  publics: ReadonlyArray<string>,
+  proof: object | string,
+) => Promise<boolean> | boolean;
+
+export async function verify(
+  input: unknown,
+  opts?: { readonly verify?: PlonkInjectedVerify }, // <-- unit tests can inject stub
+): Promise<boolean> {
+  // preExtract meta
+  await dumpNormalized(ID, 'preExtract', {
+    meta: { framework: FRAMEWORK, proofSystem: PROOF_SYSTEM },
   });
 
   const ex = extractTriplet(input);
 
-  // postExtract artifacts
-  dumpNormalized(ID, 'postExtract', {
+  // protocol guard (if present)
+  const proto = (ex.verificationKey as Record<string, unknown>)['protocol'];
+  if (typeof proto === 'string' && proto.toLowerCase() !== PROOF_SYSTEM) {
+    throw new Error(`protocol mismatch: expected ${PROOF_SYSTEM}, got ${proto}`);
+  }
+
+  // postExtract dump
+  await dumpNormalized(ID, 'postExtract', {
     vkey: ex.verificationKey,
     proof: isRec(ex.proof) ? ex.proof : { proof: ex.proof },
     publics: ex.publics,
@@ -133,32 +137,18 @@ export async function verify(input: unknown): Promise<boolean> {
     },
   });
 
-  const nPublic = Number(
-    (ex.verificationKey as Record<string, unknown>)['nPublic'] ?? ex.publics.length,
-  );
-  if (!Number.isNaN(nPublic) && ex.publics.length !== nPublic) {
-    // preemptive fail: bad input bundle
-    dumpNormalized(ID, 'postVerify', {
-      meta: { verifyOk: false, reason: 'nPublic_mismatch', nPublic, publics: ex.publics.length },
-    });
-    return false;
-  }
+  // resolve verifier (injected for unit tests or real snarkjs)
+  const doVerify = opts?.verify ?? (await getPlonkVerify());
+  const ok = await doVerify(ex.verificationKey, ex.publics, ex.proof);
 
-  // verify via snarkjs runtime (getPlonkVerify signature)
-  const plonkVerify = await getPlonkVerify();
-  const ok = await plonkVerify(ex.verificationKey, ex.publics, ex.proof);
-
-  dumpNormalized(ID, 'postVerify', { meta: { verifyOk: ok } });
+  await dumpNormalized(ID, 'postVerify', { meta: { verifyOk: ok } });
   return ok;
 }
 
-// Optional object shape if your registry expects it
-export const snarkjsPlonkAdapter = {
+export default {
   id: ID,
   proofSystem: PROOF_SYSTEM,
   framework: FRAMEWORK,
   canHandle,
   verify,
 };
-
-export default snarkjsPlonkAdapter;
