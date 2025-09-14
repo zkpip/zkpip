@@ -7,5 +7,5 @@ export type BaseVerifyError = 'verification_failed' | 'adapter_error';
  *   type X = VerifyOutcome<typeof id>;
  */
 export type VerifyOutcome<A extends string = string> =
-  | { ok: true;  adapter: A }
+  | { ok: true; adapter: A }
   | { ok: false; adapter: A; error: BaseVerifyError; message?: string };

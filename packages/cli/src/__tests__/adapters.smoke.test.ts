@@ -1,27 +1,58 @@
-import { describe, it, expect } from "vitest";
-import { spawnSync } from "node:child_process";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+// Keep comments in English (OSS).
+import { describe, it, expect } from 'vitest';
+import { existsSync } from 'node:fs';
+import { runCli, parseJson, fixturesPath } from './helpers/cliRunner.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const CLI = path.resolve(__dirname, "..", "dist", "index.js");
+type VerifyOk = { ok: true; adapter?: string };
+type VerifyErr = { ok: false; error: string; stage?: string; message?: string };
 
-function run(args: string[]) {
-  return spawnSync(process.execPath, [CLI, ...args], { encoding: "utf8" });
-}
+/** Tiny helper to skip tests when optional fixtures are missing. */
+const itIf = (cond: boolean) => (cond ? it : it.skip);
 
-describe("adapters --json smoke", () => {
-  it("prints a non-empty adapter list with id/proofSystem/framework", () => {
-    const r = run(["adapters", "--json"]);
-    expect(r.status).toBe(0);
-    const out = JSON.parse(r.stdout || "{}");
+describe('adapters.smoke (CLI roundtrip via fixtures)', () => {
+  // --- PLONK (fixtures are expected to exist) ---
+  it('snarkjs-plonk valid → exit 0 + ok:true', async () => {
+    const p = await runCli([
+      'verify',
+      '--adapter',
+      'snarkjs-plonk',
+      '--verification',
+      fixturesPath('snarkjs-plonk/valid/verification.json'),
+    ]);
+    expect(p.exitCode).toBe(0);
+    const out = parseJson<VerifyOk>(p.stdout, p.stderr);
     expect(out.ok).toBe(true);
-    expect(Array.isArray(out.adapters)).toBe(true);
-    expect(out.adapters.length).toBeGreaterThan(0);
-    const first = out.adapters[0];
-    expect(first).toHaveProperty("id");
-    expect(first).toHaveProperty("proofSystem");
-    expect(first).toHaveProperty("framework");
+  });
+
+  it('snarkjs-plonk invalid → exit 1 + verification_failed', async () => {
+    const p = await runCli([
+      'verify',
+      '--adapter',
+      'snarkjs-plonk',
+      '--verification',
+      fixturesPath('snarkjs-plonk/invalid/verification.json'),
+    ]);
+    expect(p.exitCode).toBe(1);
+    const out = parseJson<VerifyErr>(p.stdout, p.stderr);
+    expect(out.ok).toBe(false);
+    expect(out.error).toBe('verification_failed');
+  });
+
+  // --- Groth16 (optional: run only if valid fixture exists) ---
+  const g16Valid = fixturesPath('snarkjs-groth16/valid/verification.json');
+  itIf(existsSync(g16Valid))('snarkjs-groth16 valid → exit 0', async () => {
+    const p = await runCli(['verify', '--adapter', 'snarkjs-groth16', '--verification', g16Valid]);
+    expect(p.exitCode).toBe(0);
+    const out = parseJson<VerifyOk>(p.stdout, p.stderr);
+    expect(out.ok).toBe(true);
+  });
+
+  // --- ZoKrates Groth16 (optional: run only if valid fixture exists) ---
+  const zoValid = fixturesPath('zokrates-groth16/valid/verification.json');
+  itIf(existsSync(zoValid))('zokrates-groth16 valid → exit 0', async () => {
+    const p = await runCli(['verify', '--adapter', 'zokrates-groth16', '--verification', zoValid]);
+    expect(p.exitCode).toBe(0);
+    const out = parseJson<VerifyOk>(p.stdout, p.stderr);
+    expect(out.ok).toBe(true);
   });
 });

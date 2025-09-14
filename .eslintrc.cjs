@@ -22,8 +22,25 @@ module.exports = {
       rules: {},
     },
     {
-      files: ['**/*.js', '**/*.mjs', '**/*.cjs'],
+      files: ['**/*.js', '**/*.mjs'],
       parserOptions: { ecmaVersion: 'latest', sourceType: 'module' },
+    },
+    {
+      files: ['**/*.cjs', 'packages/**/scripts/**/*.js'],
+      parserOptions: { ecmaVersion: 'latest', sourceType: 'script' },
+      rules: {
+        'import/no-commonjs': 'off',
+        '@typescript-eslint/no-var-requires': 'off',
+      },
+    },
+    {
+      files: [
+        'packages/cli/scripts/groth16-adapter-selftest.mjs',
+        'packages/cli/scripts/plonk-adapter-selftest.mjs',
+      ],
+      rules: {
+        'import/no-unresolved': 'off',
+      },
     },
   ],
   settings: {

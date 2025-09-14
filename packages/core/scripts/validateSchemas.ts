@@ -29,15 +29,13 @@ function listJsonFiles(root: string): string[] {
 
 function shouldSchemaValidate(vectorsRoot: string, absPath: string): boolean {
   const rp = norm(path.relative(vectorsRoot, absPath));
-  if (rp.startsWith('mvs/verification/proofBundle/')) return false;     // komponens minták
-  if (rp.startsWith('mvs/verification/test/groth16/')) return false;    // komponens minták
+  if (rp.startsWith('mvs/verification/proofBundle/')) return false; // komponens minták
+  if (rp.startsWith('mvs/verification/test/groth16/')) return false; // komponens minták
   return true;
 }
 
 function makeSchemaValidButCryptoInvalidSet(vectorsRoot: string) {
-  const allowRel = new Set<string>([
-    'mvs/verification/proof-bundle.invalid.json',
-  ]);
+  const allowRel = new Set<string>(['mvs/verification/proof-bundle.invalid.json']);
   const allowAbs = new Set<string>();
   for (const r of allowRel) allowAbs.add(norm(path.join(vectorsRoot, r)));
   return { allowAbs };
@@ -77,7 +75,9 @@ async function main() {
 
   // 3) Felosztás — DE a "schema-valid but crypto-invalid" fájlokat mindig a VALID halmazba tesszük
   const rawInvalid = allFiles.filter(isInvalidVector);
-  const validFiles = allFiles.filter((f) => !isInvalidVector(f) || schemaValidButCryptoInvalid.has(norm(f)));
+  const validFiles = allFiles.filter(
+    (f) => !isInvalidVector(f) || schemaValidButCryptoInvalid.has(norm(f)),
+  );
   const invalidFiles = rawInvalid.filter((f) => !schemaValidButCryptoInvalid.has(norm(f)));
 
   const validPassed: string[] = [];

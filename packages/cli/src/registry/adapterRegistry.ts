@@ -1,37 +1,67 @@
 // packages/cli/src/registry/adapterRegistry.ts
 import type { Adapter } from './types.js';
 
-type ModGroth16 = typeof import('../adapters/snarkjs-groth16.js');
-type ModPlonk   = typeof import('../adapters/snarkjs-plonk.js');
-type ModZoG16   = typeof import('../adapters/zokrates-groth16.js');
+type AdapterModule = {
+  readonly default?: unknown;
+} & Record<string, unknown>;
 
-const LOADERS = {
-  'snarkjs-groth16': async () =>
-    (await import('../adapters/snarkjs-groth16.js') as ModGroth16).snarkjsGroth16,
-  'snarkjs-plonk': async () =>
-    (await import('../adapters/snarkjs-plonk.js') as ModPlonk).snarkjsPlonk,
-  'zokrates-groth16': async () =>
-    (await import('../adapters/zokrates-groth16.js') as ModZoG16).zokratesGroth16,
+/** Runtime check: must have string id AND function verify */
+function isAdapter(x: unknown): x is Adapter {
+  if (!x || typeof x !== 'object') return false;
+  const r = x as Record<string, unknown>;
+  return (
+    typeof r.id === 'string' &&
+    typeof r.verify === 'function' &&
+    typeof r.proofSystem === 'string' &&
+    typeof r.framework === 'string'
+  );
+}
+
+/** Load a module and pick default, requested, or common fallbacks like `adapter`. */
+async function loadNamed(modulePath: string, exportName: string): Promise<Adapter> {
+  const mod = (await import(modulePath)) as AdapterModule;
+
+  // Try default → requested name → common fallbacks
+  const candidate =
+    (mod.default as unknown) ??
+    (mod[exportName] as unknown) ??
+    (mod.adapter as unknown) ?? // <-- important fallback
+    (mod.Adapter as unknown) ?? // optional legacy
+    (mod.ADAPTER as unknown); // optional legacy
+
+  if (isAdapter(candidate)) return candidate;
+
+  const available = Object.keys(mod).join(', ') || '(no named exports)';
+  throw new Error(
+    `Invalid adapter export in ${modulePath} (expected Adapter at "${exportName}" or default; saw: ${available})`,
+  );
+}
+
+export const LOADERS = {
+  'snarkjs-groth16': () => loadNamed('../adapters/snarkjs-groth16.js', 'snarkjsGroth16'),
+  'snarkjs-plonk': () => loadNamed('../adapters/snarkjs-plonk.js', 'snarkjsPlonk'),
+  'zokrates-groth16': () => loadNamed('../adapters/zokrates-groth16.js', 'zokratesGroth16'),
 } as const;
 
 export type AdapterId = keyof typeof LOADERS;
 export const availableAdapterIds = Object.keys(LOADERS) as readonly AdapterId[];
 
-// Narrow string → AdapterId
+export async function resolveAdapter(id: AdapterId): Promise<Adapter> {
+  return LOADERS[id]();
+}
+
 export function isAdapterId(s: string): s is AdapterId {
   return (availableAdapterIds as readonly string[]).includes(s);
 }
 
-// Typed returns
-export async function getAllAdapters(): Promise<Adapter<AdapterId>[]> {
-  const out: Adapter<AdapterId>[] = [];
+export async function getAllAdapters(): Promise<Adapter[]> {
+  const out: Adapter[] = [];
   for (const id of availableAdapterIds) {
-    const a = (await LOADERS[id]()) as Adapter<AdapterId>;
-    out.push(a);
+    out.push(await LOADERS[id]());
   }
   return out;
 }
 
-export async function getAdapterById(id: AdapterId): Promise<Adapter<AdapterId>> {
-  return LOADERS[id]() as Promise<Adapter<AdapterId>>;
+export async function getAdapterById(id: AdapterId): Promise<Adapter> {
+  return LOADERS[id]();
 }

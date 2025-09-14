@@ -20,16 +20,16 @@ type JSONObject = { readonly [k: string]: JSONValue };
 type VerifyRow = Readonly<{
   adapter: string;
   set: 'valid' | 'invalid';
-  file: string;                 // relative to vectorsRoot
-  abs: string;                  // absolute path
-  exitCode: number;             // 0/1/2
-  ok: boolean;                  // parsed from stdout JSON; false on parse error
-  stdout?: JSONObject;          // parsed JSON output (if any)
-  stderr?: string;              // textual stderr
+  file: string; // relative to vectorsRoot
+  abs: string; // absolute path
+  exitCode: number; // 0/1/2
+  ok: boolean; // parsed from stdout JSON; false on parse error
+  stdout?: JSONObject; // parsed JSON output (if any)
+  stderr?: string; // textual stderr
   timeMs: number;
-  expectMatched?: boolean;      // subset match against .expect.json
+  expectMatched?: boolean; // subset match against .expect.json
   expectPath?: string;
-  error?: string;               // runner-level error
+  error?: string; // runner-level error
 }>;
 
 // ---------- Env / layout ----------
@@ -37,10 +37,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CLI_ROOT = path.resolve(__dirname, '..');
 const REPO_ROOT = path.resolve(CLI_ROOT, '..', '..');
 
-const VECTORS_ROOT = path.join(
-  REPO_ROOT,
-  'packages/core/schemas/tests/vectors/mvs/verification'
-);
+const VECTORS_ROOT = path.join(REPO_ROOT, 'packages/core/schemas/tests/vectors/mvs/verification');
 const ART_ROOT = path.join(CLI_ROOT, 'e2e-artifacts');
 
 const ENV_ADAPTER = process.env.E2E_ADAPTER; // optional adapter filter
@@ -49,7 +46,8 @@ const VERIFY_BIN = path.join(CLI_ROOT, 'dist', 'index.js');
 // ---------- FS helpers ----------
 function listDirs(abs: string): string[] {
   return fs.existsSync(abs)
-    ? fs.readdirSync(abs, { withFileTypes: true })
+    ? fs
+        .readdirSync(abs, { withFileTypes: true })
         .filter((d) => d.isDirectory())
         .map((d) => d.name)
     : [];
@@ -75,7 +73,8 @@ function relToVectors(abs: string): string {
 
 function latestRunDir(root: string): string | undefined {
   if (!fs.existsSync(root)) return undefined;
-  const dirs = fs.readdirSync(root, { withFileTypes: true })
+  const dirs = fs
+    .readdirSync(root, { withFileTypes: true })
     .filter((d) => d.isDirectory())
     .map((d) => d.name)
     .filter((n) => /^\d{8}T\d{6}Z$/.test(n)) // ISO-ish folder name from Stage 0
@@ -118,7 +117,9 @@ async function main(): Promise<void> {
   const adapters = ENV_ADAPTER ? allAdapters.filter((a) => a === ENV_ADAPTER) : allAdapters;
 
   if (!fs.existsSync(VERIFY_BIN)) {
-    throw new Error(`CLI binary not found at ${VERIFY_BIN}. Did you run "npm -w @zkpip/cli run build"?`);
+    throw new Error(
+      `CLI binary not found at ${VERIFY_BIN}. Did you run "npm -w @zkpip/cli run build"?`,
+    );
   }
 
   // Output dir: reuse the latest Stage 0 run folder (append Stage 1 files)
@@ -138,10 +139,12 @@ async function main(): Promise<void> {
         const args = [
           VERIFY_BIN,
           'verify',
-          '--adapter', adapter,
-          '--bundle', abs,
+          '--adapter',
+          adapter,
+          '--bundle',
+          abs,
           '--json',
-          '--use-exit-codes'
+          '--use-exit-codes',
         ];
 
         const started = Date.now();

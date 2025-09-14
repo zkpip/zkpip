@@ -4,8 +4,12 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { snarkjsPlonk } from '../dist/adapters/snarkjs-plonk.js';
 
-function loadJson(p) { return JSON.parse(readFileSync(p, 'utf8')); }
-function clone(x) { return JSON.parse(JSON.stringify(x)); }
+function loadJson(p) {
+  return JSON.parse(readFileSync(p, 'utf8'));
+}
+function clone(x) {
+  return JSON.parse(JSON.stringify(x));
+}
 
 // Flip one hex digit deterministically
 function bitflipHexString(s) {
@@ -13,7 +17,7 @@ function bitflipHexString(s) {
   const idx = s.startsWith('0x') || s.startsWith('0X') ? 2 : 0;
   if (s.length <= idx) return s + 'f';
   const c = s[idx];
-  const flipped = (c.toLowerCase() !== 'f') ? 'f' : 'e';
+  const flipped = c.toLowerCase() !== 'f' ? 'f' : 'e';
   return s.slice(0, idx) + flipped + s.slice(idx + 1);
 }
 
@@ -33,18 +37,21 @@ function makeInvalidFromValid(j) {
   if (Array.isArray(arr) && arr.length > 0) {
     const x = arr[0];
     try {
-      const bumped = (typeof x === 'string')
-        ? (BigInt(x.startsWith('0x') ? x : x) + 1n).toString(10)
-        : (typeof x === 'number')
-          ? (BigInt(x) + 1n).toString(10)
-          : (typeof x === 'bigint')
-            ? (x + 1n).toString(10)
-            : null;
+      const bumped =
+        typeof x === 'string'
+          ? (BigInt(x.startsWith('0x') ? x : x) + 1n).toString(10)
+          : typeof x === 'number'
+            ? (BigInt(x) + 1n).toString(10)
+            : typeof x === 'bigint'
+              ? (x + 1n).toString(10)
+              : null;
       if (bumped !== null) {
         k.result.publicSignals[0] = bumped;
         return k;
       }
-    } catch {/* ignore */}
+    } catch {
+      /* ignore */
+    }
   }
   return null; // if we couldn't mutate, signal to caller
 }

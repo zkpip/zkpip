@@ -7,9 +7,7 @@ import path from 'node:path';
 import * as fs from 'node:fs';
 import process from 'node:process';
 import { createAjv, loadSchemaJson } from '@zkpip/core';
-import type { Argv, CommandBuilder } from 'yargs';
-import type { ArgumentsCamelCase } from 'yargs';
-import type { CommandModule } from 'yargs';
+import type { Argv, CommandBuilder, ArgumentsCamelCase, CommandModule } from 'yargs';
 
 type VectorValidateArgs = Readonly<{
   'vectors-root'?: string;
@@ -32,7 +30,9 @@ type ValidationRow = Readonly<{
 export const command = 'vectors-validate';
 export const describe = 'Validate vectors against MVS schemas';
 
-export const builder: CommandBuilder<object, VectorValidateArgs> = (y: Argv<object>): Argv<VectorValidateArgs> => {
+export const builder: CommandBuilder<object, VectorValidateArgs> = (
+  y: Argv<object>,
+): Argv<VectorValidateArgs> => {
   return y
     .option('vectors-root', {
       type: 'string',
@@ -145,7 +145,9 @@ export async function handler(argv: ArgumentsCamelCase<VectorValidateArgs>): Pro
           process.stdout.write(JSON.stringify(r.errors, null, 2) + '\n');
         }
       }
-      process.stdout.write(`\nSummary: ${results.filter((r) => r.valid).length}/${results.length} valid\n`);
+      process.stdout.write(
+        `\nSummary: ${results.filter((r) => r.valid).length}/${results.length} valid\n`,
+      );
     }
 
     if (argv['exit-codes']) {

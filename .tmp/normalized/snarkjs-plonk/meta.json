@@ -1,0 +1,7 @@
+{
+  "timestamp": "2025-09-14T07:11:13.842Z",
+  "phase": "preExtract",
+  "adapterId": "snarkjs-plonk",
+  "inputKind": "verification-json",
+  "verificationPath": "/home/tony/projects/zkpip/zkpip/packages/cli/fixtures/definitely-does-not-exist.json"
+}

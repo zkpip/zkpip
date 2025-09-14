@@ -9,11 +9,10 @@ type ValidateFn = ((data: unknown) => boolean) & { errors?: ErrorObject[] | null
 function formatAjvErrors(errors?: ErrorObject[] | null): string {
   if (!errors?.length) return '(no AJV errors)';
   return errors
-    .map(e => {
+    .map((e) => {
       const path = e.instancePath || '/';
       const msg = e.message ?? 'validation error';
-      const params =
-        e.params && Object.keys(e.params).length ? ` ${JSON.stringify(e.params)}` : '';
+      const params = e.params && Object.keys(e.params).length ? ` ${JSON.stringify(e.params)}` : '';
       return `${path} ${msg}${params}`;
     })
     .join('\n');

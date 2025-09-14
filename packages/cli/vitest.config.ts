@@ -4,6 +4,7 @@ import path from 'node:path';
 export default defineConfig({
   test: {
     environment: 'node',
+    include: ['src/**/__tests__/**/*.test.ts'],
     // Optional but helps when running Vitest directly from this package
     root: __dirname,
   },

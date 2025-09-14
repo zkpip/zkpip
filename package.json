@@ -5,6 +5,8 @@
     "clean:srcjs": "bash -lc 'find packages -path \"*/src/*\" -type f \\( -name \"*.js\" -o -name \"*.js.map\" \\) -delete'",
     "build": "npm run clean:srcjs && tsc -b",
     "test": "npm run clean:srcjs && npm run -ws build && vitest run",
+    "lint": "eslint . --ext .ts,.tsx,.js,.mjs,.cjs --max-warnings=0",
+    "lint:fix": "eslint . --ext .ts,.tsx,.js,.mjs,.cjs --fix",
     "clean": "rimraf dist",
     "cli:build": "npm --prefix packages/cli run build",
     "cli:test": "npm --prefix packages/cli run test",
@@ -19,15 +21,23 @@
     "core:validate": "npm --prefix packages/core run validate-schemas",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "lint": "eslint . --ext .ts,.tsx,.js,.mjs,.cjs --max-warnings=0",
-    "lint:fix": "eslint . --ext .ts,.tsx,.js,.mjs,.cjs --fix",
+    "check:all": "npm run format:check && npm run lint && npm -w @zkpip/cli run build && npm -w @zkpip/cli run test",
     "vectors:gen": "tsx packages/core/scripts/gen-invalid-vectors.ts",
     "e2e:discover": "tsx packages/cli/scripts/e2e-discover.ts",
-    "e2e": "tsx packages/cli/scripts/e2e.ts"
+    "e2e": "tsx packages/cli/scripts/e2e.ts",
+    "prepare": "husky"
   },
   "dependencies": {
     "tsx": "^4.20.5",
     "zokrates-js": "^1.1.9"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,mjs,cjs,json,md,yml,yaml}": [
+      "prettier --write"
+    ],
+    "*.{ts,tsx,js,mjs,cjs}": [
+      "eslint --max-warnings=0"
+    ]
   },
   "devDependencies": {
     "@types/node": "^24.3.0",
@@ -39,6 +49,8 @@
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-unused-imports": "^4.2.0",
     "eslint-plugin-vitest": "^0.5.4",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.1.6",
     "prettier": "^3.6.2",
     "rimraf": "^6.0.1",
     "snarkjs": "^0.7.5",

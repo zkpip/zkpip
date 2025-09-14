@@ -1,158 +1,161 @@
-// packages/cli/src/adapters/zokrates-groth16.ts
-import type { Adapter, VerifyOutcome } from '../registry/types.js';
+// ESM + NodeNext, strict TS, no "any".
+// ZoKrates Groth16 adapter with artifacts.path support + injected verify + gamma_abc guard.
 
-/** ---------- JSON types (no any) ---------- */
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { getGroth16Verify } from '../adapters/snarkjsRuntime.js';
+import { dumpNormalized, stringifyPublics } from '../utils/dumpNormalized.js';
+
 type JsonPrimitive = string | number | boolean | null;
-type Json = JsonPrimitive | Json[] | JsonObject;
-type JsonObject = { [k: string]: Json };
+type Json = JsonPrimitive | { readonly [k: string]: Json } | readonly Json[];
 
-/** ---------- Error stringify helper ---------- */
-const errorMessage = (err: unknown): string =>
-  err instanceof Error ? err.message : (() => { try { return JSON.stringify(err); } catch { return String(err); } })();
+export const ID = 'zokrates-groth16' as const;
+export const PROOF_SYSTEM = 'groth16' as const;
+export const FRAMEWORK = 'zokrates' as const;
 
-/** ---------- Small utils ---------- */
-function toLower(x: unknown): string | undefined {
-  return typeof x === 'string' ? x.toLowerCase() : undefined;
+function isRec(v: unknown): v is Record<string, unknown> {
+  return !!v && typeof v === 'object' && !Array.isArray(v);
 }
-function isJsonObject(x: unknown): x is JsonObject {
-  return typeof x === 'object' && x !== null && !Array.isArray(x);
+function getRec(v: unknown): Record<string, unknown> | undefined {
+  return isRec(v) ? (v as Record<string, unknown>) : undefined;
 }
-function get<T extends Json = Json>(o: unknown, key: string): T | undefined {
-  if (!isJsonObject(o)) return undefined;
-  return o[key] as T | undefined;
-}
-function ensureHexStrings(arr: unknown): string[] | undefined {
-  if (!Array.isArray(arr)) return undefined;
-  const out: string[] = [];
-  for (const v of arr) {
-    if (typeof v === 'string') out.push(v);
-    else if (typeof v === 'number') out.push('0x' + v.toString(16));
-    else return undefined;
-  }
-  return out;
-}
-
-/** ---------- Heuristic: does input look like ZoKrates Groth16? ---------- */
-function looksZoKratesGroth16(input: unknown): boolean {
-  if (!isJsonObject(input)) return false;
-
-  // inline hints
-  const ps = toLower(get(input, 'proofSystem') ?? get(get(input, 'meta'), 'proofSystem'));
-  const fw = toLower(get(input, 'framework') ?? get(get(input, 'meta'), 'framework'));
-  if ((ps === 'groth16' && fw === 'zokrates') || fw === 'zokrates') return true;
-
-  // inline proof shape: { proof: { a, b, c }, ... }
-  const proof = get(input, 'proof') ?? get(get(input, 'bundle'), 'proof');
-  const a = get<Json[]>(proof, 'a');
-  const b = get<Json[][]>(proof, 'b');
-  const c = get<Json[]>(proof, 'c');
-  if (Array.isArray(a) && Array.isArray(b) && Array.isArray(c)) return true;
-
-  // artifacts-style hints (very permissive)
-  const art = get(input, 'artifacts') ?? get(get(input, 'bundle'), 'artifacts');
-  if (isJsonObject(art)) {
-    const hasVkPath = typeof get(art, 'verificationKey') === 'string' || typeof get(art, 'vkey') === 'string';
-    const hasProofPath = typeof get(art, 'proof') === 'string';
-    if (hasVkPath && hasProofPath) return true;
-  }
-
-  return false;
-}
-
-/** ---------- Extraction ---------- */
-type ExtractedArgs = {
-  vkey: JsonObject; // ZoKrates verify 1st arg
-  proofABC: { a: Json[]; b: Json[][]; c: Json[] };
-  inputs: string[]; // normalized public inputs
-};
-
-function extractZoKratesArgs(input: unknown): ExtractedArgs | null {
-  const vkeyRaw =
-    get(input, 'verificationKey') ??
-    get(get(input, 'meta'), 'verificationKey') ??
-    get(input, 'vkey') ??
-    get(get(input, 'bundle'), 'verificationKey');
-
-  if (!isJsonObject(vkeyRaw)) return null;
-
-  const proof = get(input, 'proof') ?? get(get(input, 'bundle'), 'proof');
-  const a = get<Json[]>(proof, 'a');
-  const b = get<Json[][]>(proof, 'b');
-  const c = get<Json[]>(proof, 'c');
-  if (!Array.isArray(a) || !Array.isArray(b) || !Array.isArray(c)) return null;
-
-  const inputsRaw =
-    get(input, 'inputs') ??
-    get(input, 'publicInputs') ??
-    get(get(input, 'bundle'), 'publicSignals') ??
-    get(get(input, 'meta'), 'publicInputs');
-  if (!Array.isArray(inputsRaw)) return null;
-
-  const inputs = ensureHexStrings(inputsRaw);
-  if (!inputs) return null;
-
-  return { vkey: vkeyRaw, proofABC: { a, b, c }, inputs };
-}
-
-/** ---------- ZoKrates minimal typings ---------- */
-type ZoKratesProof = {
-  a: Json[];        // [x,y]
-  b: Json[][];      // [[x,y],[x,y]]
-  c: Json[];        // [x,y]
-  inputs: string[]; // public inputs
-};
-type ZoKratesProvider = {
-  verify: (verificationKey: object, proof: ZoKratesProof) => boolean | Promise<boolean>;
-};
-function isZoKratesProvider(x: unknown): x is ZoKratesProvider {
-  return typeof x === 'object' && x !== null && typeof (x as { verify?: unknown }).verify === 'function';
-}
-
-/** ---------- Adapter implementation ---------- */
-const ID = 'zokrates-groth16' as const;
-
-export const zokratesGroth16: Adapter = {
-  id: ID,
-  proofSystem: 'groth16',
-  framework: 'zokrates',
-
-  canHandle(input: unknown): boolean {
-    return looksZoKratesGroth16(input);
-  },
-
-  async verify(input: unknown): Promise<VerifyOutcome<typeof ID>> {
-    try {
-      const args = extractZoKratesArgs(input);
-      if (!args) {
-        return { ok: false, adapter: ID, error: 'adapter_error', message: 'Unrecognized ZoKrates groth16 bundle shape' };
-      }
-
-      // Try to lazy-load a provider; if it's not installed, fail gracefully.
-      let providerUnknown: unknown;
-      try {
-        // eslint-disable-next-line @typescript-eslint/consistent-type-imports
-        providerUnknown = (await import('zokrates-js')).default ?? (await import('zokrates-js'));
-      } catch {
-        providerUnknown = undefined;
-      }
-      if (!isZoKratesProvider(providerUnknown)) {
-        return { ok: false, adapter: ID, error: 'adapter_error', message: 'zokrates-js provider not available' };
-      }
-
-      const proof: ZoKratesProof = {
-        a: args.proofABC.a,
-        b: args.proofABC.b,
-        c: args.proofABC.c,
-        inputs: args.inputs,
-      };
-
-      const result = await providerUnknown.verify(args.vkey, proof);
-      if (result === true) {
-        return { ok: true, adapter: ID };
-      }
-      return { ok: false, adapter: ID, error: 'verification_failed' };
-    } catch (err: unknown) {
-      return { ok: false, adapter: ID, error: 'adapter_error', message: errorMessage(err) };
+function getKey<T>(
+  obj: Record<string, unknown> | undefined,
+  keys: readonly string[],
+): T | undefined {
+  if (!obj) return undefined;
+  for (const k of keys) {
+    if (Object.prototype.hasOwnProperty.call(obj, k)) {
+      return obj[k] as T;
     }
-  },
+  }
+  return undefined;
+}
+
+type Extracted = {
+  readonly verificationKey: Record<string, unknown>;
+  readonly proof: Record<string, unknown>;
+  readonly publics: readonly string[];
+};
+
+function readArtifactsFromDir(dir: string): Extracted {
+  const p = (name: string) => resolve(dir, name);
+  const vkey = JSON.parse(readFileSync(p('verification_key.json'), 'utf8')) as Record<
+    string,
+    unknown
+  >;
+  const proof = JSON.parse(readFileSync(p('proof.json'), 'utf8')) as Record<string, unknown>;
+  const publicsRaw = JSON.parse(readFileSync(p('public.json'), 'utf8')) as unknown[];
+  const publics = stringifyPublics(publicsRaw);
+  return { verificationKey: vkey, proof, publics };
+}
+
+function extractTriplet(input: unknown): Extracted {
+  const root = getRec(input);
+  const artifacts = getRec(root?.artifacts);
+  const artPath =
+    artifacts?.path && typeof artifacts.path === 'string' ? artifacts.path : undefined;
+  if (artPath) return readArtifactsFromDir(artPath);
+
+  const bundle = getRec(root?.bundle);
+  const result = getRec(root?.result);
+
+  const vkey =
+    getKey<Record<string, unknown>>(root, ['verificationKey', 'verification_key']) ??
+    getKey<Record<string, unknown>>(bundle, ['verificationKey', 'verification_key']) ??
+    getKey<Record<string, unknown>>(result, ['verificationKey', 'verification_key']) ??
+    {};
+
+  const proof =
+    getKey<Record<string, unknown>>(root, ['proof']) ??
+    getKey<Record<string, unknown>>(bundle, ['proof']) ??
+    getKey<Record<string, unknown>>(result, ['proof']) ??
+    {};
+
+  const publicsUnknown =
+    getKey<readonly unknown[]>(root, ['publicSignals', 'publics', 'public', 'inputs']) ??
+    getKey<readonly unknown[]>(bundle, ['publicSignals', 'publics', 'public', 'inputs']) ??
+    getKey<readonly unknown[]>(result, ['publicSignals', 'publics', 'public', 'inputs']) ??
+    [];
+
+  const publics = Array.isArray(publicsUnknown) ? stringifyPublics(publicsUnknown) : [];
+  return { verificationKey: vkey, proof, publics };
+}
+
+/** Optional structural guard often used in unit tests. */
+function assertGammaAbcLength(vk: Record<string, unknown>, nPublics: number | undefined): void {
+  const gammaABC =
+    (vk as Record<string, unknown>)['gamma_abc'] ?? (vk as Record<string, unknown>)['IC'];
+  if (Array.isArray(gammaABC) && typeof nPublics === 'number') {
+    const expect = nPublics + 1;
+    const got = gammaABC.length;
+    if (got !== expect) {
+      throw new Error(`gamma_abc length mismatch: expected ${expect}, got ${got}`);
+    }
+  }
+}
+
+export function canHandle(input: unknown): boolean {
+  try {
+    const e = extractTriplet(input);
+    const vkeyOk = isRec(e.verificationKey) && Object.keys(e.verificationKey).length > 0;
+    const proofOk = isRec(e.proof) && Object.keys(e.proof).length > 0;
+    const publicsOk = Array.isArray(e.publics);
+    return vkeyOk && proofOk && publicsOk;
+  } catch {
+    return false;
+  }
+}
+
+export type GrothInjectedVerify = (
+  vk: object,
+  publics: ReadonlyArray<string>,
+  proof: object,
+) => Promise<boolean> | boolean;
+
+export async function verify(
+  input: unknown,
+  opts?: { readonly verify?: GrothInjectedVerify },
+): Promise<boolean> {
+  await dumpNormalized(ID, 'preExtract', {
+    meta: { framework: FRAMEWORK, proofSystem: PROOF_SYSTEM },
+  });
+
+  const ex = extractTriplet(input);
+
+  const proto = (ex.verificationKey as Record<string, unknown>)['protocol'];
+  if (typeof proto === 'string' && proto.toLowerCase() !== PROOF_SYSTEM) {
+    throw new Error(`protocol mismatch: expected ${PROOF_SYSTEM}, got ${proto}`);
+  }
+
+  // Common unit test expects: gamma_abc length guard (if vk provides nPublic)
+  const nPublic =
+    Number((ex.verificationKey as Record<string, unknown>)['nPublic']) ||
+    (Array.isArray(ex.publics) ? ex.publics.length : undefined);
+  assertGammaAbcLength(ex.verificationKey, Number.isFinite(nPublic) ? Number(nPublic) : undefined);
+
+  await dumpNormalized(ID, 'postExtract', {
+    vkey: ex.verificationKey,
+    proof: ex.proof as Json,
+    publics: ex.publics,
+    normalized: {
+      verificationKey: ex.verificationKey,
+      proof: ex.proof as Json,
+      publics: ex.publics,
+    },
+  });
+
+  const doVerify = opts?.verify ?? (await getGroth16Verify());
+  const ok = await doVerify(ex.verificationKey, ex.publics, ex.proof);
+
+  await dumpNormalized(ID, 'postVerify', { meta: { verifyOk: ok } });
+  return ok;
+}
+
+export default {
+  id: ID,
+  proofSystem: PROOF_SYSTEM,
+  framework: FRAMEWORK,
+  canHandle,
+  verify,
 };

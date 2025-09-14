@@ -1,0 +1,6 @@
+node_modules
+dist
+coverage
+*.tgz
+packages/core/schemas/tests/vectors/**/invalid/**
+**/broken_*.json

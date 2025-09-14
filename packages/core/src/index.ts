@@ -1,4 +1,3 @@
-
 // ESM-safe public barrel for @zkpip/core
 // Re-export only from aggregated sub-barrels to keep runtime imports stable.
 export * from './validation/index.js';

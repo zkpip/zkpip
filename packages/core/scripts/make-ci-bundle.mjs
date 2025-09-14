@@ -43,8 +43,11 @@ async function readJson(p) {
 function norm1(v) {
   if (Array.isArray(v)) return v;
   if (v && typeof v === 'object') {
-    const keys = Object.keys(v).filter(k => /^\d+$/.test(k)).map(Number).sort((a,b)=>a-b);
-    if (keys.length) return keys.map(k => v[String(k)]);
+    const keys = Object.keys(v)
+      .filter((k) => /^\d+$/.test(k))
+      .map(Number)
+      .sort((a, b) => a - b);
+    if (keys.length) return keys.map((k) => v[String(k)]);
   }
   return undefined;
 }
@@ -140,16 +143,17 @@ async function main() {
 
   let vkey = bundle.verificationKey;
   let proof = hasInlineProof ? normalizeProof(bundle.result.proof) : undefined;
-  let publicSignals = hasInlinePublics ? normalizePublicSignals(bundle.result.publicSignals) : undefined;
+  let publicSignals = hasInlinePublics
+    ? normalizePublicSignals(bundle.result.publicSignals)
+    : undefined;
 
   // If missing, read from artifacts (relative to bundle dir or repo root)
-  const artifacts = (bundle && typeof bundle === 'object') ? bundle.artifacts : undefined;
+  const artifacts = bundle && typeof bundle === 'object' ? bundle.artifacts : undefined;
 
   if (!hasInlineVkey) {
     const vkeyRef = artifacts?.vkey;
-    const vkeyPathStr = typeof vkeyRef === 'string'
-      ? vkeyRef
-      : pickPathLike(vkeyRef ?? {}, ['path', 'uri', 'url']);
+    const vkeyPathStr =
+      typeof vkeyRef === 'string' ? vkeyRef : pickPathLike(vkeyRef ?? {}, ['path', 'uri', 'url']);
     if (!vkeyPathStr) {
       console.error('Missing artifacts.vkey path/uri');
       process.exit(4);
@@ -161,16 +165,20 @@ async function main() {
   let proofFile;
   if (!proof) {
     const proofRef = artifacts?.proof;
-    const proofPathStr = typeof proofRef === 'string'
-      ? proofRef
-      : pickPathLike(proofRef ?? {}, ['path', 'uri', 'url']);
+    const proofPathStr =
+      typeof proofRef === 'string'
+        ? proofRef
+        : pickPathLike(proofRef ?? {}, ['path', 'uri', 'url']);
     if (!proofPathStr) {
       console.error('Missing artifacts.proof path/uri');
       process.exit(4);
     }
     const proofAbs = resolveRefPath(baseDir, proofPathStr);
     proofFile = await readJson(proofAbs);
-    const rawProof = (proofFile && typeof proofFile === 'object' && 'proof' in proofFile) ? proofFile.proof : proofFile;
+    const rawProof =
+      proofFile && typeof proofFile === 'object' && 'proof' in proofFile
+        ? proofFile.proof
+        : proofFile;
     proof = normalizeProof(rawProof);
     if (!proof) {
       console.error('Failed to normalize proof from artifacts.proof');
@@ -182,31 +190,33 @@ async function main() {
     if (!proofFile) {
       // if not loaded above:
       const proofRef = artifacts?.proof;
-      const proofPathStr = typeof proofRef === 'string'
-        ? proofRef
-        : pickPathLike(proofRef ?? {}, ['path', 'uri', 'url']);
+      const proofPathStr =
+        typeof proofRef === 'string'
+          ? proofRef
+          : pickPathLike(proofRef ?? {}, ['path', 'uri', 'url']);
       if (proofPathStr) {
         const proofAbs = resolveRefPath(baseDir, proofPathStr);
         proofFile = await readJson(proofAbs);
       }
     }
     let publicsRaw =
-      (proofFile && Array.isArray(proofFile.publicSignals)) ? proofFile.publicSignals : undefined;
+      proofFile && Array.isArray(proofFile.publicSignals) ? proofFile.publicSignals : undefined;
 
     if (!publicsRaw) {
       const pubRef = artifacts?.publicSignals;
-      const pubPathStr = typeof pubRef === 'string'
-        ? pubRef
-        : pickPathLike(pubRef ?? {}, ['path', 'uri', 'url']);
+      const pubPathStr =
+        typeof pubRef === 'string' ? pubRef : pickPathLike(pubRef ?? {}, ['path', 'uri', 'url']);
       if (!pubPathStr) {
         console.error('Missing artifacts.publicSignals path/uri');
         process.exit(4);
       }
       const pubAbs = resolveRefPath(baseDir, pubPathStr);
       const pubFile = await readJson(pubAbs);
-      publicsRaw = Array.isArray(pubFile) ? pubFile
-        : (pubFile && typeof pubFile === 'object' && Array.isArray(pubFile.publicSignals)) ? pubFile.publicSignals
-        : undefined;
+      publicsRaw = Array.isArray(pubFile)
+        ? pubFile
+        : pubFile && typeof pubFile === 'object' && Array.isArray(pubFile.publicSignals)
+          ? pubFile.publicSignals
+          : undefined;
     }
 
     if (!publicsRaw) {
@@ -229,7 +239,9 @@ async function main() {
   delete outBundle.artifacts;
 
   const outPath = outPathArg
-    ? (path.isAbsolute(outPathArg) ? outPathArg : path.resolve(process.cwd(), outPathArg))
+    ? path.isAbsolute(outPathArg)
+      ? outPathArg
+      : path.resolve(process.cwd(), outPathArg)
     : path.join(path.dirname(absIn), path.basename(absIn).replace(/\.json$/i, '.ci.valid.json'));
 
   await writeFile(outPath, JSON.stringify(outBundle, null, 2));

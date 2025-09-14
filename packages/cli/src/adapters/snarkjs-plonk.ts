@@ -1,232 +1,154 @@
-// Strict, ESM-safe PLONK adapter using shared utils.
-// - Supports directory triplet: verification_key.json + proof.json + public.json
-// - Respects exactOptionalPropertyTypes (message only if non-empty)
+// ESM + NodeNext, strict TS, no "any".
+// snarkjs PLONK adapter with:
+// - robust extraction (bundle/flat/artifacts.path)
+// - publics → string[]
+// - optional injected verify() for tests
+// - protocol guard
+// - normalized dumps pre/post
 
-import fs from 'node:fs/promises';
-import fss from 'node:fs';
-import path from 'node:path';
-import * as snarkjs from 'snarkjs';
-import type { Adapter, VerifyOutcome } from '../registry/types.js';
-import {
-  isObj, get, getPath,
-  deepFindFirst, deepFindByKeys,
-  normalizePublicSignals, materializeInput, errorMessage,
-  PublicSignal,
-} from './_shared.js';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { getPlonkVerify } from '../adapters/snarkjsRuntime.js';
+import { dumpNormalized, stringifyPublics } from '../utils/dumpNormalized.js';
 
-const { plonk } = snarkjs;
+export const ID = 'snarkjs-plonk' as const;
+export const PROOF_SYSTEM = 'plonk' as const;
+export const FRAMEWORK = 'snarkjs' as const;
 
-type VerificationKey = Record<string, unknown>;
-
-// In snarkjs PLONK, the proof persisted by `plonk.prove` is a hex string (e.g., "0x...").
-type PlonkProof = string | Record<string, unknown>;
-
-function looksPlonkProof(p: unknown): p is PlonkProof {
-  // Accept hex string OR non-null object (snarkjs PLONK proof is an object in CLI output)
-  return (typeof p === 'string' && p.length > 0) || isObj(p);
+function isRec(v: unknown): v is Record<string, unknown> {
+  return !!v && typeof v === 'object' && !Array.isArray(v);
 }
-
-function normalizeProofPlonk(p: unknown): PlonkProof | undefined {
-  if (looksPlonkProof(p)) return p;
-
-  const inner = isObj(p) ? (get(p, 'proof') ?? getPath(p, 'result.proof')) : undefined;
-  if (looksPlonkProof(inner)) return inner;
-
-  const deep = deepFindByKeys(p, ['proof']);
-  return looksPlonkProof(deep) ? deep : undefined;
+function getRec(v: unknown): Record<string, unknown> | undefined {
+  return isRec(v) ? (v as Record<string, unknown>) : undefined;
 }
-
-type Extracted = {
-  vkey?: VerificationKey;
-  proof?: PlonkProof;
-  publics?: ReadonlyArray<PublicSignal>;
-};
-
-// -- NEW: directory triplet support -------------------------------------------------
-async function tryLoadTripletFromDir(maybeDir: unknown): Promise<Extracted | undefined> {
-  if (typeof maybeDir !== 'string' || maybeDir.length === 0) return undefined;
-  // Fast path: avoid throwing in common non-dir cases
-  try {
-    const st = fss.existsSync(maybeDir) ? fss.statSync(maybeDir) : undefined;
-    if (!st || !st.isDirectory()) return undefined;
-  } catch {
-    return undefined;
+function getKey<T>(
+  obj: Record<string, unknown> | undefined,
+  keys: readonly string[],
+): T | undefined {
+  if (!obj) return undefined;
+  for (const k of keys) {
+    if (Object.prototype.hasOwnProperty.call(obj, k)) {
+      return obj[k] as T;
+    }
   }
-
-  const vkPath = path.join(maybeDir, 'verification_key.json');
-  const proofPath = path.join(maybeDir, 'proof.json');
-  const publicPath = path.join(maybeDir, 'public.json');
-
-  const out: Extracted = {};
-  try {
-    const [vkRaw, proofRaw, publicRaw] = await Promise.all([
-      fs.readFile(vkPath, 'utf8').catch(() => undefined),
-      fs.readFile(proofPath, 'utf8').catch(() => undefined),
-      fs.readFile(publicPath, 'utf8').catch(() => undefined),
-    ]);
-
-    if (vkRaw) {
-      const vk = JSON.parse(vkRaw) as unknown;
-      if (isObj(vk)) out.vkey = vk as VerificationKey;
-    }
-
-    if (proofRaw) {
-      const pr = JSON.parse(proofRaw) as unknown;
-      const pf = normalizeProofPlonk(pr);
-      if (pf) out.proof = pf;
-    }
-
-    if (publicRaw) {
-      const pub = JSON.parse(publicRaw) as unknown;
-      const ps = normalizePublicSignals(pub);
-      if (ps.length > 0) out.publics = ps;
-    }
-  } catch {
-    // swallow; fall back to object extraction
-  }
-
-  if (out.vkey || out.proof || out.publics) return out;
   return undefined;
 }
 
-// -- Existing object-extraction path ------------------------------------------------
-function extractFromObject(input: unknown): Extracted {
-  const out: Extracted = {};
+type Extracted = {
+  readonly verificationKey: Record<string, unknown>;
+  readonly proof: Record<string, unknown> | string;
+  readonly publics: readonly string[];
+};
 
-  // 1) Common top-level placements
-  const vkeyTop = get(input, 'verificationKey');
-  if (isObj(vkeyTop)) out.vkey = vkeyTop;
-
-  const res = get(input, 'result');
-  if (isObj(res)) {
-    const pf = normalizeProofPlonk(get(res, 'proof'));
-    if (pf) out.proof = pf;
-
-    const ps = normalizePublicSignals(get(res, 'publicSignals') ?? get(res, 'public_inputs'));
-    if (ps.length > 0) out.publics = ps;
-  }
-
-  // 2) Fallback (alternative nests)
-  if (!out.vkey) {
-    const cand =
-      getPath(input, 'result.verificationKey') ??
-      get(input, 'vkey') ??
-      getPath(input, 'bundle.verificationKey') ??
-      getPath(input, 'meta.verificationKey') ??
-      getPath(input, 'artifacts.verificationKey') ??
-      getPath(input, 'artifacts.vkey') ??
-      getPath(input, 'verification.verificationKey') ??
-      deepFindByKeys(input, ['verificationKey', 'vkey', 'vk', 'key']);
-    if (isObj(cand)) out.vkey = cand as VerificationKey;
-  }
-
-  if (!out.proof) {
-    const cand =
-      getPath(input, 'bundle.proof') ??
-      getPath(input, 'artifacts.proof') ??
-      getPath(input, 'verification.proof') ??
-      deepFindFirst(input, looksPlonkProof);
-    const pf = normalizeProofPlonk(cand);
-    if (pf) out.proof = pf;
-  }
-
-  if (!out.publics || out.publics.length === 0) {
-    let ps = normalizePublicSignals(
-      getPath(input, 'bundle.publicSignals') ??
-      getPath(input, 'artifacts.publicSignals') ??
-      getPath(input, 'verification.publicSignals') ??
-      get(input, 'publicSignals') ??
-      get(input, 'publicInputs') ??
-      get(input, 'inputs')
-    );
-    if (ps.length === 0) {
-      ps = normalizePublicSignals(deepFindByKeys(input, ['publicSignals', 'public_inputs', 'publicInputs', 'inputs']));
-    }
-    if (ps.length > 0) out.publics = ps;
-  }
-
-  return out;
+function readArtifactsFromDir(dir: string): Extracted {
+  const p = (name: string) => resolve(dir, name);
+  const vkey = JSON.parse(readFileSync(p('verification_key.json'), 'utf8')) as Record<
+    string,
+    unknown
+  >;
+  const proof = JSON.parse(readFileSync(p('proof.json'), 'utf8')) as
+    | Record<string, unknown>
+    | string;
+  const publicsRaw = JSON.parse(readFileSync(p('public.json'), 'utf8')) as unknown[];
+  const publics = stringifyPublics(publicsRaw);
+  return { verificationKey: vkey, proof, publics };
 }
 
-function looksSnarkjsPlonk(input: unknown): boolean {
-  if (!isObj(input)) {
-    // Allow any non-empty string (path to dir or .json, or inline JSON-ish)
-    return typeof input === 'string' && input.length > 0;
-  }
-  const ps = (get<string>(input, 'proofSystem') ?? getPath(input, 'meta.proofSystem')) as string | undefined;
-  const fw = (get<string>(input, 'framework') ?? getPath(input, 'meta.framework')) as string | undefined;
-  if (typeof ps === 'string' && ps.toLowerCase() === 'plonk') return true;
-  if (typeof fw === 'string' && fw.toLowerCase() === 'snarkjs') return true;
-  const proof = normalizeProofPlonk(get(input, 'proof') ?? getPath(input, 'result.proof'));
-  return !!proof;
+/**
+ * Accepts:
+ *  - flat: { verification_key|verificationKey, proof, public|publics|publicSignals }
+ *  - bundle: { bundle: { ... } }
+ *  - artifacts.path: { artifacts: { path: "/abs/or/rel/dir" } }  <-- unit tests expect this
+ */
+function extractTriplet(input: unknown): Extracted {
+  const root = getRec(input);
+  const artifacts = getRec(root?.artifacts);
+  const artPath =
+    artifacts?.path && typeof artifacts.path === 'string' ? artifacts.path : undefined;
+  if (artPath) return readArtifactsFromDir(artPath);
+
+  const bundle = getRec(root?.bundle);
+
+  const vkey =
+    getKey<Record<string, unknown>>(root, ['verificationKey', 'verification_key']) ??
+    getKey<Record<string, unknown>>(bundle, ['verificationKey', 'verification_key']) ??
+    {};
+
+  const proof =
+    getKey<Record<string, unknown> | string>(root, ['proof']) ??
+    getKey<Record<string, unknown> | string>(bundle, ['proof']) ??
+    {};
+
+  const publicsUnknown =
+    getKey<readonly unknown[]>(root, ['publicSignals', 'publics', 'public']) ??
+    getKey<readonly unknown[]>(bundle, ['publicSignals', 'publics', 'public']) ??
+    [];
+
+  const publics = Array.isArray(publicsUnknown) ? stringifyPublics(publicsUnknown) : [];
+
+  return { verificationKey: vkey, proof, publics };
 }
 
-const ID = 'snarkjs-plonk' as const;
+export function canHandle(input: unknown): boolean {
+  try {
+    const e = extractTriplet(input);
+    const vkeyOk = isRec(e.verificationKey) && Object.keys(e.verificationKey).length > 0;
+    const proofOk =
+      (isRec(e.proof) && Object.keys(e.proof).length > 0) || typeof e.proof === 'string';
+    const publicsOk = Array.isArray(e.publics);
+    return vkeyOk && proofOk && publicsOk;
+  } catch {
+    return false;
+  }
+}
 
-export const snarkjsPlonk: Adapter = {
+export type PlonkInjectedVerify = (
+  vk: object,
+  publics: ReadonlyArray<string>,
+  proof: object | string,
+) => Promise<boolean> | boolean;
+
+export async function verify(
+  input: unknown,
+  opts?: { readonly verify?: PlonkInjectedVerify }, // <-- unit tests can inject stub
+): Promise<boolean> {
+  // preExtract meta
+  await dumpNormalized(ID, 'preExtract', {
+    meta: { framework: FRAMEWORK, proofSystem: PROOF_SYSTEM },
+  });
+
+  const ex = extractTriplet(input);
+
+  // protocol guard (if present)
+  const proto = (ex.verificationKey as Record<string, unknown>)['protocol'];
+  if (typeof proto === 'string' && proto.toLowerCase() !== PROOF_SYSTEM) {
+    throw new Error(`protocol mismatch: expected ${PROOF_SYSTEM}, got ${proto}`);
+  }
+
+  // postExtract dump
+  await dumpNormalized(ID, 'postExtract', {
+    vkey: ex.verificationKey,
+    proof: isRec(ex.proof) ? ex.proof : { proof: ex.proof },
+    publics: ex.publics,
+    normalized: {
+      verificationKey: ex.verificationKey,
+      proof: isRec(ex.proof) ? ex.proof : { proof: ex.proof },
+      publics: ex.publics,
+    },
+  });
+
+  // resolve verifier (injected for unit tests or real snarkjs)
+  const doVerify = opts?.verify ?? (await getPlonkVerify());
+  const ok = await doVerify(ex.verificationKey, ex.publics, ex.proof);
+
+  await dumpNormalized(ID, 'postVerify', { meta: { verifyOk: ok } });
+  return ok;
+}
+
+export default {
   id: ID,
-  proofSystem: 'plonk',
-  framework: 'snarkjs',
-
-  canHandle(input: unknown): boolean {
-    // Be permissive: directory path, .json path, or object with PLONK/snarkjs markers
-    if (typeof input === 'string') return input.length > 0;
-    return looksSnarkjsPlonk(input);
-  },
-
-  async verify(input: unknown): Promise<VerifyOutcome<typeof ID>> {
-    try {
-      // 1) Directory fast-path
-      if (typeof input === 'string' && input.length > 0) {
-        try {
-          const st = fss.statSync(input);
-          if (st.isDirectory()) {
-            const vkPath = path.join(input, 'verification_key.json');
-            const proofPath = path.join(input, 'proof.json');
-            const publicPath = path.join(input, 'public.json');
-
-            const [vkRaw, proofRaw, publicRaw] = await Promise.all([
-              fs.readFile(vkPath, 'utf8'),
-              fs.readFile(proofPath, 'utf8'),
-              fs.readFile(publicPath, 'utf8'),
-            ]);
-
-            const vkey = JSON.parse(vkRaw) as unknown;
-            const proofParsed = JSON.parse(proofRaw) as unknown;
-            const proof = normalizeProofPlonk(proofParsed);
-            const publics = normalizePublicSignals(JSON.parse(publicRaw) as unknown);
-
-            if (isObj(vkey) && proof && publics.length > 0) {
-              const ok = await plonk.verify(vkey as VerificationKey, publics, proof);
-              return ok ? { ok: true, adapter: ID } : { ok: false, adapter: ID, error: 'verification_failed' };
-            }
-
-            return {
-              ok: false,
-              adapter: ID,
-              error: 'adapter_error',
-              message: 'Missing vkey/proof/publicSignals for plonk (dir triplet)',
-            };
-          }
-        } catch {
-          /* not a dir → fall through */
-        }
-      }
-
-      const root = materializeInput(input);
-      const ex = extractFromObject(root); 
-
-      if (!ex.vkey || !ex.proof || !ex.publics?.length) {
-        return { ok: false, adapter: ID, error: 'adapter_error', message: 'Missing vkey/proof/publicSignals for plonk' };
-      }
-
-      const ok = await plonk.verify(ex.vkey, ex.publics, ex.proof);
-      return ok ? { ok: true, adapter: ID } : { ok: false, adapter: ID, error: 'verification_failed' };
-    } catch (err: unknown) {
-      const msg = errorMessage(err);
-      return msg
-        ? { ok: false, adapter: ID, error: 'adapter_error', message: msg }
-        : { ok: false, adapter: ID, error: 'adapter_error' };
-    }
-  } 
+  proofSystem: PROOF_SYSTEM,
+  framework: FRAMEWORK,
+  canHandle,
+  verify,
 };
