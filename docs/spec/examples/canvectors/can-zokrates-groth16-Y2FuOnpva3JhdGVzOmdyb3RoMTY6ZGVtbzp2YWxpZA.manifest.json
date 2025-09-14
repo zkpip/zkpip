@@ -1,0 +1,15 @@
+{
+  "version": "1",
+  "id": "can:zokrates:groth16:demo:valid",
+  "framework": "zokrates",
+  "proofSystem": "groth16",
+  "urls": [
+    "file:///home/tony/projects/zkpip/zkpip/fixtures/zokrates-groth16/valid/verification.json"
+  ],
+  "sha256": "ecb3765bf42cdd7f17dcc4bda73f96e95183c0a2ac24960c2469d1fe6fe3a9e1",
+  "size": 2444,
+  "meta": {
+    "sourcePath": "fixtures/zokrates-groth16/valid/verification.json"
+  },
+  "kid": "dev-1"
+}

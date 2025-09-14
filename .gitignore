@@ -17,6 +17,10 @@ dist/
 packages/cli/.tmp/
 .tmp/
 .tmp/*
+fixtures/_build/
+
+# PTAU cache (not versioned)
+packages/core/tools/fixture-builders/_cache/
 
 # OS junk
 .DS_Store
@@ -172,3 +176,6 @@ packages/**/src/**/*.js.map
 # zkpip local artifacts
 packages/cli/e2e-artifacts/
 tmp-schemas/
+
+# Guard against accidental colon-named node:* files
+node:*

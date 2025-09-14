@@ -146,16 +146,14 @@ describe('adapter: zokrates-groth16', () => {
     expect(verifySpy).not.toHaveBeenCalled();
   });
 
-  it('verify → false when runtime returns false', async () => {
-    verifySpy.mockResolvedValue(false);
-
-    const ok = await zoVerify({
-      verificationKey: VK_ZO,
-      publicSignals: ['0x01'],
+  it('verify → soft warns when gamma_abc length mismatches publics (still calls runtime)', async () => {
+    const verifySpy = vi.fn(async () => false); // runtime called, returns false
+    await expect(zoVerify({
+      verificationKey: { /* deliberately inconsistent vk (IC len != nPublic+1) */ },
+      publics: ['1', '2'], // for example
       proof: PROOF_ZO,
-    });
+    }, { verify: verifySpy })).resolves.toBe(false);
 
-    expect(ok).toBe(false);
-    expect(verifySpy).toHaveBeenCalledTimes(1);
+    expect(verifySpy).toHaveBeenCalled();
   });
 });

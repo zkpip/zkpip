@@ -52,14 +52,12 @@ function readArtifactsFromDir(dir: string): Extracted {
 
 function extractTriplet(input: unknown): Extracted {
   const root = getRec(input);
-  const artifacts = getRec(root?.artifacts);
-  const artPath =
-    artifacts?.path && typeof artifacts.path === 'string' ? artifacts.path : undefined;
-  if (artPath) return readArtifactsFromDir(artPath);
-
   const bundle = getRec(root?.bundle);
   const result = getRec(root?.result);
+  const artifacts = getRec(root?.artifacts);
+  const artPath = typeof artifacts?.path === 'string' ? artifacts.path : undefined;
 
+  // 1) Prefer embedded fields (CI/offline friendly)
   const vkey =
     getKey<Record<string, unknown>>(root, ['verificationKey', 'verification_key']) ??
     getKey<Record<string, unknown>>(bundle, ['verificationKey', 'verification_key']) ??
@@ -79,20 +77,25 @@ function extractTriplet(input: unknown): Extracted {
     [];
 
   const publics = Array.isArray(publicsUnknown) ? stringifyPublics(publicsUnknown) : [];
-  return { verificationKey: vkey, proof, publics };
-}
 
-/** Optional structural guard often used in unit tests. */
-function assertGammaAbcLength(vk: Record<string, unknown>, nPublics: number | undefined): void {
-  const gammaABC =
-    (vk as Record<string, unknown>)['gamma_abc'] ?? (vk as Record<string, unknown>)['IC'];
-  if (Array.isArray(gammaABC) && typeof nPublics === 'number') {
-    const expect = nPublics + 1;
-    const got = gammaABC.length;
-    if (got !== expect) {
-      throw new Error(`gamma_abc length mismatch: expected ${expect}, got ${got}`);
+  const haveEmbedded =
+    Object.keys(vkey).length > 0 && Object.keys(proof).length > 0 && publics.length > 0;
+
+  if (haveEmbedded) {
+    return { verificationKey: vkey, proof, publics };
+  }
+
+  // 2) Fallback: read from artifacts.path if present (safe, best-effort)
+  if (artPath) {
+    try {
+      return readArtifactsFromDir(artPath);
+    } catch {
+      // ignore and continue
     }
   }
+
+  // 3) Return whatever we found (canHandle/verify will handle empties)
+  return { verificationKey: vkey, proof, publics };
 }
 
 export function canHandle(input: unknown): boolean {
@@ -113,6 +116,24 @@ export type GrothInjectedVerify = (
   proof: object,
 ) => Promise<boolean> | boolean;
 
+/** Strict structural guard: throw if gamma_abc length != nPublics + 1 */
+function assertGammaAbcLengthStrict(
+  vk: Record<string, unknown>,
+  nPublics: number | undefined,
+): void {
+  const gammaABC =
+    (vk as Record<string, unknown>)['gamma_abc'] ?? (vk as Record<string, unknown>)['IC']; // ZoKrates JSON vs snarkjs naming
+
+  if (Array.isArray(gammaABC) && typeof nPublics === 'number') {
+    const expect = nPublics + 1;
+    const got = gammaABC.length;
+    if (got !== expect) {
+      // IMPORTANT: message must match the test’s regex
+      throw new Error(`gamma_abc length mismatch: expected ${expect}, got ${got}`);
+    }
+  }
+}
+
 export async function verify(
   input: unknown,
   opts?: { readonly verify?: GrothInjectedVerify },
@@ -128,11 +149,16 @@ export async function verify(
     throw new Error(`protocol mismatch: expected ${PROOF_SYSTEM}, got ${proto}`);
   }
 
-  // Common unit test expects: gamma_abc length guard (if vk provides nPublic)
+  // Derive expected #publics: prefer vk.nPublic if present, else publics length
   const nPublic =
     Number((ex.verificationKey as Record<string, unknown>)['nPublic']) ||
     (Array.isArray(ex.publics) ? ex.publics.length : undefined);
-  assertGammaAbcLength(ex.verificationKey, Number.isFinite(nPublic) ? Number(nPublic) : undefined);
+
+  // >>> restore STRICT guard (throws on mismatch, blocks runtime verify)
+  assertGammaAbcLengthStrict(
+    ex.verificationKey,
+    Number.isFinite(nPublic) ? Number(nPublic) : undefined,
+  );
 
   await dumpNormalized(ID, 'postExtract', {
     vkey: ex.verificationKey,
@@ -145,6 +171,7 @@ export async function verify(
     },
   });
 
+  // Only resolve verifier AFTER the guard (so spies aren't touched on failure)
   const doVerify = opts?.verify ?? (await getGroth16Verify());
   const ok = await doVerify(ex.verificationKey, ex.publics, ex.proof);
 
