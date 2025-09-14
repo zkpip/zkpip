@@ -1,0 +1,134 @@
+# TRADEMARKS.md
+
+© 2025 **The ZKPIP Project Authors (zkpip.org)**. All rights reserved.
+
+This document summarizes the trademarked terms, brand family, and definitions of the ZKPIP™ project.  
+All names are currently unregistered trademarks (™). Some may be registered as official trademarks (®) in the future.
+
+---
+
+## About the name: “ZKPIP” (dual meaning)
+
+**ZKPIP** can be read in two ways:
+
+- **Zero-Knowledge Proof Interoperability Project** — the open-source initiative and umbrella repository you are reading.
+- **Zero-Knowledge Proof Improvement Proposal** — the planned proposal format (similar to Ethereum’s EIPs or Bitcoin’s BIPs), which will define and standardize ZK-related specifications.
+
+This dual meaning is intentional: the **Project** exists to host tools and schemas, while the **Proposals** define long-term community standards.
+
+> **Open-source note:** The ZKPIP **software** is licensed under **Apache License 2.0** (see the repository’s `LICENSE`).  
+> Documentation related to **CanVectors** may be licensed under **CC BY 4.0**.  
+> Test vectors themselves are governed by the **CanVectors ToS** (see `docs/terms/canvectors-tos.md`).
+
+---
+
+## Trademarked Terms
+
+- **ZKPIP™**
+- **CanVectors™** _(Canonical ZK Test Vectors)_
+- **VectorForge™**
+- **ProofEnvelope™**
+- **SwiftSeal™**
+- **SwiftSeal+™**
+- **BatchSeal™**
+- **CodeSeal™**
+- **SealScan™**
+- **ErrorGuide™**
+
+---
+
+## Brand Family Definitions
+
+### ZKPIP™
+
+ZKPIP™ is the umbrella project brand.  
+It defines minimum viable standards for zero-knowledge proof validation and interoperability across proving systems.
+
+### CanVectors™ (Canonical ZK Vectors)
+
+CanVectors™ is the **canonical, signed** set of zero-knowledge **test and demo vectors** curated by zkpip.org.  
+Each vector is distributed with a **signed manifest** and **SHA-256 checksums** to ensure authenticity and integrity.  
+CanVectors are intended for **testing, demos, CI validation, and interoperability research** — **not** for production security decisions or real-world risk assessment.  
+Re-distribution must **preserve signatures and hashes**, and must **not** claim “official/canonical” status unless served directly by zkpip.org.
+
+### VectorForge™
+
+VectorForge™ is the official distribution portal for CanVectors™, hosted under **vectorforge.zkpip.org**.  
+It provides access to vector manifests and artifacts (e.g., `verification.json`), along with metadata and indexes.  
+The VectorForge **service and implementation are proprietary**; the public specification for manifests and verification is open.  
+Mirrors must clearly state they are **mirrors** and must preserve original signatures/hashes.
+
+### ProofEnvelope™
+
+ProofEnvelope™ is the canonical JSON schema format for packaging and validating zero-knowledge proofs.  
+It replaces fragmented representations with a unified, interoperable standard.
+
+### SwiftSeal™
+
+SwiftSeal™ provides lightweight validation for single proofs and small batches (1–9 proofs).  
+It is designed for fast, efficient checks without requiring heavy infrastructure.
+
+### SwiftSeal+™
+
+SwiftSeal+™ extends SwiftSeal™ with paid support for medium-sized batches (10–100 proofs).  
+It runs on light infrastructure, offering scalable proof validation at low cost.
+
+### BatchSeal™
+
+BatchSeal™ delivers enterprise-grade validation for large proof batches (100+).  
+It leverages heavy infrastructure to provide reliable, high-throughput verification for mission-critical workloads.
+
+### CodeSeal™
+
+CodeSeal™ is a community badge for developers adopting and contributing to the ZKPIP™ ecosystem.  
+It represents alignment with the standard and recognition within the open-source ZK community.
+
+### SealScan™
+
+SealScan™ is the official explorer portal of ZKPIP™.  
+It enables developers, auditors, and end-users to search, view, and verify ProofEnvelope™ records and associated Seals.
+
+### ErrorGuide™
+
+ErrorGuide™ is a structured knowledge base of common proof errors and interoperability issues.  
+It helps developers navigate failures across proving systems, promoting reproducibility and shared learning.
+
+---
+
+## Guidelines for Use
+
+1. **Fair Use in Reference**  
+   You may use these names when referring to the ZKPIP™ project, provided such use does **not** imply endorsement, sponsorship, or official partnership.
+
+2. **Open-Spec / Closed-Service**  
+   Specifications (e.g., manifest format) may be open. Services (e.g., **VectorForge**) are **proprietary**; this document does not grant rights to service code.
+
+3. **Authenticity & Integrity (CanVectors / VectorForge)**
+   - Use vectors **only** with a **signed manifest** issued by zkpip.org; **verify** the manifest signature and all **SHA-256 checks** before use.
+   - Do **not** modify vectors or manifests; if you redistribute, **preserve** original signatures and hashes.
+   - Do **not** rebrand redistributed copies as “**canonical** CanVectors” or imply they originate from zkpip.org.
+
+4. **OSS Compatibility / Derivatives**  
+   Use of the names in open-source forks, adaptations, or academic papers is permitted if it is clear the project is a **derivative** and **not** the official ZKPIP™ project.
+
+5. **No Misrepresentation**  
+   Do not use these names in a way that could mislead users into believing your project, product, or service is officially maintained, supported, or endorsed by ZKPIP™.
+
+6. **Commercial Use**  
+   Any commercial use (e.g., offering services, training, or products under these names) requires **prior written permission** from the maintainers.
+
+7. **Naming & Presentation**
+   - Use the exact, unaltered marks (e.g., **CanVectors™**, **VectorForge™**).
+   - Avoid pluralizing, hyphenating, or combining marks with other terms in a way that creates a new brand.
+   - Use “™” on first prominent use; repeating the symbol on every occurrence is not required.
+
+8. **Domains / Repositories**  
+   Do not register domains or names that may cause confusion (e.g., “canvectors-official.example”).  
+   Mirrors or forks must include clear disclaimers and links back to **zkpip.org**.
+
+9. **Scope & Warranty**  
+   CanVectors are for **testing and demo** only; no warranties or SLA. You are responsible for safe and compliant use.
+
+---
+
+For questions about trademark usage, please contact: **info@zkpip.org**

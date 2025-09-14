@@ -1,17 +1,21 @@
-# CODEOWNERS for zkpip/zkpip
+## CODEOWNERS for zkpip/zkpip
 # Order matters; the last matching pattern takes precedence.
+# Prefer organization teams over personal accounts.
 
 # -- Core JSON Schemas (top-level) --
-/schemas/**/*.json                 @tonynagyeurope
+/schemas/**/*.json                               @zkpip/schemas @zkpip/maintainers
 
 # -- Core package schemas (monorepo path) --
-/packages/core/schemas/**/*.json   @tonynagyeurope
+/packages/core/schemas/**/*.json                 @zkpip/schemas @zkpip/maintainers
 
-# -- Reusable/CI workflows --
-/.github/workflows/reusable-schema-guard.yml  @tonynagyeurope
-/.github/workflows/schema-validation.yml      @tonynagyeurope
-/.github/workflows/core-ci.yml                @tonynagyeurope
-/.github/workflows/secret-watchdog.yml        @tonynagyeurope
+# -- CLI (optional, if you have a dedicated team) --
+/packages/cli/**                                  @zkpip/cli     @zkpip/maintainers
 
-# -- Optional: default owners for everything else --
-# *  @tonynagyeurope
+# -- Reusable/CI workflows (grouped) --
+/.github/workflows/*.yml                          @zkpip/ci      @zkpip/maintainers
+
+# -- Docs (brand, legal, specs) --
+/docs/**                                          @zkpip/docs    @zkpip/maintainers
+
+# -- Default owners for everything else --
+*                                                @zkpip/maintainers

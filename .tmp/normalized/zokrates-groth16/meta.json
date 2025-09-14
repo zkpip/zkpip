@@ -1,7 +1,0 @@
-{
-  "timestamp": "2025-09-14T06:56:31.946Z",
-  "phase": "preExtract",
-  "adapterId": "zokrates-groth16",
-  "inputKind": "verification-json",
-  "verificationPath": "/home/tony/projects/zkpip/zkpip/packages/cli/fixtures/zokrates-groth16/valid/verification.json"
-}
