@@ -1,16 +1,33 @@
 name: spec-validate
 on:
   pull_request:
+    branches:
+      - main
   push:
-    branches: [main]
+    branches:
+      - main
+      - feat/**
+      - fix/**
+      - chore/**
+      - ci/**
+      - dev/**
+  workflow_dispatch: {}
+
 jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '22.x'
           cache: 'npm'
+
       - run: npm ci
-      - run: npm run spec:validate
+
+      - run: git diff --quiet || (echo "Workspace dirty before validate" && git status && exit 1)
+
+      - run: npm run spec:manifests:check -- --base https://zkpip.org
+
+      - run: npm run spec:validate -- --jwks docs/spec/keys.jwks

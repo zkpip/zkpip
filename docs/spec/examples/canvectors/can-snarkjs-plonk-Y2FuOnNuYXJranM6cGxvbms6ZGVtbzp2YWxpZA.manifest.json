@@ -3,7 +3,9 @@
   "id": "can:snarkjs:plonk:demo:valid",
   "framework": "snarkjs",
   "proofSystem": "plonk",
-  "urls": ["file:///home/tony/projects/zkpip/zkpip/fixtures/snarkjs-plonk/valid/verification.json"],
+  "urls": [
+    "https://zkpip.org/by-id/Y2FuOnNuYXJranM6cGxvbms6ZGVtbzp2YWxpZA/verification.json"
+  ],
   "sha256": "5bccce73208f3226afad65ef72d19b309a85f5eb1bd76250303d8bac27c509fe",
   "size": 3758,
   "meta": {

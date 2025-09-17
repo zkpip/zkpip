@@ -168,7 +168,8 @@ async function main(): Promise<void> {
   const ajv = await makeAjv(root);
 
   // Load JWKS (kid → x)
-  const pubKeyMap = await loadJwks('docs/spec/keys.jwks');
+  const jwksPath = args.get('jwks') ?? path.join(root, 'docs/spec/keys.jwks');
+  const pubKeyMap = await loadJwks(jwksPath);
 
   if (typeof ajv.addKeyword === 'function') {
     ajv.addKeyword({

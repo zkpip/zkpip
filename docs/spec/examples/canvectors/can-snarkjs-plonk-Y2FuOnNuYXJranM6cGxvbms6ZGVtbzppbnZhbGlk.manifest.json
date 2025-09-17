@@ -4,7 +4,7 @@
   "framework": "snarkjs",
   "proofSystem": "plonk",
   "urls": [
-    "file:///home/tony/projects/zkpip/zkpip/fixtures/snarkjs-plonk/invalid/verification.json"
+    "https://zkpip.org/by-id/Y2FuOnNuYXJranM6cGxvbms6ZGVtbzppbnZhbGlk/verification.json"
   ],
   "sha256": "ef0ed596d75cea0346a7ca03f7890ce275a50802bc9969598771b2de2722f37a",
   "size": 3762,

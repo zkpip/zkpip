@@ -32,11 +32,13 @@
     "e2e:discover": "tsx packages/cli/scripts/e2e-discover.ts",
     "e2e": "tsx packages/cli/scripts/e2e.ts",
     "prepare": "husky",
+    "spec:keygen": "tsx scripts/spec/dev-keygen.ts",
     "spec:hash": "tsx scripts/spec/build-hash-index.ts --map docs/spec/examples/vector-id-map.json --out docs/spec/hash-index.json",
-    "spec:manifests": "tsx scripts/spec/make-manifests.ts --index docs/spec/hash-index.json --outdir docs/spec/examples/canvectors --kid dev-1",
-    "spec:validate": "tsx scripts/spec/validate-specs.ts",
     "spec:manifests:quiet": "tsx scripts/spec/make-manifests.ts --index docs/spec/hash-index.json --outdir docs/spec/examples/canvectors --kid dev-1 --check-index=0",
+    "spec:manifests": "tsx scripts/spec/make-manifests.ts --index docs/spec/hash-index.json --outdir docs/spec/examples/canvectors --kid dev-1 --base https://zkpip.org",
+    "spec:manifests:check": "tsx scripts/spec/make-manifests.ts --check-index 1 --dry-run 1 --fail-on-change 1 --base https://zkpip.org",
     "spec:sign": "dotenv -e .env -- tsx scripts/spec/sign-manifests.ts --dir docs/spec/examples/canvectors --kid dev-1",
+    "spec:validate": "tsx scripts/spec/validate-specs.ts --manifestDir docs/spec/examples/canvectors --jwks docs/spec/keys.jwks",
     "spec:all": "npm run spec:hash && npm run spec:manifests:quiet && npm run spec:sign && npm run spec:validate",
     "spec:sync": "tsx scripts/spec/make-manifests.ts --index docs/spec/hash-index.json --outdir docs/spec/examples/canvectors --kid dev-1 --check-index=1 --update-index=1",
     "lint:fresh": "eslint . --ext .ts,.tsx --max-warnings=0 --no-cache",
@@ -47,11 +49,13 @@
     "zokrates-js": "^1.1.9"
   },
   "lint-staged": {
-    "*.{ts,tsx,js,mjs,cjs,json,md,yml,yaml}": [
-      "prettier --write"
+    "docs/spec/examples/canvectors/*.manifest.json": [
+      "prettier --write",
+      "git add"
     ],
-    "*.{ts,tsx,js,mjs,cjs}": [
-      "eslint --max-warnings=0"
+    "*.{json,ts,tsx,js,md,yml,yaml}": [
+      "prettier --write",
+      "git add"
     ]
   },
   "devDependencies": {

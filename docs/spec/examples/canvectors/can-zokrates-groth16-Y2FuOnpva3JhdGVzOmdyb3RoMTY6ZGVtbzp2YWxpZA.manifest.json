@@ -4,7 +4,7 @@
   "framework": "zokrates",
   "proofSystem": "groth16",
   "urls": [
-    "file:///home/tony/projects/zkpip/zkpip/fixtures/zokrates-groth16/valid/verification.json"
+    "https://zkpip.org/by-id/Y2FuOnpva3JhdGVzOmdyb3RoMTY6ZGVtbzp2YWxpZA/verification.json"
   ],
   "sha256": "99f914ef70e10ccd1986fa504530c23620396f06febfe744aef9ac01dfab5873",
   "size": 2444,
