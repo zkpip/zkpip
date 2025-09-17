@@ -285,11 +285,12 @@ async function main(): Promise<void> {
       //    - verify detached signature
       let sigOk = false;
       try {
-        const sigPath = mp.replace(/\.manifest\.json$/i, '.manifest.sig');
-        const sigB64u = (await fs.readFile(sigPath, 'utf8')).trim();
+        // 1) .sig reading (trim), path from manifest
+        const sigPath: string = mp.replace(/\.manifest\.json$/i, '.manifest.sig');
+        const sigB64u: string = (await fs.readFile(sigPath, 'utf8')).trim();
 
-        const kid = (m as { readonly kid?: string }).kid ?? '';
-        const x = kid ? pubKeyMap.get(kid) : undefined;
+        const kid: string = (m as { readonly kid?: string }).kid ?? '';
+        const x: string | undefined = kid ? pubKeyMap.get(kid) : undefined;
 
         if (!sigB64u) {
           fail(`${baseName}: signature_missing`);
@@ -301,32 +302,47 @@ async function main(): Promise<void> {
           fail(`${baseName}: kid_unknown`);
           errors++;
         } else {
-          // Re-read manifest JSON to canonicalize exactly what was signed
-          const manifestObj = await loadJson(mp); // type is JsonValue-compatible in your helpers
-          const manifestCanon = jcsCanonicalize(manifestObj);
-          const msg = new TextEncoder().encode(manifestCanon);
+          // 2) canonize with the signer
+          const manifestObj = await loadJson(mp); // JsonValue compatible
+          const manifestCanon: string = jcsCanonicalize(manifestObj);
 
-          const jwk = { kty: 'OKP', crv: 'Ed25519', x, ext: true } as const;
-          const key = await webcrypto.subtle.importKey('jwk', jwk, { name: 'Ed25519' }, false, [
-            'verify',
-          ]);
-          const ok = await webcrypto.subtle.verify(
-            'Ed25519',
-            key,
-            Buffer.from(sigB64u, 'base64url'),
-            msg,
-          );
+          // 3) convert to bytes
+          const msgBytes: Uint8Array = Buffer.from(manifestCanon, 'utf8');
+          const sigRaw: Uint8Array = Buffer.from(sigB64u, 'base64url');
 
-          if (ok) {
-            okLine += ' · sig_ok';
-            sigOk = true;
-          } else {
+          // sanity: Ed25519 raw signature = 64 bytes
+          if (sigRaw.length !== 64) {
             fail(`${baseName}: signature_invalid`);
             errors++;
+          } else {
+            // 4) Public key import from JWKS (OKP / Ed25519)
+            const jwk = { kty: 'OKP', crv: 'Ed25519', x, ext: true } as const;
+            const key: CryptoKey = await webcrypto.subtle.importKey(
+              'jwk',
+              jwk,
+              { name: 'Ed25519' },
+              false,
+              ['verify'],
+            );
+
+            // 5) Detached verify
+            const ok: boolean = await webcrypto.subtle.verify(
+              { name: 'Ed25519' },
+              key,
+              sigRaw,
+              msgBytes,
+            );
+
+            if (ok) {
+              okLine += ' · sig_ok';
+              sigOk = true;
+            } else {
+              fail(`${baseName}: signature_invalid`);
+              errors++;
+            }
           }
         }
       } catch {
-        // Could not read .sig file or verification threw
         fail(`${baseName}: signature_missing`);
         errors++;
       }
