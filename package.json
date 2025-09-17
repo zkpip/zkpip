@@ -49,11 +49,13 @@
     "zokrates-js": "^1.1.9"
   },
   "lint-staged": {
-    "*.{ts,tsx,js,mjs,cjs,json,md,yml,yaml}": [
-      "prettier --write"
+    "docs/spec/examples/canvectors/*.manifest.json": [
+      "prettier --write",
+      "git add"
     ],
-    "*.{ts,tsx,js,mjs,cjs}": [
-      "eslint --max-warnings=0"
+    "*.{json,ts,tsx,js,md,yml,yaml}": [
+      "prettier --write",
+      "git add"
     ]
   },
   "devDependencies": {
