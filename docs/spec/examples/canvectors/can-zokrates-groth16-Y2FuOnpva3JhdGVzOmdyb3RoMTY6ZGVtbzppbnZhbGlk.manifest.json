@@ -6,7 +6,7 @@
   "urls": [
     "file:///home/tony/projects/zkpip/zkpip/fixtures/zokrates-groth16/invalid/verification.json"
   ],
-  "sha256": "671b52f502a426130ed46df70dd6c71dbbf0ac9a07a8bfc0ca6baec12f16551c",
+  "sha256": "968cdbe636e947d8b061c1aacb8b501353f87b02dd0e48fd0e2ea6d14d3a590c",
   "size": 2451,
   "meta": {
     "sourcePath": "fixtures/zokrates-groth16/invalid/verification.json"

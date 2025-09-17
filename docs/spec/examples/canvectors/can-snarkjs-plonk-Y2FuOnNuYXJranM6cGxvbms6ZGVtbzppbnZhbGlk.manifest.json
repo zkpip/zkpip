@@ -6,7 +6,7 @@
   "urls": [
     "file:///home/tony/projects/zkpip/zkpip/fixtures/snarkjs-plonk/invalid/verification.json"
   ],
-  "sha256": "6a41da787d7f1b9a016360a1a6892ec306be4222c9f599aa6bfa6d35ee51af08",
+  "sha256": "ef0ed596d75cea0346a7ca03f7890ce275a50802bc9969598771b2de2722f37a",
   "size": 3762,
   "meta": {
     "sourcePath": "fixtures/snarkjs-plonk/invalid/verification.json"

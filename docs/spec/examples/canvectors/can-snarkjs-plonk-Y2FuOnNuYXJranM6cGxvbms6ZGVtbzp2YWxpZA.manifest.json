@@ -3,10 +3,8 @@
   "id": "can:snarkjs:plonk:demo:valid",
   "framework": "snarkjs",
   "proofSystem": "plonk",
-  "urls": [
-    "file:///home/tony/projects/zkpip/zkpip/fixtures/snarkjs-plonk/valid/verification.json"
-  ],
-  "sha256": "b522b43e6ed9ff35df0939199670655af37f38634c55f531035df202918013a8",
+  "urls": ["file:///home/tony/projects/zkpip/zkpip/fixtures/snarkjs-plonk/valid/verification.json"],
+  "sha256": "5bccce73208f3226afad65ef72d19b309a85f5eb1bd76250303d8bac27c509fe",
   "size": 3758,
   "meta": {
     "sourcePath": "fixtures/snarkjs-plonk/valid/verification.json"
