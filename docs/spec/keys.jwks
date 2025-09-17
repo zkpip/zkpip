@@ -4,7 +4,7 @@
       "kty": "OKP",
       "crv": "Ed25519",
       "kid": "dev-1",
-      "x": "mdnnc0NKYbqgFlOp0fZbRfnRYGG2zQJO2sJEiSUZ8MU"
+      "x": "N8wiXT1zm9ibFzprXk9Pi-umFKyUyLUKOJrgu5M3s_M"
     }
   ]
 }

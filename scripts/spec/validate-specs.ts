@@ -1,10 +1,12 @@
-// ESM-only; no "any"; English comments
+// scripts/spec/validate-specs.ts
+// ESM-only; strict TS; no "any". Validates schema + JCS hash/size + detached Ed25519 signature.
+
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createHash, webcrypto } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import type { AnySchema, ErrorObject } from 'ajv';
-import { jcsCanonicalize, assertJson, loadJson } from './jcs.js';
+import { jcsCanonicalize, assertJson, loadJson, b64uToBytes } from './jcs.js';
 
 type HashIndexEntry = { path: string; sha256: string; size: number };
 type HashIndex = Record<string, HashIndexEntry>;
@@ -16,20 +18,20 @@ type Manifest = {
   framework: string;
   proofSystem: 'groth16' | 'plonk';
   urls: readonly string[];
-  sha256: string;
-  size: number;
+  sha256: string; // hex over JCS(verification.json) BYTES
+  size: number; // length of JCS(verification.json) BYTES
   meta?: Record<string, string>;
   kid: string;
 };
 
-// --- Signature verification helpers
+// --- Signature verification helpers ------------------------------------------
 
 type Jwks = {
   readonly keys: readonly {
     readonly kty: 'OKP';
     readonly crv: 'Ed25519';
     readonly kid: string;
-    readonly x: string;
+    readonly x: string; // base64url public key
   }[];
 };
 
@@ -52,21 +54,19 @@ interface AjvLike {
   addFormat?: (name: string, format: unknown) => AjvLike;
 }
 
-// --- Hash helper --------------------------------------------------------------
-function sha256Hex(s: string): string {
-  return createHash('sha256').update(s, 'utf8').digest('hex');
+// --- Byte-based hash helper (never hash strings here) ------------------------
+function sha256HexBytes(bytes: Uint8Array): string {
+  return createHash('sha256').update(bytes).digest('hex');
 }
 
-// --- Path sanitizers (defensive) ----------------------------------------------
+// --- Path sanitizers (defensive) ---------------------------------------------
 function normalizeRelPath(rel: string): string {
-  // Trim whitespace/CRLF/BOM, drop leading "./", collapse segments
   const trimmed = rel
     .replace(/^\uFEFF/, '')
     .trim()
     .replace(/^\.\//, '');
   return path.normalize(trimmed);
 }
-
 function absFromRoot(root: string, rel: string): string {
   const norm = normalizeRelPath(rel);
   return path.isAbsolute(norm) ? norm : path.join(root, norm);
@@ -81,7 +81,6 @@ function isAjvLike(x: unknown): x is AjvLike {
 
 async function enableFormats(ajv: AjvLike): Promise<void> {
   try {
-    // Prefer official plugin
     const mod: unknown = await import('ajv-formats');
     const addFormats =
       (mod as { default?: (a: unknown) => unknown }).default ??
@@ -98,7 +97,6 @@ async function enableFormats(ajv: AjvLike): Promise<void> {
 
 /** Robust Ajv loader: core factory → Ajv 2020 → base Ajv (draft-07). */
 async function makeAjv(root: string): Promise<AjvLike> {
-  // 1) Try repo's core Ajv factory
   const coreFactory = path.join(root, 'packages/core/src/validation/createAjvs.ts');
   try {
     const mod: unknown = await import(pathToFileURL(coreFactory).href);
@@ -108,20 +106,18 @@ async function makeAjv(root: string): Promise<AjvLike> {
       if (isAjvLike(json)) return json;
     }
   } catch {
-    /* ignore; fallback below */
+    /* fall through */
   }
 
-  // 2) Try Ajv 2020 dialect
   try {
     const mod2020: unknown = await import('ajv/dist/2020');
     const Ajv2020Ctor = (mod2020 as { default: new (opts: object) => unknown }).default;
     const inst = new Ajv2020Ctor({ allErrors: true, strict: true });
     if (isAjvLike(inst)) return inst;
   } catch {
-    /* ignore; fallback below */
+    /* fall through */
   }
 
-  // 3) Base Ajv (draft-07 default)
   const mod: unknown = await import('ajv');
   const AjvCtor = (mod as { default: new (opts: object) => unknown }).default;
   const inst = new AjvCtor({ allErrors: true, strict: true });
@@ -171,18 +167,16 @@ async function main(): Promise<void> {
 
   const ajv = await makeAjv(root);
 
-  // Loading JWKS
+  // Load JWKS (kid → x)
   const pubKeyMap = await loadJwks('docs/spec/keys.jwks');
 
   if (typeof ajv.addKeyword === 'function') {
     ajv.addKeyword({
       keyword: 'x-canonicalization',
       schemaType: 'string',
-      // Non-evaluating, always-valid keyword; keeps strict mode happy
-      validate: () => true,
+      validate: () => true, // non-evaluating, always valid
     });
   }
-
   await enableFormats(ajv);
 
   const pe = await loadJson<AnySchema>(peSchemaPath);
@@ -222,7 +216,7 @@ async function main(): Promise<void> {
       continue;
     }
 
-    // 2) Existence in indexes
+    // 2) Presence in indexes
     if (!idx[m.id]) {
       fail(`${path.basename(mp)}: id not in hash-index → ${m.id}`);
       errors++;
@@ -234,20 +228,20 @@ async function main(): Promise<void> {
       continue;
     }
 
-    // 3) Recompute JCS hash/size
+    // 3) Recompute JCS hash/size over BYTES (must match make-manifests)
     const verRel = idMap[m.id];
     const verAbs = absFromRoot(root, verRel);
-    try {
-      // 1) verify referenced verification.json (hash + size)
-      const payloadUnknown = await loadJson(verAbs); //: unknown
-      assertJson(payloadUnknown, 'payload');
-      const payload = payloadUnknown; //: Json
-      const canonical = jcsCanonicalize(payload);
-      const digest = sha256Hex(canonical);
-      const size = Buffer.byteLength(canonical, 'utf8');
 
-      let okLine = `${path.basename(mp)}: schema_ok`;
+    try {
+      const payloadUnknown = await loadJson(verAbs);
+      assertJson(payloadUnknown, 'payload');
+
+      const canonicalBytes = jcsCanonicalize(payloadUnknown);
+      const digest = sha256HexBytes(canonicalBytes);
+      const size = canonicalBytes.length;
+
       const baseName = path.basename(mp);
+      let okLine = `${baseName}: schema_ok`;
 
       if (digest !== m.sha256) {
         fail(`${baseName}: hash_mismatch (manifest=${m.sha256} calc=${digest})`);
@@ -263,18 +257,14 @@ async function main(): Promise<void> {
         okLine += ' · size_ok';
       }
 
-      // 2) detached Ed25519 signature over the *manifest* (JCS string of manifest JSON)
-      //    - manifest.sig must exist
-      //    - kid must resolve to x in JWKS map (pubKeyMap loaded earlier)
-      //    - verify detached signature
+      // 4) Detached Ed25519 signature over the *manifest* JCS BYTES
       let sigOk = false;
       try {
-        // 1) .sig reading (trim), path from manifest
-        const sigPath: string = mp.replace(/\.manifest\.json$/i, '.manifest.sig');
-        const sigB64u: string = (await fs.readFile(sigPath, 'utf8')).trim();
+        const sigPath = mp.replace(/\.manifest\.json$/i, '.manifest.sig');
+        const sigB64u = (await fs.readFile(sigPath, 'utf8')).trim();
 
-        const kid: string = (m as { readonly kid?: string }).kid ?? '';
-        const x: string | undefined = kid ? pubKeyMap.get(kid) : undefined;
+        const kid = (m as { readonly kid?: string }).kid ?? '';
+        const x = kid ? pubKeyMap.get(kid) : undefined;
 
         if (!sigB64u) {
           fail(`${baseName}: signature_missing`);
@@ -286,38 +276,30 @@ async function main(): Promise<void> {
           fail(`${baseName}: kid_unknown`);
           errors++;
         } else {
-          // 2) canonize with the signer
-          const manifestObjUnknown = await loadJson(mp); //: unknown
+          // Canonicalize the manifest object to BYTES (exactly like signer)
+          const manifestObjUnknown = await loadJson(mp);
           assertJson(manifestObjUnknown, 'manifest');
-          const manifestCanon: string = jcsCanonicalize(manifestObjUnknown);
+          const msgBytes = jcsCanonicalize(manifestObjUnknown);
 
-          // 3) convert to bytes
-          const msgBytes: Uint8Array = Buffer.from(manifestCanon, 'utf8');
-          const sigRaw: Uint8Array = Buffer.from(sigB64u, 'base64url');
+          const sigRaw = b64uToBytes(sigB64u); // version-proof decoder
 
-          // sanity: Ed25519 raw signature = 64 bytes
+          // Optional CI diagnostics
+          if (process.env.CI) {
+            const canonHashHex = createHash('sha256').update(msgBytes).digest('hex');
+            console.error(
+              `[SIG DEBUG] kid=${kid} sig.len=${sigRaw.length} canon.sha256=${canonHashHex}`,
+            );
+          }
+
           if (sigRaw.length !== 64) {
             fail(`${baseName}: signature_invalid`);
             errors++;
           } else {
-            // 4) Public key import from JWKS (OKP / Ed25519)
             const jwk = { kty: 'OKP', crv: 'Ed25519', x, ext: true } as const;
-            const key: CryptoKey = await webcrypto.subtle.importKey(
-              'jwk',
-              jwk,
-              { name: 'Ed25519' },
-              false,
-              ['verify'],
-            );
-
-            // 5) Detached verify
-            const ok: boolean = await webcrypto.subtle.verify(
-              { name: 'Ed25519' },
-              key,
-              sigRaw,
-              msgBytes,
-            );
-
+            const key = await webcrypto.subtle.importKey('jwk', jwk, { name: 'Ed25519' }, false, [
+              'verify',
+            ]);
+            const ok = await webcrypto.subtle.verify({ name: 'Ed25519' }, key, sigRaw, msgBytes);
             if (ok) {
               okLine += ' · sig_ok';
               sigOk = true;
@@ -332,10 +314,8 @@ async function main(): Promise<void> {
         errors++;
       }
 
-      // 3) only print the green line if all three checks passed
-      if (digest === m.sha256 && size === m.size && sigOk) {
-        ok(okLine);
-      }
+      // Print green line only if all passed
+      if (digest === m.sha256 && size === m.size && sigOk) ok(okLine);
     } catch {
       fail(`${path.basename(mp)}: cannot read referenced file → ${verRel}`);
       errors++;

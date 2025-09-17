@@ -1,6 +1,10 @@
-// ESM-only; no "any"; recompute sha256/size directly from verification.json
+// scripts/spec/make-manifests.ts
+// ESM-only; strict TS; no "any".
+// Recompute sha256/size from the canonical (JCS) BYTES of verification.json.
+
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import { jcsCanonicalize, assertJson, loadJson } from './jcs.js';
 
 type HashIndexEntry = { path: string; sha256: string; size: number };
@@ -12,12 +16,13 @@ type Manifest = {
   framework: string;
   proofSystem: 'groth16' | 'plonk';
   urls: readonly string[];
-  sha256: string;
-  size: number;
+  sha256: string; // hex of JCS(verification.json) bytes
+  size: number; // byte length of JCS(verification.json)
   meta?: Record<string, string>;
   kid: string;
 };
 
+/** RFC 4648 §5 base64url for id embedding in file/URL-safe form. */
 function base64url(s: string): string {
   return Buffer.from(s, 'utf8')
     .toString('base64')
@@ -26,6 +31,7 @@ function base64url(s: string): string {
     .replace(/=+$/g, '');
 }
 
+/** Parse and sanity-check canonical vector id. */
 function parseId(id: string): {
   framework: string;
   proofSystem: 'groth16' | 'plonk';
@@ -42,10 +48,12 @@ function parseId(id: string): {
   return { framework, proofSystem, suite, validity };
 }
 
-import { createHash } from 'node:crypto';
-function sha256Hex(s: string): string {
-  return createHash('sha256').update(s, 'utf8').digest('hex');
+/** Compute SHA-256 hex from raw bytes (NOT from UTF-8 string). */
+function sha256HexBytes(bytes: Uint8Array): string {
+  return createHash('sha256').update(bytes).digest('hex');
 }
+
+/** Normalize relative path without leading './' and BOM, then path.normalize. */
 function normalizeRelPath(rel: string): string {
   const trimmed = rel
     .replace(/^\uFEFF/, '')
@@ -53,6 +61,8 @@ function normalizeRelPath(rel: string): string {
     .replace(/^\.\//, '');
   return path.normalize(trimmed);
 }
+
+/** Resolve absolute path from project root and a possibly relative path. */
 function absFromRoot(root: string, rel: string): string {
   const norm = normalizeRelPath(rel);
   return path.isAbsolute(norm) ? norm : path.join(root, norm);
@@ -88,31 +98,28 @@ async function main(): Promise<void> {
 
     // Recompute from the actual verification.json on disk
     const verAbs = absFromRoot(root, info.path);
-    const payloadUnknown = await loadJson(verAbs); //: unknown
+    const payloadUnknown = await loadJson(verAbs);
     assertJson(payloadUnknown, 'payload');
-    const payload = payloadUnknown; //: Json
-    const canonical = jcsCanonicalize(payload);
 
-    const digest = sha256Hex(canonical);
-    const size = Buffer.byteLength(canonical, 'utf8');
+    // Canonical BYTES: must match signer/validator JCS exactly
+    const canonicalBytes = jcsCanonicalize(payloadUnknown);
+
+    // Hash & size over BYTES (not string)
+    const digest = sha256HexBytes(canonicalBytes);
+    const size = canonicalBytes.length;
 
     // Optional: warn if hash-index is stale
     if (checkIndex && info.sha256 && info.sha256 !== digest) {
       console.warn(`⚠️  hash-index sha256 differs for ${id}: index=${info.sha256} calc=${digest}`);
     }
-    if (updateIndex && info.sha256 !== digest) {
+    if (updateIndex && (info.sha256 !== digest || info.size !== size)) {
       index[id] = { path: info.path, sha256: digest, size };
       dirty = true;
-    }
-
-    if (checkIndex && typeof info.size === 'number' && info.size !== size) {
+    } else if (checkIndex && typeof info.size === 'number' && info.size !== size) {
       console.warn(`⚠️  hash-index size differs for ${id}: index=${info.size} calc=${size}`);
     }
-    if (updateIndex && info.size !== size) {
-      index[id] = { path: info.path, sha256: digest, size };
-      dirty = true;
-    }
 
+    // Build canonical URL target (either hosted base or file:// fallback)
     const url = base
       ? `${base.replace(/\/+$/, '')}/by-id/${base64url(id)}/verification.json`
       : `file://${verAbs}`;

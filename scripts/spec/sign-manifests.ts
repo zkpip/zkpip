@@ -6,12 +6,9 @@ import 'dotenv/config';
 import { webcrypto } from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import { jcsCanonicalize, type Json } from './jcs.js';
 
-// ---- base64url helpers ----
-const b64uToBytes = (s: string): Uint8Array => new Uint8Array(Buffer.from(s.trim(), 'base64url'));
-const bytesToB64u = (b: ArrayBuffer | Uint8Array): string =>
-  Buffer.from(b instanceof Uint8Array ? b : new Uint8Array(b)).toString('base64url');
+// Use the shared, version-proof helpers ONLY
+import { jcsCanonicalize, b64uToBytes, b64uFromBytes, type Json } from './jcs.js';
 
 // ---- PKCS#8 builder for Ed25519 from 32-byte seed ----
 // DER header: 30 2e 02 01 00 30 05 06 03 2B 65 70 04 22 04 20 || <32 bytes seed>
@@ -28,6 +25,7 @@ function ed25519Pkcs8FromSeed(seed: Uint8Array): Uint8Array {
 
 // Try JWK import first (d + optional x). If it fails, fall back to PKCS#8(seed).
 async function importEd25519PrivateKey(skB64u: string, xB64u?: string) {
+  // Accept 32 or 64 byte secrets; normalize to 32-byte seed
   const raw = b64uToBytes(skB64u);
   const seed = raw.length === 32 ? raw : raw.length === 64 ? raw.subarray(0, 32) : undefined;
   if (!seed) throw new Error(`Invalid Ed25519 secret length: got ${raw.length}, expected 32 or 64`);
@@ -35,7 +33,7 @@ async function importEd25519PrivateKey(skB64u: string, xB64u?: string) {
   const jwkPriv: Record<string, unknown> = {
     kty: 'OKP',
     crv: 'Ed25519',
-    d: bytesToB64u(seed),
+    d: b64uFromBytes(seed),
     ext: true,
   };
   if (xB64u && xB64u.trim().length > 0) jwkPriv.x = xB64u.trim();
@@ -54,8 +52,8 @@ async function signEd25519Detached(
   xB64u?: string,
 ): Promise<string> {
   const key = await importEd25519PrivateKey(skB64u, xB64u);
-  const sig = await webcrypto.subtle.sign('Ed25519', key, msg);
-  return bytesToB64u(sig);
+  const sigBuf = await webcrypto.subtle.sign('Ed25519', key, msg);
+  return b64uFromBytes(new Uint8Array(sigBuf));
 }
 
 async function loadJsonFile<T extends Json>(p: string): Promise<T> {
@@ -81,9 +79,13 @@ async function main(): Promise<void> {
     console.error('Missing signing key. Set ZKPIP_DEV_ED25519_SK_B64URL or pass --sk_b64url.');
     process.exit(2);
   }
-  if (b64uToBytes(skB64u).length !== 32) {
-    console.error('Ed25519 private key (d) must be 32 bytes (base64url).');
-    process.exit(2);
+  {
+    // Accept 32 or 64; normalize later in importEd25519PrivateKey
+    const len = b64uToBytes(skB64u).length;
+    if (len !== 32 && len !== 64) {
+      console.error(`Ed25519 secret must be 32 or 64 bytes (base64url). Got: ${len}`);
+      process.exit(2);
+    }
   }
 
   // list manifests
@@ -105,9 +107,8 @@ async function main(): Promise<void> {
     const hasKid = typeof (obj as { readonly kid?: unknown }).kid === 'string';
     if (!hasKid) console.warn(`⚠️  manifest '${path.basename(mf)}' has no "kid" field`);
 
-    // *** single source of truth: shared JCS ***
-    const canon = jcsCanonicalize(obj);
-    const msg = new TextEncoder().encode(canon);
+    // *** single source of truth: shared JCS returns Uint8Array ***
+    const msg = jcsCanonicalize(obj); // NO TextEncoder here
     const sigB64u = await signEd25519Detached(msg, skB64u);
 
     const out = mf.replace(/\.manifest\.json$/i, '.manifest.sig');
