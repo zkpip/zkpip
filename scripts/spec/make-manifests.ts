@@ -131,16 +131,65 @@ async function main(): Promise<void> {
 
     // Idempotent write: compute canonical BYTES of would-be JSON and compare with existing file bytes
     const nextText = JSON.stringify(manifest, null, 2) + '\n';
-
     let needWrite = true;
+    let prevText = '';
     try {
-      const prevText = await fs.readFile(outPath, 'utf8');
+      prevText = await fs.readFile(outPath, 'utf8');
       if (prevText === nextText) needWrite = false;
     } catch {
       /* file missing → write */
     }
 
     if (needWrite) {
+      // --- DIAG: print why it would change (helps in CI) ---
+      try {
+        const crypto = await import('node:crypto');
+        const hex = (s: string) => crypto.createHash('sha256').update(s).digest('hex');
+        const prevHex = prevText ? hex(prevText) : '<missing>';
+        const nextHex = hex(nextText);
+
+        // detect EOL and trailing newline
+        const hasCRLF = (s: string) => /\r\n/.test(s);
+        const endsLF = (s: string) => s.endsWith('\n');
+
+        // first differing position (in chars)
+        let firstDiff = -1;
+        const L = Math.min(prevText.length, nextText.length);
+        for (let i = 0; i < L; i++) {
+          if (prevText[i] !== nextText[i]) {
+            firstDiff = i;
+            break;
+          }
+        }
+        if (firstDiff === -1 && prevText.length !== nextText.length) {
+          firstDiff = L;
+        }
+
+        console.error(
+          `[MANIFEST DIFF] ${path.join(outDir, fname)}\n` +
+            `  prev.len=${prevText.length} next.len=${nextText.length}\n` +
+            `  prev.sha256=${prevHex} next.sha256=${nextHex}\n` +
+            `  prev.CRLF=${hasCRLF(prevText)} next.CRLF=${hasCRLF(nextText)} ` +
+            `prev.endsLF=${endsLF(prevText)} next.endsLF=${endsLF(nextText)}\n` +
+            `  firstDiffAt=${firstDiff}`,
+        );
+
+        // Optional: parse and compare URLs for sanity
+        try {
+          const pj = prevText ? (JSON.parse(prevText) as { urls?: string[] }) : {};
+          const nj = JSON.parse(nextText) as { urls?: string[] };
+          const pu = pj.urls?.[0];
+          const nu = nj.urls?.[0];
+          if (pu !== nu) {
+            console.error(`  urls[0] differ:\n    prev: ${pu}\n    next: ${nu}`);
+          }
+        } catch {
+          /* ignore */
+        }
+      } catch {
+        /* ignore diag errors */
+      }
+      // --- end DIAG ---
       wouldChange++;
       if (!dryRun) {
         await fs.writeFile(outPath, nextText, 'utf8');
