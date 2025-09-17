@@ -2,7 +2,11 @@ name: spec-validate
 on:
   pull_request:
   push:
-    branches: [main]
+    branches:
+      - main
+      - feat/**
+      - fix/**
+      - chore/**
 
 jobs:
   validate:
