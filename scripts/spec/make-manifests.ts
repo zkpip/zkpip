@@ -1,6 +1,7 @@
 // ESM-only; no "any"; recompute sha256/size directly from verification.json
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { jcsCanonicalize, assertJson, loadJson } from './jcs.js';
 
 type HashIndexEntry = { path: string; sha256: string; size: number };
 type HashIndex = Record<string, HashIndexEntry>;
@@ -41,17 +42,6 @@ function parseId(id: string): {
   return { framework, proofSystem, suite, validity };
 }
 
-// --- JCS + helpers (identical to validator) -----------------------------------
-function jcsCanonicalize(value: unknown): string {
-  if (Array.isArray(value)) return `[${(value as unknown[]).map(jcsCanonicalize).join(',')}]`;
-  if (value !== null && typeof value === 'object') {
-    const obj = value as Record<string, unknown>;
-    const entries = Object.entries(obj).sort(([a], [b]) => a.localeCompare(b));
-    const inner = entries.map(([k, v]) => `${JSON.stringify(k)}:${jcsCanonicalize(v)}`).join(',');
-    return `{${inner}}`;
-  }
-  return JSON.stringify(value);
-}
 import { createHash } from 'node:crypto';
 function sha256Hex(s: string): string {
   return createHash('sha256').update(s, 'utf8').digest('hex');
@@ -98,8 +88,11 @@ async function main(): Promise<void> {
 
     // Recompute from the actual verification.json on disk
     const verAbs = absFromRoot(root, info.path);
-    const payload = JSON.parse(await fs.readFile(verAbs, 'utf8')) as unknown;
+    const payloadUnknown = await loadJson(verAbs); //: unknown
+    assertJson(payloadUnknown, 'payload');
+    const payload = payloadUnknown; //: Json
     const canonical = jcsCanonicalize(payload);
+
     const digest = sha256Hex(canonical);
     const size = Buffer.byteLength(canonical, 'utf8');
 

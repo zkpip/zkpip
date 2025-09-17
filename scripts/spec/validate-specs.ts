@@ -4,6 +4,7 @@ import path from 'node:path';
 import { createHash, webcrypto } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import type { AnySchema, ErrorObject } from 'ajv';
+import { jcsCanonicalize, assertJson, loadJson } from './jcs.js';
 
 type HashIndexEntry = { path: string; sha256: string; size: number };
 type HashIndex = Record<string, HashIndexEntry>;
@@ -129,25 +130,6 @@ async function makeAjv(root: string): Promise<AjvLike> {
   throw new Error('Failed to initialize an Ajv-like validator instance.');
 }
 
-// Minimal RFC8785-like canonicalization (identical to validator)
-function jcsCanonicalize(value: unknown): string {
-  if (Array.isArray(value)) {
-    return `[${(value as unknown[]).map(jcsCanonicalize).join(',')}]`;
-  }
-  if (value !== null && typeof value === 'object') {
-    const obj = value as Record<string, unknown>;
-    const entries = Object.entries(obj).sort(([a], [b]) => a.localeCompare(b));
-    const inner = entries.map(([k, v]) => `${JSON.stringify(k)}:${jcsCanonicalize(v)}`).join(',');
-    return `{${inner}}`;
-  }
-  return JSON.stringify(value);
-}
-
-async function loadJson<T = unknown>(p: string): Promise<T> {
-  const raw = await fs.readFile(p, 'utf8');
-  return JSON.parse(raw) as T;
-}
-
 async function listManifests(dir: string): Promise<string[]> {
   const ents = await fs.readdir(dir, { withFileTypes: true });
   const files = ents
@@ -257,7 +239,9 @@ async function main(): Promise<void> {
     const verAbs = absFromRoot(root, verRel);
     try {
       // 1) verify referenced verification.json (hash + size)
-      const payload = await loadJson(verAbs);
+      const payloadUnknown = await loadJson(verAbs); //: unknown
+      assertJson(payloadUnknown, 'payload');
+      const payload = payloadUnknown; //: Json
       const canonical = jcsCanonicalize(payload);
       const digest = sha256Hex(canonical);
       const size = Buffer.byteLength(canonical, 'utf8');
@@ -303,8 +287,9 @@ async function main(): Promise<void> {
           errors++;
         } else {
           // 2) canonize with the signer
-          const manifestObj = await loadJson(mp); // JsonValue compatible
-          const manifestCanon: string = jcsCanonicalize(manifestObj);
+          const manifestObjUnknown = await loadJson(mp); //: unknown
+          assertJson(manifestObjUnknown, 'manifest');
+          const manifestCanon: string = jcsCanonicalize(manifestObjUnknown);
 
           // 3) convert to bytes
           const msgBytes: Uint8Array = Buffer.from(manifestCanon, 'utf8');

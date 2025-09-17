@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": false,
+    "noEmit": true,
+    "rootDir": "../",
+    "baseUrl": ".",
+    "paths": {
+      "@zkpip/core": ["../core/src/index.ts"],
+      "@zkpip/core/*": ["../core/src/*"]
+    }
+  },
+  "references": [],
+  "include": ["src/**/*.ts", "../core/src/**/*.ts"],
+  "exclude": ["dist", "node_modules"]
+}

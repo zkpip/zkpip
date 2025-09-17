@@ -9,6 +9,8 @@ import { resolve, join } from 'node:path';
 import { VectorId, VectorManifestV1, VectorProvider, ResolvedVector } from './canvectors.types.js';
 import { fixturesPath } from './cliRunner.js';
 
+type ResolvedVectorOpt = Omit<ResolvedVector, 'manifest'> & { manifest?: VectorManifestV1 };
+
 function splitId(id: VectorId): {
   fw: string;
   ps: string;
@@ -57,6 +59,9 @@ export class LocalFsProvider implements VectorProvider {
 
     const buf = await fsp.readFile(abs, 'utf8');
     const verificationJson = JSON.parse(buf) as unknown;
-    return { id, verificationJson, manifest: typeof input === 'string' ? undefined : input };
+
+    const base = { id, verificationJson } as const;
+    const rv: ResolvedVectorOpt = typeof input === 'string' ? base : { ...base, manifest: input };
+    return rv;
   }
 }

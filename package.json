@@ -40,7 +40,7 @@
     "spec:all": "npm run spec:hash && npm run spec:manifests:quiet && npm run spec:sign && npm run spec:validate",
     "spec:sync": "tsx scripts/spec/make-manifests.ts --index docs/spec/hash-index.json --outdir docs/spec/examples/canvectors --kid dev-1 --check-index=1 --update-index=1",
     "lint:fresh": "eslint . --ext .ts,.tsx --max-warnings=0 --no-cache",
-    "typecheck": "tsc -b --noEmit",
+    "typecheck": "tsc --noEmit -p packages/core/tsconfig.json && tsc --noEmit -p packages/cli/tsconfig.typecheck.json && tsc --noEmit -p scripts/tsconfig.json",
     "prepush:check": "npm run lint && npm run typecheck && npm run spec:hash && npm run spec:manifests && npm run spec:sign && npm run spec:validate && npm -w @zkpip/cli test"
   },
   "dependencies": {

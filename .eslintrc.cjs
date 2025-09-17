@@ -13,6 +13,13 @@ module.exports = {
   ],
   overrides: [
     {
+      files: ['**/*.d.ts'],
+      rules: {
+        'import/no-named-as-default': 'off',
+        'import/no-unresolved': 'off',
+      },
+    },
+    {
       files: ['**/*.ts', '**/*.tsx'],
       parser: '@typescript-eslint/parser',
       parserOptions: {
@@ -47,7 +54,10 @@ module.exports = {
   settings: {
     'import/resolver': {
       // Simpler TS resolver; doesn't require pointing at tsconfig projects
-      typescript: { alwaysTryTypes: true },
+      typescript: {
+        project: ['./tsconfig.eslint.json'],
+        alwaysTryTypes: true,
+      },
       node: { extensions: ['.ts', '.tsx', '.js', '.mjs'] },
     },
   },
