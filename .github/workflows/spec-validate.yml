@@ -13,6 +13,4 @@ jobs:
           node-version: '22'
           cache: 'npm'
       - run: npm ci
-      - run: npm run spec:hash
-      - run: npm run spec:manifests:quiet
       - run: npm run spec:validate
