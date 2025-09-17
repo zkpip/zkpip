@@ -3,7 +3,9 @@
   "id": "can:snarkjs:groth16:demo:valid",
   "framework": "snarkjs",
   "proofSystem": "groth16",
-  "urls": ["https://zkpip.org/by-id/Y2FuOnNuYXJranM6Z3JvdGgxNjpkZW1vOnZhbGlk/verification.json"],
+  "urls": [
+    "https://zkpip.org/by-id/Y2FuOnNuYXJranM6Z3JvdGgxNjpkZW1vOnZhbGlk/verification.json"
+  ],
   "sha256": "28d27ebc6dd5708e7eca268e830ca9642dcaae3dee30616e971534af01ad743d",
   "size": 3663,
   "meta": {

@@ -3,7 +3,9 @@
   "id": "can:snarkjs:plonk:demo:invalid",
   "framework": "snarkjs",
   "proofSystem": "plonk",
-  "urls": ["https://zkpip.org/by-id/Y2FuOnNuYXJranM6cGxvbms6ZGVtbzppbnZhbGlk/verification.json"],
+  "urls": [
+    "https://zkpip.org/by-id/Y2FuOnNuYXJranM6cGxvbms6ZGVtbzppbnZhbGlk/verification.json"
+  ],
   "sha256": "ef0ed596d75cea0346a7ca03f7890ce275a50802bc9969598771b2de2722f37a",
   "size": 3762,
   "meta": {
