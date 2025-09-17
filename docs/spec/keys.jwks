@@ -4,7 +4,7 @@
       "kty": "OKP",
       "crv": "Ed25519",
       "kid": "dev-1",
-      "x": "REPLACE_WITH_BASE64URL_PUBLIC_KEY"
+      "x": "mdnnc0NKYbqgFlOp0fZbRfnRYGG2zQJO2sJEiSUZ8MU"
     }
   ]
 }

@@ -1,6 +1,11 @@
 {
   "name": "zkpip",
   "private": true,
+  "module": "NodeNext",
+  "moduleResolution": "NodeNext",
+  "target": "ES2022",
+  "strict": true,
+  "skipLibCheck": true,
   "scripts": {
     "clean:srcjs": "bash -lc 'find packages -path \"*/src/*\" -type f \\( -name \"*.js\" -o -name \"*.js.map\" \\) -delete'",
     "build": "npm run clean:srcjs && tsc -b",
@@ -29,11 +34,13 @@
     "prepare": "husky",
     "spec:hash": "tsx scripts/spec/build-hash-index.ts --map docs/spec/examples/vector-id-map.json --out docs/spec/hash-index.json",
     "spec:manifests": "tsx scripts/spec/make-manifests.ts --index docs/spec/hash-index.json --outdir docs/spec/examples/canvectors --kid dev-1",
-    "spec:all": "npm run spec:hash && npm run spec:manifests",
     "spec:validate": "tsx scripts/spec/validate-specs.ts",
     "spec:manifests:quiet": "tsx scripts/spec/make-manifests.ts --index docs/spec/hash-index.json --outdir docs/spec/examples/canvectors --kid dev-1 --check-index=0",
+    "spec:sign": "dotenv -e .env -- tsx scripts/spec/sign-manifests.ts --dir docs/spec/examples/canvectors --kid dev-1",
+    "spec:all": "npm run spec:hash && npm run spec:manifests:quiet && npm run spec:sign && npm run spec:validate",
     "spec:sync": "tsx scripts/spec/make-manifests.ts --index docs/spec/hash-index.json --outdir docs/spec/examples/canvectors --kid dev-1 --check-index=1 --update-index=1",
-    "lint:fresh": "eslint . --ext .ts,.tsx --max-warnings=0 --no-cache"
+    "lint:fresh": "eslint . --ext .ts,.tsx --max-warnings=0 --no-cache",
+    "typecheck": "tsc -b --noEmit"
   },
   "dependencies": {
     "zokrates-js": "^1.1.9"
@@ -47,11 +54,15 @@
     ]
   },
   "devDependencies": {
+    "@noble/ed25519": "^3.0.0",
+    "@noble/hashes": "^2.0.0",
     "@types/node": "^24.3.0",
     "@typescript-eslint/eslint-plugin": "^8.42.0",
     "@typescript-eslint/parser": "^8.42.0",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
+    "dotenv": "^17.2.2",
+    "dotenv-cli": "^10.0.0",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-import-resolver-typescript": "^4.4.4",

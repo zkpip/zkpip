@@ -1,7 +1,7 @@
 // ESM-only; no "any"; English comments
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { createHash } from 'node:crypto';
+import { createHash, webcrypto } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import type { AnySchema, ErrorObject } from 'ajv';
 
@@ -20,6 +20,27 @@ type Manifest = {
   meta?: Record<string, string>;
   kid: string;
 };
+
+// --- Signature verification helpers
+
+type Jwks = {
+  readonly keys: readonly {
+    readonly kty: 'OKP';
+    readonly crv: 'Ed25519';
+    readonly kid: string;
+    readonly x: string;
+  }[];
+};
+
+async function loadJwks(filePath: string): Promise<Map<string, string>> {
+  const raw = await fs.readFile(filePath, 'utf8');
+  const jwks = JSON.parse(raw) as Jwks;
+  const map = new Map<string, string>();
+  for (const k of jwks.keys) {
+    if (k.kty === 'OKP' && k.crv === 'Ed25519' && k.kid && k.x) map.set(k.kid, k.x);
+  }
+  return map;
+}
 
 /** Minimal Ajv shape we rely on (structural typing). */
 type ValidateFn = ((data: unknown) => boolean) & { errors?: ErrorObject[] };
@@ -168,6 +189,9 @@ async function main(): Promise<void> {
 
   const ajv = await makeAjv(root);
 
+  // Loading JWKS
+  const pubKeyMap = await loadJwks('docs/spec/keys.jwks');
+
   if (typeof ajv.addKeyword === 'function') {
     ajv.addKeyword({
       keyword: 'x-canonicalization',
@@ -232,27 +256,85 @@ async function main(): Promise<void> {
     const verRel = idMap[m.id];
     const verAbs = absFromRoot(root, verRel);
     try {
+      // 1) verify referenced verification.json (hash + size)
       const payload = await loadJson(verAbs);
       const canonical = jcsCanonicalize(payload);
       const digest = sha256Hex(canonical);
       const size = Buffer.byteLength(canonical, 'utf8');
 
       let okLine = `${path.basename(mp)}: schema_ok`;
+      const baseName = path.basename(mp);
+
       if (digest !== m.sha256) {
-        fail(`${path.basename(mp)}: hash_mismatch (manifest=${m.sha256} calc=${digest})`);
+        fail(`${baseName}: hash_mismatch (manifest=${m.sha256} calc=${digest})`);
         errors++;
       } else {
         okLine += ' · hash_ok';
       }
 
       if (size !== m.size) {
-        fail(`${path.basename(mp)}: size_mismatch (manifest=${m.size} calc=${size})`);
+        fail(`${baseName}: size_mismatch (manifest=${m.size} calc=${size})`);
         errors++;
       } else {
         okLine += ' · size_ok';
       }
 
-      if (digest === m.sha256 && size === m.size) ok(okLine);
+      // 2) detached Ed25519 signature over the *manifest* (JCS string of manifest JSON)
+      //    - manifest.sig must exist
+      //    - kid must resolve to x in JWKS map (pubKeyMap loaded earlier)
+      //    - verify detached signature
+      let sigOk = false;
+      try {
+        const sigPath = mp.replace(/\.manifest\.json$/i, '.manifest.sig');
+        const sigB64u = (await fs.readFile(sigPath, 'utf8')).trim();
+
+        const kid = (m as { readonly kid?: string }).kid ?? '';
+        const x = kid ? pubKeyMap.get(kid) : undefined;
+
+        if (!sigB64u) {
+          fail(`${baseName}: signature_missing`);
+          errors++;
+        } else if (!kid) {
+          fail(`${baseName}: kid_missing`);
+          errors++;
+        } else if (!x) {
+          fail(`${baseName}: kid_unknown`);
+          errors++;
+        } else {
+          // Re-read manifest JSON to canonicalize exactly what was signed
+          const manifestObj = await loadJson(mp); // type is JsonValue-compatible in your helpers
+          const manifestCanon = jcsCanonicalize(manifestObj);
+          const msg = new TextEncoder().encode(manifestCanon);
+
+          const jwk = { kty: 'OKP', crv: 'Ed25519', x, ext: true } as const;
+          const key = await webcrypto.subtle.importKey('jwk', jwk, { name: 'Ed25519' }, false, [
+            'verify',
+          ]);
+          const ok = await webcrypto.subtle.verify(
+            'Ed25519',
+            key,
+            Buffer.from(sigB64u, 'base64url'),
+            msg,
+          );
+
+          if (ok) {
+            okLine += ' · sig_ok';
+            sigOk = true;
+          } else {
+            fail(`${baseName}: signature_invalid`);
+            errors++;
+          }
+        }
+      } catch {
+        // Could not read .sig file or verification threw
+        fail(`${baseName}: signature_missing`);
+        errors++;
+      }
+
+      // 3) only print the green line if all three checks passed
+      if (digest === m.sha256 && size === m.size && sigOk) {
+        ok(okLine);
+      }
     } catch {
       fail(`${path.basename(mp)}: cannot read referenced file → ${verRel}`);
       errors++;
@@ -264,7 +346,7 @@ async function main(): Promise<void> {
     fail(`Validation finished with ${errors} error(s).`);
     process.exit(1);
   }
-  ok('All manifests passed schema + hash + size checks.');
+  ok('All manifests passed schema + hash + size + sig checks.');
 }
 
 await main();
