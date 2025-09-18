@@ -4,3 +4,4 @@ coverage
 *.tgz
 packages/core/schemas/tests/vectors/**/invalid/**
 **/broken_*.json
+docs/spec/examples/canvectors/*.manifest.jsondocs/spec/examples/canvectors/*.manifest.json

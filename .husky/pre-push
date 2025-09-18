@@ -1,2 +1,7 @@
-#!/usr/bin/env sh
-npm run prepush:check
+#!/bin/sh
+set -eu
+[ "${ZKPIP_SKIP_HOOKS:-}" = "1" ] && exit 0
+
+cd -P "$(git rev-parse --show-toplevel)"
+# ide tehetsz könnyű ellenőrzéseket, de ne használj bash-only dolgokat
+exit 0

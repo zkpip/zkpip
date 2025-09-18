@@ -37,6 +37,7 @@
     "spec:manifests:quiet": "tsx scripts/spec/make-manifests.ts --index docs/spec/hash-index.json --outdir docs/spec/examples/canvectors --kid dev-1 --check-index=0",
     "spec:manifests": "tsx scripts/spec/make-manifests.ts --index docs/spec/hash-index.json --outdir docs/spec/examples/canvectors --kid dev-1 --base https://zkpip.org",
     "spec:manifests:check": "tsx scripts/spec/make-manifests.ts --check-index 1 --dry-run 1 --fail-on-change 1 --base https://zkpip.org",
+    "spec:manifests:write": "tsx scripts/spec/make-manifests.ts --check-index 0 --dry-run 0 --fail-on-change 0 --base https://zkpip.org",
     "spec:sign": "dotenv -e .env -- tsx scripts/spec/sign-manifests.ts --dir docs/spec/examples/canvectors --kid dev-1",
     "spec:validate": "tsx scripts/spec/validate-specs.ts --manifestDir docs/spec/examples/canvectors --jwks docs/spec/keys.jwks",
     "spec:validate:envelope": "vitest run packages/core/src/__tests__/proofEnvelope.vectors.test.ts",
@@ -55,6 +56,10 @@
     ],
     "*.{json,ts,tsx,js,md,yml,yaml}": [
       "prettier --write"
+    ],
+    "ignore": [
+      "docs/spec/examples/canvectors/*.manifest.json",
+      "packages/core/tmp-schemas/**"
     ]
   },
   "devDependencies": {
