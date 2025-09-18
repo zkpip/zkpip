@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "proofSystem": "groth16",
+  "framework": "snarkjs",
+  "vkey": null,
+  "proof": { "any": { "nested": ["shape", 1, true] } },
+  "publics": ["42"]
+}

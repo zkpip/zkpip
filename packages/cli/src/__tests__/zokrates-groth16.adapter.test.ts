@@ -148,11 +148,18 @@ describe('adapter: zokrates-groth16', () => {
 
   it('verify → soft warns when gamma_abc length mismatches publics (still calls runtime)', async () => {
     const verifySpy = vi.fn(async () => false); // runtime called, returns false
-    await expect(zoVerify({
-      verificationKey: { /* deliberately inconsistent vk (IC len != nPublic+1) */ },
-      publics: ['1', '2'], // for example
-      proof: PROOF_ZO,
-    }, { verify: verifySpy })).resolves.toBe(false);
+    await expect(
+      zoVerify(
+        {
+          verificationKey: {
+            /* deliberately inconsistent vk (IC len != nPublic+1) */
+          },
+          publics: ['1', '2'], // for example
+          proof: PROOF_ZO,
+        },
+        { verify: verifySpy },
+      ),
+    ).resolves.toBe(false);
 
     expect(verifySpy).toHaveBeenCalled();
   });

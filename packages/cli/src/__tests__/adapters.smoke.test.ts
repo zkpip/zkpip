@@ -53,7 +53,7 @@ describe('adapters.smoke (CLI roundtrip via fixtures)', () => {
   itIf(existsSync(zoValid))('zokrates-groth16 valid → exit 0', async () => {
     const p = await runCli(
       ['verify', '--adapter', 'zokrates-groth16', '--verification', zoValid],
-      { env: { ZKPIP_DEBUG: '1' } } // optional: richer adapter logs
+      { env: { ZKPIP_DEBUG: '1' } }, // optional: richer adapter logs
     );
 
     // 👇 debug on failure: show exactly why the adapter/CLI failed

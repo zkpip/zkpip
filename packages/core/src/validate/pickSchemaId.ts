@@ -1,8 +1,15 @@
-// packages/cli/src/commands/pickSchemaId.ts
+// Core-local schema picker (filename → $id), no "any".
+// Prefers ProofEnvelope, falls back to canonical $id if not discoverable.
+
 import path from 'node:path';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 
-/** Collect all $id strings from JSON schemas under a root dir (sync, no any). */
+function includesAny(haystack: string, needles: ReadonlyArray<string>): boolean {
+  const s = haystack.toLowerCase();
+  return needles.some((n) => s.includes(n.toLowerCase()));
+}
+
+/** Collect $id strings from JSON schemas under a root dir (sync, robust). */
 function collectSchemaIds(root: string): string[] {
   const ids: string[] = [];
   const stack: string[] = [root];
@@ -32,20 +39,14 @@ function collectSchemaIds(root: string): string[] {
       try {
         const raw = readFileSync(full, 'utf8');
         const obj = JSON.parse(raw) as unknown;
-        if (obj && typeof obj === 'object' && typeof (obj as { $id?: unknown }).$id === 'string') {
-          ids.push((obj as { $id: string }).$id);
-        }
+        const id = (obj && typeof obj === 'object' && (obj as { $id?: unknown }).$id) as unknown;
+        if (typeof id === 'string') ids.push(id);
       } catch {
         // ignore unreadable/invalid json
       }
     }
   }
   return ids;
-}
-
-function includesAny(haystack: string, needles: ReadonlyArray<string>): boolean {
-  const s = haystack.toLowerCase();
-  return needles.some((n) => s.includes(n.toLowerCase()));
 }
 
 /**
@@ -71,7 +72,7 @@ export function pickSchemaId(absPath: string, schemasRoot?: string): string {
     return id;
   }
 
-  // ---- issue: fájlnév VAGY könyvtárnév alapján ----
+  // ---- issue----
   if (includesAny(base, ['issue']) || /\/issue\//.test(full)) {
     const id =
       allIds.find((x) => /mvs(\.|:schemas:)?issue\.schema\.json/i.test(x)) ??
@@ -80,7 +81,7 @@ export function pickSchemaId(absPath: string, schemasRoot?: string): string {
     return id;
   }
 
-  // ---- ecosystem: fájlnév VAGY könyvtárnév alapján ----
+  // ---- ecosystem----
   if (includesAny(base, ['ecosystem']) || /\/ecosystem\//.test(full)) {
     const id =
       allIds.find((x) => /mvs(\.|:schemas:)?ecosystem\.schema\.json/i.test(x)) ??
