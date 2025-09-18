@@ -19,10 +19,9 @@ type VerifyGroth16 = (
   proof: object,
 ) => Promise<boolean>;
 
-/** Typed mock for the runtime verifier: <ArgsTuple, ReturnPromise> */
-type VerifyGroth16Args = [object, ReadonlyArray<string>, object];
-type VerifyGroth16Ret = Promise<boolean>;
-const verifySpy = vi.fn<VerifyGroth16Args, VerifyGroth16Ret>();
+/** Typed mock for the runtime verifier (shared across tests). */
+const verifySpy =
+  vi.fn<(vk: unknown, publics: readonly string[], proof: unknown) => Promise<boolean>>();
 
 vi.mock('../adapters/snarkjsRuntime.js', () => ({
   getGroth16Verify: async (): Promise<VerifyGroth16> => verifySpy as unknown as VerifyGroth16,
@@ -120,10 +119,15 @@ describe('adapter: zokrates-groth16', () => {
     expect(ok).toBe(true);
     expect(verifySpy).toHaveBeenCalledTimes(1);
 
-    const [vkeyArg, publicsArg, proofArg] = verifySpy.mock.calls[0]!;
-    expect(typeof vkeyArg).toBe('object');
+    const [vkArg, publicsArg, proofArg] = verifySpy.mock.calls[0] as [
+      unknown,
+      readonly string[],
+      unknown,
+    ];
+
     expect(Array.isArray(publicsArg)).toBe(true);
-    expect(publicsArg.every((x) => typeof x === 'string')).toBe(true);
+    expect(publicsArg.every((s: string) => typeof s === 'string')).toBe(true);
+    expect(typeof vkArg).toBe('object');
     expect(typeof proofArg).toBe('object');
   });
 
@@ -147,20 +151,24 @@ describe('adapter: zokrates-groth16', () => {
   });
 
   it('verify → soft warns when gamma_abc length mismatches publics (still calls runtime)', async () => {
-    const verifySpy = vi.fn(async () => false); // runtime called, returns false
+    // külön spy injektálva az adapternek (nem a globális verifySpy)
+    const runtimeSpy = vi.fn<
+      (vk: unknown, publics: readonly string[], proof: unknown) => Promise<boolean>
+    >(async () => false);
+
     await expect(
       zoVerify(
         {
           verificationKey: {
-            /* deliberately inconsistent vk (IC len != nPublic+1) */
-          },
-          publics: ['1', '2'], // for example
+            // deliberately inconsistent vk (IC len != nPublic+1)
+          } as unknown as object,
+          publics: ['1', '2'],
           proof: PROOF_ZO,
         },
-        { verify: verifySpy },
+        { verify: runtimeSpy },
       ),
     ).resolves.toBe(false);
 
-    expect(verifySpy).toHaveBeenCalled();
+    expect(runtimeSpy).toHaveBeenCalled();
   });
 });

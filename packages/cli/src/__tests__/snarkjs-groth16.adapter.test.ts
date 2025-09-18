@@ -20,9 +20,8 @@ type VerifyGroth16 = (
 ) => Promise<boolean>;
 
 /** Typed mock for the runtime verifier: <ArgsTuple, ReturnPromise> */
-type VerifyGroth16Args = [object, ReadonlyArray<string>, object];
-type VerifyGroth16Ret = Promise<boolean>;
-const verifySpy = vi.fn<VerifyGroth16Args, VerifyGroth16Ret>();
+const verifySpy =
+  vi.fn<(vk: unknown, publics: readonly string[], proof: unknown) => Promise<boolean>>();
 
 vi.mock('../adapters/snarkjsRuntime.js', () => ({
   getGroth16Verify: async (): Promise<VerifyGroth16> => verifySpy as unknown as VerifyGroth16,
@@ -143,10 +142,14 @@ describe('adapter: snarkjs-groth16', () => {
     expect(ok).toBe(true);
 
     expect(verifySpy).toHaveBeenCalledTimes(1);
-    const [vkArg, publicsArg, proofArg] = verifySpy.mock.calls[0]!;
+    const [vkArg, publicsArg, proofArg] = verifySpy.mock.calls[0] as [
+      unknown,
+      readonly string[],
+      unknown,
+    ];
+    expect(publicsArg.every((s: string) => typeof s === 'string')).toBe(true);
     expect(typeof vkArg).toBe('object');
     expect(Array.isArray(publicsArg)).toBe(true);
-    expect(publicsArg.every((s) => typeof s === 'string')).toBe(true);
     expect(typeof proofArg).toBe('object');
   });
 
