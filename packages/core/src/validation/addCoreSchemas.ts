@@ -144,7 +144,8 @@ export function addCoreSchemas(
   opts?: { schemasDir?: string; debug?: boolean },
 ): void {
   const dir = resolveSchemasDir(opts?.schemasDir);
-  const usingEnv = (process.env.ZKPIP_SCHEMAS_DIR ?? process.env.ZKPIP_SCHEMAS_ROOT)?.length! > 0;
+  const envDir = process.env.ZKPIP_SCHEMAS_DIR ?? process.env.ZKPIP_SCHEMAS_ROOT ?? '';
+  const usingEnv = envDir.length > 0;
 
   if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) {
     throw new Error(
