@@ -1,4 +1,5 @@
-// ESM + NodeNext, no `any`; single-line JSON outputs; strict exit-code mapping.
+// ESM + NodeNext; no `any`.
+// Single-line JSON outputs where applicable; strict exit-code mapping.
 
 import { readFile } from 'node:fs/promises';
 import type { VerifyHandlerArgs, VerifyErr, VerifyOutcomeU, VerifyOk } from '../types/cli.js';
@@ -31,16 +32,28 @@ function normalizeVerifyResult(res: unknown): boolean {
 
 export async function verifyCommand(argv: VerifyHandlerArgs): Promise<void> {
   const jsonMode = Boolean(argv.json);
-  const useExit = computeUseExit(argv);
 
-  // Lock a numeric exit code very early so late handlers can't override to 1.
-  if (typeof process.exitCode !== 'number') {
-    process.exitCode = 0; // success-by-default; error paths will overwrite
+  function emit(result: VerifyOutcomeU): void {
+    const code = result.ok ? 0 : mapVerifyOutcomeToExitCode(result);
+
+    if (jsonMode) {
+      (result.ok ? writeJsonStdout : writeJsonStderr)(result as VerifyOk & VerifyErr);
+    } else {
+      (result.ok ? console.log : console.error)(result.ok ? 'OK' : 'ERROR');
+    }
+
+    if (result.ok) {
+      // success → don’t hard-exit, just set exitCode
+      process.exitCode = 0;
+      return;
+    }
+    // failure → exit with mapped code (ensures execa sees non-zero)
+    process.exit(code);
   }
 
   let normalizedOut: VerifyOutcomeU;
 
-  // 1) Adapter
+  // 1) Adapter selection
   const adapterRaw = String(argv.adapter ?? '').trim();
   if (!adapterRaw) {
     normalizedOut = {
@@ -67,8 +80,7 @@ export async function verifyCommand(argv: VerifyHandlerArgs): Promise<void> {
 
   const adapter = await getAdapterById(adapterId);
 
-  // 2) --verification
-  // Optional: preExtract meta (helps triage if dumps are "meta-only")
+  // 2) Raw verification input (path or inline JSON)
   await dumpNormalized(adapterId, 'preExtract', {
     meta: {
       inputKind: 'verification-json',
@@ -87,7 +99,7 @@ export async function verifyCommand(argv: VerifyHandlerArgs): Promise<void> {
     return emit(normalizedOut);
   }
 
-  // 3) Resolver (inline JSON vagy path → read+parse)
+  // 3) Resolve and parse verification JSON
   let verificationJson: Json;
   try {
     const resolved = await resolveVerificationArg(raw);
@@ -107,7 +119,7 @@ export async function verifyCommand(argv: VerifyHandlerArgs): Promise<void> {
     return emit(normalizedOut);
   }
 
-  // 3/b) Quick schema precheck (only if schema is enabled)
+  // 3b) Quick schema precheck (when schema is enabled)
   const schemaDisabled = argv.noSchema === true;
   if (!schemaDisabled) {
     if (!isJsonObject(verificationJson)) {
@@ -132,24 +144,20 @@ export async function verifyCommand(argv: VerifyHandlerArgs): Promise<void> {
     }
   }
 
-  // 4.1) Normalize
+  // 4.1) Normalize to adapter bundle shape
   let bundle: { verification_key: Json; proof: Json; public: Json };
   try {
     bundle = normalizeVerification(verificationJson);
   } catch (err) {
-    const out = {
-      ok: false as const,
-      stage: 'schema' as const,
-      error: 'schema_invalid' as const,
+    return emit({
+      ok: false,
+      stage: 'schema',
+      error: 'schema_invalid',
       message: err instanceof Error ? err.message : String(err),
-    };
-    if (jsonMode) writeJsonStderr(out);
-    else console.error('ERROR:', out.message);
-    if (useExit) process.exitCode = mapVerifyOutcomeToExitCode(out); // -> 3
-    return;
+    });
   }
 
-  // 4.2) Verify
+  // 4.2) Verify via adapter
   try {
     const res = await adapter.verify(bundle);
     const ok = normalizeVerifyResult(res);
@@ -168,27 +176,6 @@ export async function verifyCommand(argv: VerifyHandlerArgs): Promise<void> {
   }
 
   return emit(normalizedOut);
-
-  // ---- output + exit-code ----
-  function emit(out: VerifyOutcomeU): void {
-    if (jsonMode) {
-      if (out.ok) writeJsonStdout(out as VerifyOk);
-      else writeJsonStderr(out as VerifyErr);
-    } else {
-      // helyes stream: success→stdout, fail→stderr
-      // eslint-disable-next-line no-console
-      (out.ok ? console.log : console.error)(out.ok ? 'OK' : 'ERROR');
-    }
-
-    // Exit-kód szerződés:
-    // - Siker → MINDIG 0 (stabilizál)
-    // - Hiba → map szerint, de csak ha kérték (useExit)
-    if (out.ok) {
-      process.exitCode = 0;
-    } else if (useExit) {
-      process.exitCode = mapVerifyOutcomeToExitCode(out);
-    }
-  }
 }
 
 export async function handler(argv: VerifyHandlerArgs): Promise<void> {

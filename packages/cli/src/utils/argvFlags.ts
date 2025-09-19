@@ -9,15 +9,29 @@ function getProp(obj: unknown, key: string): unknown {
 }
 
 // Accept all common spellings and truthy forms for --use-exit-codes
+// utils/argvFlags.ts
 export function computeUseExit(argv: unknown): boolean {
-  const truthy = (x: unknown): boolean => x === true || x === '' || x === 'true' || x === 1;
+  const truthy = (x: unknown): boolean => {
+    if (x === true || x === 1 || x === '') return true;
+    if (typeof x === 'string') {
+      const s = x.trim().toLowerCase();
+      return s === '1' || s === 'true' || s === 'yes' || s === 'on';
+    }
+    return false;
+  };
 
-  return (
+  const flag =
     truthy(getProp(argv, 'use-exit-codes')) ||
     truthy(getProp(argv, 'exit-codes')) ||
     truthy(getProp(argv, 'useExitCodes')) ||
-    truthy(getProp(argv, 'exitCodes'))
-  );
+    truthy(getProp(argv, 'exitCodes'));
+
+  // ENV override (handy for CI/tests)
+  const env =
+    truthy(process.env.ZKPIP_USE_EXIT_CODES) ||
+    truthy(process.env.CI_USE_EXIT_CODES);
+
+  return flag || env;
 }
 
 export function getVerificationRaw(opts: VerifyHandlerArgs): string {

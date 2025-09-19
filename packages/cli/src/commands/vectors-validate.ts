@@ -1,19 +1,19 @@
 // packages/cli/src/commands/vectors-validate.ts
-// Validate proof-bundle vectors against MVS JSON Schemas.
+// Validate proof-bundle vectors against MVS JSON Schemas (yargs-free).
 // - English comments
 // - No `any`
 // - NodeNext ESM compatible
+
 import path from 'node:path';
 import * as fs from 'node:fs';
 import process from 'node:process';
 import { createAjv, loadSchemaJson } from '@zkpip/core';
-import type { Argv, CommandBuilder, ArgumentsCamelCase, CommandModule } from 'yargs';
 
-type VectorValidateArgs = Readonly<{
-  'vectors-root'?: string;
-  'schemas-root'?: string;
+type VectorValidateFlags = Readonly<{
+  vectorsRoot?: string;
+  schemasRoot?: string;
   json: boolean;
-  'exit-codes': boolean;
+  exitCodes: boolean;
 }>;
 
 type JSONPrimitive = string | number | boolean | null;
@@ -30,37 +30,63 @@ type ValidationRow = Readonly<{
 export const command = 'vectors-validate';
 export const describe = 'Validate vectors against MVS schemas';
 
-export const builder: CommandBuilder<object, VectorValidateArgs> = (
-  y: Argv<object>,
-): Argv<VectorValidateArgs> => {
-  return y
-    .option('vectors-root', {
-      type: 'string',
-      description: 'Root directory of vectors (defaults to ./vectors if not provided)',
-    })
-    .option('schemas-root', {
-      type: 'string',
-      description: 'Root directory of schemas (override; exported to ZKPIP_SCHEMAS_ROOT)',
-    })
-    .option('json', {
-      type: 'boolean',
-      default: false,
-      description: 'Emit machine-readable JSON',
-    })
-    .option('exit-codes', {
-      type: 'boolean',
-      default: false,
-      description: 'Return 0 if all valid, 1 if any invalid, 2 on runtime error',
-    }) as Argv<VectorValidateArgs>;
-};
+/** Minimal flag parser compatible with: --vectors-root, --schemas-root, --json, --exit-codes (and their =value forms). */
+function parseFlags(argv: readonly string[]): VectorValidateFlags {
+  let vectorsRoot: string | undefined;
+  let schemasRoot: string | undefined;
+  let json = false;
+  let exitCodes = false;
+
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i] ?? '';
+
+    if (a === '--json' || a === '-j' || a.startsWith('--json=')) json = true;
+
+    if (a === '--exit-codes' || a === '--use-exit-codes' || a.startsWith('--exit-codes=')) {
+      exitCodes = true;
+    }
+
+    if (a === '--vectors-root') {
+      const v = argv[i + 1];
+      if (typeof v === 'string') {
+        vectorsRoot = v;
+        i++;
+      }
+      continue;
+    }
+    if (a.startsWith('--vectors-root=')) {
+      vectorsRoot = a.slice('--vectors-root='.length);
+      continue;
+    }
+
+    if (a === '--schemas-root') {
+      const v = argv[i + 1];
+      if (typeof v === 'string') {
+        schemasRoot = v;
+        i++;
+      }
+      continue;
+    }
+    if (a.startsWith('--schemas-root=')) {
+      schemasRoot = a.slice('--schemas-root='.length);
+      continue;
+    }
+  }
+
+  return {
+    ...(vectorsRoot !== undefined ? { vectorsRoot } : {}),
+    ...(schemasRoot !== undefined ? { schemasRoot } : {}),
+    json,
+    exitCodes,
+  } as const satisfies VectorValidateFlags;  
+}
 
 function resolveAbs(p?: string): string | undefined {
   if (!p) return undefined;
   return path.isAbsolute(p) ? p : path.resolve(process.cwd(), p);
 }
 
-// Recursively collect JSON files; by default we keep it generic,
-// but we filter to filenames containing "proof-bundle" to match the schema below.
+/** Recursively collect JSON files; we filter to filenames containing "proof-bundle" to match the schema below. */
 function walkJson(root: string): readonly string[] {
   const out: string[] = [];
   const stack: string[] = [root];
@@ -69,33 +95,28 @@ function walkJson(root: string): readonly string[] {
     const ents = fs.readdirSync(dir, { withFileTypes: true });
     for (const ent of ents) {
       const p = path.join(dir, ent.name);
-      if (ent.isDirectory()) {
-        stack.push(p);
-      } else if (ent.isFile() && p.endsWith('.json')) {
-        out.push(p);
-      }
+      if (ent.isDirectory()) stack.push(p);
+      else if (ent.isFile() && p.endsWith('.json')) out.push(p);
     }
   }
-  // narrow to proof-bundle vectors; adjust if you add more schemas
   return out.filter((p) => path.basename(p).includes('proof-bundle')).sort();
 }
 
 function safeParseJson(raw: string): JSONValue {
-  // If parse fails, throw — caller catches and classifies as runtime error (exit 2)
   return JSON.parse(raw) as JSONValue;
 }
 
-export async function handler(argv: ArgumentsCamelCase<VectorValidateArgs>): Promise<void> {
-  try {
-    // Resolve roots
-    const vectorsRoot = resolveAbs(argv['vectors-root']) ?? path.resolve(process.cwd(), 'vectors');
-    const schemasRoot = resolveAbs(argv['schemas-root']);
-    if (schemasRoot) {
-      // Surface to core loaders that rely on this environment hint
-      process.env.ZKPIP_SCHEMAS_ROOT = schemasRoot;
-    }
+/** Core implementation: performs validation and prints result according to flags. */
+export async function runVectorsValidateCli(argv: readonly string[]): Promise<void> {
+  const flags = parseFlags(argv);
 
-    // Prepare AJV and add the proof-bundle schema (extend as needed)
+  try {
+    const vectorsRoot =
+      resolveAbs(flags.vectorsRoot) ?? path.resolve(process.cwd(), 'vectors');
+    const schemasRoot = resolveAbs(flags.schemasRoot);
+    if (schemasRoot) process.env.ZKPIP_SCHEMAS_ROOT = schemasRoot;
+
+    // AJV + schema registration (legacy proof-bundle)
     const ajv = createAjv();
     const proofBundleSchema = loadSchemaJson('mvs/proof-bundle.schema.json');
     ajv.addSchema(proofBundleSchema, 'mvs/proof-bundle');
@@ -103,19 +124,17 @@ export async function handler(argv: ArgumentsCamelCase<VectorValidateArgs>): Pro
     const files = walkJson(vectorsRoot);
     if (files.length === 0) {
       const msg = `No JSON vectors found under: ${vectorsRoot}`;
-      if (argv.json) {
+      if (flags.json) {
         process.stdout.write(JSON.stringify({ ok: false, error: msg, results: [] }) + '\n');
       } else {
         process.stdout.write(`ℹ ${msg}\n`);
       }
-      if (argv['exit-codes']) process.exitCode = 1; // treat "no vectors" as invalid set
+      if (flags.exitCodes) process.exitCode = 1; // treat "no vectors" as invalid set
       return;
     }
 
     const validate = ajv.getSchema('mvs/proof-bundle');
-    if (!validate) {
-      throw new Error(`Schema 'mvs/proof-bundle' is not registered`);
-    }
+    if (!validate) throw new Error(`Schema 'mvs/proof-bundle' is not registered`);
 
     const results: ValidationRow[] = [];
     for (const abs of files) {
@@ -129,7 +148,7 @@ export async function handler(argv: ArgumentsCamelCase<VectorValidateArgs>): Pro
 
     const allOk = results.every((r) => r.valid);
 
-    if (argv.json) {
+    if (flags.json) {
       const payload = {
         ok: allOk,
         vectorsRoot,
@@ -150,25 +169,41 @@ export async function handler(argv: ArgumentsCamelCase<VectorValidateArgs>): Pro
       );
     }
 
-    if (argv['exit-codes']) {
-      process.exitCode = allOk ? 0 : 1;
-    }
-  } catch (err: unknown) {
+    if (flags.exitCodes) process.exitCode = allOk ? 0 : 1;
+  } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    if ((argv as { json?: boolean }).json) {
+    if (flags.json) {
       process.stderr.write(JSON.stringify({ ok: false, error: msg }) + '\n');
     } else {
       process.stderr.write(`✖ Vector validation failed: ${msg}\n`);
     }
-    if ((argv as { 'exit-codes'?: boolean })['exit-codes']) {
-      process.exitCode = 2;
-    }
+    if (flags.exitCodes) process.exitCode = 2;
   }
 }
 
-export const vectorsValidateCmd: CommandModule<object, VectorValidateArgs> = {
+/** Back-compat export for smoke test: yargs-free command module shape with only `handler`. */
+export const handler = async (argv: {
+  'vectors-root'?: string;
+  'schemas-root'?: string;
+  json?: boolean;
+  'exit-codes'?: boolean;
+}): Promise<void> => {
+  const args: string[] = [];
+
+  if (argv['vectors-root']) args.push(`--vectors-root=${argv['vectors-root']}`);
+  if (argv['schemas-root']) args.push(`--schemas-root=${argv['schemas-root']}`);
+  if (argv.json) args.push('--json');
+  if (argv['exit-codes']) args.push('--exit-codes');
+
+  await runVectorsValidateCli(args);
+};
+
+/** Export an object with the same keys the smoke test looks for, but without yargs types. */
+export const vectorsValidateCmd = {
   command,
   describe,
-  builder,
+  // builder intentionally omitted (no yargs)
   handler,
 };
+
+export default vectorsValidateCmd;

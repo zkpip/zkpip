@@ -35,7 +35,7 @@ describe('CLI smoke tests (command modules importable)', () => {
       // Basic sanity checks
       expect(isObjectRecord(mod)).toBe(true);
 
-      // Typical yargs-style exports (optional): command, builder, handler, describe/aliases
+      // command, builder, handler, describe/aliases
       const obj = mod as Record<string, unknown>;
       expectOptionalType(obj, 'command', 'string');
       expectOptionalType(obj, 'describe', 'string');
