@@ -9,6 +9,8 @@ export * from './manifest/types.js';
 export { canonicalizeManifest } from './manifest/canonicalize.js';
 export { computeManifestHash } from './manifest/hashing.js';
 export { signManifest, verifyManifest } from './manifest/signing.js';
+export { canonicalizeManifestToBytes } from './manifest/canonicalize.js';
+export type { ZkpipManifest, ManifestSignature } from './manifest/types.js';
 
 // AJV/schema utils – ezek a NÁLAD létező pathok:
 export { createAjv } from './validation/ajv.js';

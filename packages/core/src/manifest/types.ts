@@ -12,11 +12,11 @@ export interface ManifestSignature {
   alg: SigAlg;           // "Ed25519" (primary in M1/A)
   keyId: string;         // developer-provided stable key identifier
   sig: string;           // base64url-encoded signature over the digest
+  signedAt?: string;     // ISO
 }
 
 export interface ZkpipManifest {
-  // ... your existing manifest fields ...
-  // IMPORTANT: signature must be optional in the "to-be-signed" payload.
-  hash?: ManifestHash;
-  signature?: ManifestSignature;
+  hash?: { alg: 'sha256'; value: string }
+  signature?: ManifestSignature;        // single
+  signatures?: ReadonlyArray<ManifestSignature>; // multi
 }

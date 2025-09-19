@@ -113,7 +113,22 @@ Helper to bootstrap from keystore:
 npm -w @zkpip/cli run trust:init -- zkpip:dev:me
 ```
 
-## Error reasons (stable, machine-readable)
+## Keystore metadata
+
+Each key folder contains a `metadata.json` written on generation:
+
+```json
+{
+  "keyId": "zkpip:dev:me",
+  "alg": "ed25519",
+  "createdAt": "2025-09-19T13:29:42.027Z"
+}
+```
+
+* `keys list` surfaces the real `keyId` using this metadata (falls back to `(unknown)` if missing).
+* `keys show --json` returns: `{ ok, keyId, alg, createdAt, publicPemPath, publicPem }`.
+
+## Error reasons (stable, machine-readable) (stable, machine-readable)
 
 * `signature_invalid` – signature does not match payload/public key
 * `hash_mismatch` – payload modified after signing
@@ -144,7 +159,113 @@ With `--json` the CLI never prints stack traces; errors are returned as:
       --json --use-exit-codes
     ```
 
+## Tests & coverage (dev)
+
+```bash
+# run all tests
+npm -w @zkpip/cli exec vitest run
+
+# run with coverage (preferred via script)
+npm -w @zkpip/cli run test:cov
+```
+
+Vitest config should include both patterns:
+
+```ts
+// vitest.config.ts
+export default defineConfig({
+  test: {
+    include: ['src/**/__tests__/**/*.{test,spec}.ts']
+  }
+})
+```
+
+## Batch verification & sealing (design preview)
+
+> This feature is planned for Display/Light plans. Single verification stays **free** for the 4 basic bridges; batch = **one bundle seal** via API.
+
+### CLI shape (draft)
+
+```bash
+# discover files under a directory and verify via API as one batch (bundle seal)
+zkpip verify-batch \
+  --dir proofs/ \
+  --pattern "**/*.json" \
+  --bridge snarkjs-plonk \
+  --trust-set trust/keys.json \
+  --bundle-name "shopify-checkout-2025-09-19" \
+  --out reports/batch-report.ndjson \
+  --concurrency 8 \
+  --keep-going \
+  --json
+```
+
+**Flags (proposed):**
+
+* `--dir <folder>`: root to scan; combine with `--pattern` & `--exclude`.
+* `--pattern <glob>` (repeatable): file glob(s), default `**/*`.
+* `--exclude <glob>` (repeatable).
+* `--bridge <id>`: proof-bridge to interpret files; per-bridge defaults for expected shapes.
+* `--trust-set <path>`: optional trust enforcement.
+* `--api-key <key>` / `--endpoint <url>`: override config (see below).
+* `--bundle-name <name>`: human label for the batch; used by SealScan.
+* `--out <path>`: write NDJSON with per-file results + a final summary line.
+* `--concurrency <n>`: local parallelism (upload/verify windowing).
+* `--keep-going` / `--fail-fast` (default: keep-going).
+* `--dry-run`: list what would be sent; no network.
+* `--mkdirs`: create parent dirs for `--out`.
+
+**Output contract:**
+
+* NDJSON lines for each processed file:
+
+  ```json
+  { "file":"proofs/a.json", "ok":true, "bridgeId":"snarkjs-plonk", "reason":null, "sealId":"..." }
+  { "file":"proofs/b.json", "ok":false, "reason":"invalid_envelope_content", "message":"..." }
+  ...
+  { "summary": { "total": 100, "ok": 98, "failed": 2, "bundleSealId": "..." } }
+  ```
+* Non-matching/unsupported files are emitted with `reason:"unsupported_format"` and skipped.
+
+### API (draft)
+
+* `POST /v1/batches` → `{ batchId, uploadUrls[] }`
+* `PUT <uploadUrl>` per file (signed URL), or `POST /v1/batches/:id/files` with body
+* `POST /v1/batches/:id/verify` → starts verification + bundle seal
+* `GET /v1/batches/:id` → status + results (streamable NDJSON)
+
+**Config file:** `~/.zkpip/config.json`
+
+```json
+{
+  "endpoint": "https://api.zkpip.io",
+  "apiKey": "<secret>",
+  "orgName": "Imagella LLC",       // optional: shown on SealScan if Display plan enabled
+  "telemetry": true                  // opt-in usage metrics
+}
+```
+
+**DX guarantees:**
+
+* Resumable: `--resume <batchId>` to continue failed uploads.
+* Idempotent: re-running with same `--bundle-name` deduplicates.
+* Rate limits surfaced in CLI with backoff; `429` handled automatically.
+* Privacy: file paths hashed in telemetry; content never logged client-side.
+
+**Pricing rule (high level):**
+
+* Local single verifies (CPU-only) remain free for 4 basic bridges.
+* Batch uses API → 1 **bundle seal** per batch (counts toward plan).
+* SealScan shows bundle page with optional org/dev name (from config).
+
+---
+
 ## Security notes
 
 * Never commit private keys. Keystore private files use `0600`.
+
+* For production, plan to switch to **KMS signer** (AWS KMS integration, M1/B).
+
+* Never commit private keys. Keystore private files use `0600`.
+
 * For production, plan to switch to **KMS signer** (AWS KMS integration, M1/B).

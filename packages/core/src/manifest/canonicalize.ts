@@ -6,40 +6,67 @@
 // - No insignificant whitespace (use JSON.stringify) + ensure trailing LF
 // - Canonicalization input EXCLUDES "signature" field
 
-import { ZkpipManifest } from './types.js';
+const EXCLUDE_FIELDS = new Set<string>(['hash', 'signature', 'signatures']);
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v);
+  return typeof v === 'object' && v !== null && Object.getPrototypeOf(v) === Object.prototype;
 }
 
-export interface CanonicalizeOptions {
-  dropFields?: ReadonlyArray<string>;
-}
-
-function sortObject(obj: Record<string, unknown>, drop: Set<string>): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
-  const keys = Object.keys(obj).sort();
-  for (const k of keys) {
-    if (drop.has(k)) continue;                // <-- drop fields like 'signature', 'hash'
-    const val = obj[k];
-    if (Array.isArray(val)) {
-      result[k] = val.map((x) => (isPlainObject(x) ? sortObject(x as Record<string, unknown>, drop) : x));
-    } else if (isPlainObject(val)) {
-      result[k] = sortObject(val as Record<string, unknown>, drop);
-    } else {
-      result[k] = val;
-    }
+/**
+ * Recursively remove excluded top-level fields (by name) from an object tree.
+ * Arrays are preserved; objects are copied without excluded keys.
+ */
+function omitExcluded(value: unknown, exclude: ReadonlySet<string>): unknown {
+  if (Array.isArray(value)) {
+    return value.map((el) => omitExcluded(el, exclude));
   }
-  return result;
+  if (isPlainObject(value)) {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) {
+      if (exclude.has(k)) continue;
+      out[k] = omitExcluded(v, exclude);
+    }
+    return out;
+  }
+  // primitive (string/number/boolean/null) or other (Date, etc.) → return as-is
+  return value;
 }
 
-export function canonicalizeManifest(manifest: ZkpipManifest, opts?: CanonicalizeOptions): string {
-  const drop = new Set<string>(opts?.dropFields ?? []);
-  const sorted = sortObject(manifest as Record<string, unknown>, drop);
-  const json = JSON.stringify(sorted);
-  return json.endsWith('\n') ? json : `${json}\n`;
+/**
+ * Deep-sort object keys lexicographically to achieve deterministic JSON.
+ * Arrays keep their order; only object keys are sorted.
+ */
+function sortKeysDeep(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((el) => sortKeysDeep(el));
+  }
+  if (isPlainObject(value)) {
+    const sortedKeys = Object.keys(value).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+    const out: Record<string, unknown> = {};
+    for (const k of sortedKeys) {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      out[k] = sortKeysDeep((value as Record<string, unknown>)[k]!);
+    }
+    return out;
+  }
+  return value;
 }
 
-export function canonicalizeManifestForHash(manifest: ZkpipManifest): string {
-  return canonicalizeManifest(manifest, { dropFields: ['signature', 'hash'] });
+/**
+ * Canonical JSON string for hashing/signing:
+ * - removes {hash, signature, signatures}
+ * - deep-sorts object keys
+ * - pretty with 2 spaces
+ * - ends with single LF
+ */
+export function canonicalizeManifest(manifest: unknown): string {
+  const pruned = omitExcluded(manifest, EXCLUDE_FIELDS);
+  const sorted = sortKeysDeep(pruned);
+  return JSON.stringify(sorted, null, 2) + '\n';
+}
+
+/** Canonical UTF-8 bytes helper (preferred for hashing/signing). */
+export function canonicalizeManifestToBytes(manifest: unknown): Uint8Array {
+  const json = canonicalizeManifest(manifest);
+  return new TextEncoder().encode(json);
 }
