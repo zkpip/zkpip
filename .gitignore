@@ -196,3 +196,4 @@ tmp-schemas/
 # Guard against accidental colon-named node:* files
 node:*
 **/keys/*.pub
+trust/keys.json

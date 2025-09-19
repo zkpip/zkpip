@@ -7,6 +7,7 @@
 
 import { runVerifyCli } from './verify-cli.js';
 import { runManifestCli } from './manifest-cli.js';
+import { runKeysCli } from './keys-cli.js';
 
 function printHelp(): void {
   console.log(`Usage:
@@ -34,6 +35,11 @@ function printHelp(): void {
     await runManifestCli(argv.slice(1)); // delegate to yargs subtree
     return;
   }
+
+  if (cmd === 'keys') {
+    await runKeysCli(argv.slice(1));
+    return;
+  }  
 
   // Unknown command → JSON error and exit 1
   console.error(
