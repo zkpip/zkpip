@@ -9,12 +9,13 @@
     "baseUrl": ".",
     "paths": {
       "@zkpip/core": ["../core/dist/index.d.ts", "../core/src/index.ts"],
-      "@zkpip/core/*": ["../core/dist/*"]
+      "@zkpip/core/*": ["../core/dist/*", "../core/src/*"]
     },
 
     "rootDir": "src",
     "outDir": "dist",
     "declaration": true,
+    "declarationMap": true,
     "sourceMap": true,
     "composite": true,
 
@@ -30,9 +31,14 @@
 
     "resolveJsonModule": true,
 
-    "esModuleInterop": true
+    "esModuleInterop": true,
+
+    "forceConsistentCasingInFileNames": true,
+
+    "noEmit": false,
+    "emitDeclarationOnly": false
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "src/**/*.ts"],
   "exclude": [
     "scripts/**",
     "e2e-artifacts/**",
