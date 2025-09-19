@@ -1,17 +1,14 @@
-// zkpip manifest verify --in <file> --pub <pem>
-// ESM-only, strict TS. No "any".
-
-import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { CommandModule, Argv } from 'yargs';
 import { verifyManifest } from '@zkpip/core';
 import type { ZkpipManifest } from '@zkpip/core';
+import { readUtf8Checked, resolvePath } from '../../utils/fs.js';
 
 interface Args {
   in: string;
   pub: string;
   json?: boolean;
-  useExitCodes?: boolean; // <-- camelCase in types
+  useExitCodes?: boolean;
 }
 
 export const manifestVerifyCmd: CommandModule<unknown, Args> = {
@@ -28,18 +25,37 @@ export const manifestVerifyCmd: CommandModule<unknown, Args> = {
         .strictOptions()
     ) as unknown as Argv<Args>,
   handler: (argv) => {
-    const inPath = resolve(argv.in);
-    const pubPem = readFileSync(resolve(argv.pub), 'utf8');
-    const manifest = JSON.parse(readFileSync(inPath, 'utf8')) as ZkpipManifest;
+    const inPath = resolvePath(argv.in);
+    const pubPath = resolvePath(argv.pub);
 
-    const res = verifyManifest({ manifest, publicKeyPem: pubPem });
+    try {
+      const pubPem = readUtf8Checked(pubPath);
+      const manifest = JSON.parse(readUtf8Checked(inPath)) as ZkpipManifest;
 
-    if (argv.json) {
-      process.stdout.write(JSON.stringify({ ok: res.ok, reason: res.reason ?? null }) + '\n');
-    } else {
-      // eslint-disable-next-line no-console
-      console.log(res.ok ? '✅ Manifest verification OK' : `❌ Manifest verification FAILED: ${res.reason}`);
+      const res = verifyManifest({ manifest, publicKeyPem: pubPem });
+
+      if (argv.json) {
+        process.stdout.write(JSON.stringify({ ok: res.ok, reason: res.reason ?? null }) + '\n');
+      } else {
+        // eslint-disable-next-line no-console
+        console.log(res.ok ? '✅ Manifest verification OK' : `❌ Manifest verification FAILED: ${res.reason}`);
+      }
+      if (argv.useExitCodes) process.exit(res.ok ? 0 : 1);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Unexpected error during manifest verification';
+      const errorBody =
+        err && typeof err === 'object' && 'code' in err
+          ? { code: (err as { code: string }).code }
+          : {};
+      if (argv.json) {
+        process.stderr.write(JSON.stringify({ ok: false, reason: 'io_error', message, ...errorBody }) + '\n');
+      } else {
+        // eslint-disable-next-line no-console
+        console.error(`❌ ${message}`);
+      }
+      process.exitCode = 1;
+      if (argv.useExitCodes) process.exit(1);
     }
-    if (argv.useExitCodes) process.exit(res.ok ? 0 : 1);
   },
 };

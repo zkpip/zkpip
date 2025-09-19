@@ -1,9 +1,9 @@
-// packages/cli/src/commands/manifest/sign.ts
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { CommandModule, Argv } from 'yargs';
 import { signManifest } from '@zkpip/core';
 import type { ZkpipManifest } from '@zkpip/core';
+import { readUtf8Checked, resolvePath, ensureParentDir } from '../../utils/fs.js';
 
 interface Args {
   in: string;
@@ -11,6 +11,7 @@ interface Args {
   priv: string;
   keyId: string;
   json?: boolean;
+  createOutDir?: boolean; // new
 }
 
 export const manifestSignCmd: CommandModule<unknown, Args> = {
@@ -25,23 +26,54 @@ export const manifestSignCmd: CommandModule<unknown, Args> = {
         .option('keyId', { type: 'string', demandOption: true, desc: 'Signature keyId to embed' })
         .alias('keyId', 'key-id')
         .option('json', { type: 'boolean', default: false, desc: 'JSON structured CLI output' })
+        .option('createOutDir', { type: 'boolean', default: false, desc: 'Create parent dir for --out if missing' })
+        .alias('createOutDir', 'mkdirs')
         .strictOptions()
     ) as unknown as Argv<Args>,
   handler: (argv) => {
-    const inPath = resolve(argv.in);
-    const outPath = resolve(argv.out);
-    const privPem = readFileSync(resolve(argv.priv), 'utf8');
-    const manifest = JSON.parse(readFileSync(inPath, 'utf8')) as ZkpipManifest;
+    const inPath = resolvePath(argv.in);
+    const outPath = resolvePath(argv.out);
+    const privPath = resolvePath(argv.priv);
 
-    const { hash, signature } = signManifest({ manifest, privateKeyPem: privPem, keyId: argv.keyId });
-    const signed = { ...manifest, hash, signature };
-    writeFileSync(outPath, `${JSON.stringify(signed, null, 2)}\n`, 'utf8');
+    try {
+      const privPem = readUtf8Checked(privPath);
+      const manifest = JSON.parse(readUtf8Checked(inPath)) as ZkpipManifest;
 
-    if (argv.json) {
-      process.stdout.write(JSON.stringify({ ok: true, alg: signature.alg, keyId: signature.keyId, out: outPath }) + '\n');
-    } else {
-      // eslint-disable-next-line no-console
-      console.log(`✅ Signed manifest → ${outPath}  [alg=${signature.alg}, keyId=${signature.keyId}]`);
+      // Only create when explicitly asked
+      ensureParentDir(outPath, argv.createOutDir === true);
+
+      const { hash, signature } = signManifest({
+        manifest,
+        privateKeyPem: privPem,
+        keyId: argv.keyId,
+      });
+      const signed = { ...manifest, hash, signature };
+      writeFileSync(outPath, `${JSON.stringify(signed, null, 2)}\n`, 'utf8');
+
+      if (argv.json) {
+        process.stdout.write(
+          JSON.stringify({ ok: true, alg: signature.alg, keyId: signature.keyId, out: outPath }) + '\n',
+        );
+      } else {
+        // eslint-disable-next-line no-console
+        console.log(`✅ Signed manifest → ${outPath}  [alg=${signature.alg}, keyId=${signature.keyId}]`);
+      }
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Unexpected error during manifest signing';
+      const errorBody =
+        err && typeof err === 'object' && 'code' in err
+          ? { code: (err as { code: string }).code }
+          : {};
+      if (argv.json) {
+        process.stderr.write(
+          JSON.stringify({ ok: false, message, ...errorBody }) + '\n',
+        );
+      } else {
+        // eslint-disable-next-line no-console
+        console.error(`❌ ${message}`);
+      }
+      process.exitCode = 1;
     }
   },
 };
