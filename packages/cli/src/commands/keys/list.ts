@@ -28,12 +28,12 @@ export const keysListCmd: CommandModule<unknown, Args> = {
           return;
         }
         for (const r of rows) {
-          console.log(`- ${r.dir}
-    private: ${r.privatePemPath}
-     public: ${r.publicPemPath}
-     created: ${r.createdAt?.toISOString() ?? '(unknown)'}
-`);
-        }
+          console.log(`- keyId: ${r.keyId}
+            private: ${r.privatePemPath}
+            public: ${r.publicPemPath}
+            created: ${r.createdAt?.toISOString() ?? '(unknown)'}
+        `);
+        }        
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'List failed';

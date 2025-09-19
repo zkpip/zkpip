@@ -23,6 +23,7 @@ describe('keystore utils (unit)', () => {
       expect(rec.publicPemPath.endsWith('/public.pem')).toBe(true);
       expect(priv).toContain('BEGIN PRIVATE KEY');
       expect(pub).toContain('BEGIN PUBLIC KEY');
+      expect(require('node:fs').existsSync(require('node:path').join(rec.dir,'metadata.json'))).toBe(true);
     } finally {
       rmSync(store, { recursive: true, force: true });
     }
