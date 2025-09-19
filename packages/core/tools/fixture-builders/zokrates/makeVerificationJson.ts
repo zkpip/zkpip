@@ -1,6 +1,6 @@
 // Keep comments in English; ESM; strict TS; no "any".
-import fs from "node:fs/promises";
-import path from "node:path";
+import fs from 'node:fs/promises';
+import path from 'node:path';
 
 type JsonObject = { readonly [k: string]: Json };
 type Json = string | number | boolean | null | JsonObject | readonly Json[];
@@ -24,43 +24,41 @@ type SnarkjsProof = {
 
 // VerificationEnvelope v1 (ProofEnvelope v1)
 type VerificationEnvelope = {
-  readonly framework: "zokrates";
-  readonly proofSystem: "groth16";
-  readonly verificationKey: JsonObject;   // snarkjs-compatible VK object
-  readonly proof: SnarkjsProof;           // normalized proof
-  readonly publics: readonly string[];    // public inputs as strings
+  readonly framework: 'zokrates';
+  readonly proofSystem: 'groth16';
+  readonly verificationKey: JsonObject; // snarkjs-compatible VK object
+  readonly proof: SnarkjsProof; // normalized proof
+  readonly publics: readonly string[]; // public inputs as strings
   readonly meta?: Readonly<Record<string, string>>;
 };
 
 // --- helpers ---------------------------------------------------------------
 
 async function loadJsonFile<T extends Json>(p: string): Promise<T> {
-  const raw = await fs.readFile(p, "utf8");
+  const raw = await fs.readFile(p, 'utf8');
   return JSON.parse(raw) as T;
 }
 
 function toStringArray(xs: readonly unknown[]): readonly string[] {
   // Deterministic stringification (keeps decimal if bigint present)
-  return xs.map((v) =>
-    typeof v === "bigint" ? v.toString(10) : String(v)
-  );
+  return xs.map((v) => (typeof v === 'bigint' ? v.toString(10) : String(v)));
 }
 
 /** Convert ZoKrates {a,b,c} into snarkjs {pi_a,pi_b,pi_c} */
-function zokratesProofToSnarkjs(p: ZoProofFile["proof"]): SnarkjsProof {
+function zokratesProofToSnarkjs(p: ZoProofFile['proof']): SnarkjsProof {
   // Snarkjs expects affine coords with a trailing 1 component for each G1/G2 point
   return {
-    pi_a: [p.a[0], p.a[1], "1"],
+    pi_a: [p.a[0], p.a[1], '1'],
     pi_b: [
-      [p.b[0][0], p.b[0][1], "1"],
-      [p.b[1][0], p.b[1][1], "1"],
+      [p.b[0][0], p.b[0][1], '1'],
+      [p.b[1][0], p.b[1][1], '1'],
     ],
-    pi_c: [p.c[0], p.c[1], "1"],
+    pi_c: [p.c[0], p.c[1], '1'],
   };
 }
 
 function normalizeRel(p: string): string {
-  return p.replace(/^\.\//, "");
+  return p.replace(/^\.\//, '');
 }
 
 // --- main ------------------------------------------------------------------
@@ -85,19 +83,19 @@ export async function buildVerificationEnvelope(opts: {
   const proof = zokratesProofToSnarkjs(proofFile.proof);
 
   const envelope: VerificationEnvelope = {
-    framework: "zokrates",
-    proofSystem: "groth16",
+    framework: 'zokrates',
+    proofSystem: 'groth16',
     verificationKey,
     proof,
     publics,
     meta: {
       source: path.basename(normalizeRel(opts.proofPath)),
-      tool: "zokrates (groth16)",
+      tool: 'zokrates (groth16)',
       ...(opts.sourceDir ? { sourceDir: normalizeRel(opts.sourceDir) } : {}),
     },
   };
 
-  await fs.writeFile(opts.outFile, JSON.stringify(envelope, null, 2) + "\n", "utf8");
+  await fs.writeFile(opts.outFile, JSON.stringify(envelope, null, 2) + '\n', 'utf8');
 }
 
 // CLI entry (if you run via tsx):
@@ -108,16 +106,18 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     const k = process.argv[i];
     const v = process.argv[i + 1];
     if (!k || !v) break;
-    args.set(k.replace(/^--/, ""), v);
+    args.set(k.replace(/^--/, ''), v);
   }
-  const proofPath = args.get("proof");
-  const vkeyJsonPath = args.get("vk");
-  const outFile = args.get("out");
-  const source = args.get("source");
+  const proofPath = args.get('proof');
+  const vkeyJsonPath = args.get('vk');
+  const outFile = args.get('out');
+  const source = args.get('source');
 
   if (!proofPath || !vkeyJsonPath || !outFile) {
     // eslint-disable-next-line no-console
-    console.error("Usage: tsx makeVerificationJson.ts --proof <proof.json> --vk <verification_key.json> --out <verification.json> [--source <dir>]");
+    console.error(
+      'Usage: tsx makeVerificationJson.ts --proof <proof.json> --vk <verification_key.json> --out <verification.json> [--source <dir>]',
+    );
     process.exit(2);
   }
 

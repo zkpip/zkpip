@@ -49,6 +49,45 @@ describe('validate.ts + pickSchemaId integration (picker)', () => {
     await expect(validatePath(ECO_VECTOR)).resolves.toBeUndefined();
   });
 
+  it('routes proof-envelope files by name to the proofEnvelope schema (valid example)', async () => {
+    const validEnvelope = {
+      version: 1,
+      proofSystem: 'groth16',
+      framework: 'snarkjs',
+      vkey: { alpha1: '0x01' },
+      proof: {
+        pi_a: ['0x0', '0x0'],
+        pi_b: [
+          [
+            ['0x0', '0x0'],
+            ['0x0', '0x0'],
+          ],
+        ],
+        pi_c: ['0x0', '0x0'],
+      },
+      publics: ['1', '2', '3'],
+    };
+    const p = tmpJsonFile('my.proof-envelope.json', validEnvelope);
+    await expect(validatePath(p)).resolves.toBeUndefined();
+  });
+
+  it('rejects invalid proof-envelope (missing publics)', async () => {
+    const invalidEnvelope = {
+      version: 1,
+      proofSystem: 'groth16',
+      framework: 'snarkjs',
+      vkey: {},
+      proof: {},
+      // publics missing
+    };
+    const p = tmpJsonFile('proof-envelope.missing.json', invalidEnvelope);
+    await expect(validatePath(p)).rejects.toThrow(/Validation failed/);
+  });
+
+  /*
+
+  DEPRICATED proofBundle tests
+
   it('routes proof-bundle manifest files by name to the proofBundle schema (valid example)', async () => {
     const valid = {
       schemaVersion: '0.1.0',
@@ -81,6 +120,8 @@ describe('validate.ts + pickSchemaId integration (picker)', () => {
     const p = tmpJsonFile('bundle.manifest.json', invalid);
     await expect(validatePath(p)).rejects.toThrow(/Validation failed/);
   });
+
+  */
 
   it('routes CIR files by name to the cir schema (valid example)', async () => {
     const valid = {

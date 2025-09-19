@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "proofSystem": "groth16",
+  "framework": "snarkjs",
+  "vkey": { "alpha1": "0x01" },
+  "proof": {
+    "pi_a": ["0x0", "0x0"],
+    "pi_b": [
+      [
+        ["0x0", "0x0"],
+        ["0x0", "0x0"]
+      ]
+    ],
+    "pi_c": ["0x0", "0x0"]
+  },
+  "publics": ["1", "2", "3"],
+  "meta": { "source": "unit-fixture" }
+}

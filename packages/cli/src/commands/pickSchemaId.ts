@@ -54,36 +54,60 @@ function includesAny(haystack: string, needles: ReadonlyArray<string>): boolean 
  */
 export function pickSchemaId(absPath: string, schemasRoot?: string): string {
   const base = path.basename(absPath).toLowerCase();
+  const full = absPath.replace(/\\/g, '/').toLowerCase(); // ⬅ útvonal alapú mintákhoz
   const allIds: ReadonlyArray<string> =
     typeof schemasRoot === 'string' && schemasRoot.length > 0 ? collectSchemaIds(schemasRoot) : [];
 
   const findId = (needles: string[]): string | undefined =>
     allIds.find((id) => includesAny(id, needles));
 
-  // Minimal MVS v1 heuristics
-  if (includesAny(base, ['proofbundle', 'proof-bundle', 'proof_bundle'])) {
-    const id = findId(['proofbundle', 'proof-bundle', 'proof_bundle']);
-    if (id) return id;
+  // ---- ProofEnvelope FIRST, with canonical fallback ----
+  const CANON_ENV_ID = 'urn:zkpip:mvs.proofEnvelope.schema.json';
+  if (/\bproof[-_ ]?envelope\b/.test(base) || /\/proof[-_]?envelope\//.test(full)) {
+    const id =
+      allIds.find((x) => /mvs(\.|:schemas:)?proofenvelope\.schema\.json/i.test(x)) ??
+      findId(['proof-envelope', 'proof_envelope', 'proofenvelope', 'proofEnvelope']) ??
+      CANON_ENV_ID;
+    return id;
   }
-  if (includesAny(base, ['groth16', 'evm'])) {
-    const id = findId(['groth16', 'evm']);
-    if (id) return id;
+
+  // ---- issue: fájlnév VAGY könyvtárnév alapján ----
+  if (includesAny(base, ['issue']) || /\/issue\//.test(full)) {
+    const id =
+      allIds.find((x) => /mvs(\.|:schemas:)?issue\.schema\.json/i.test(x)) ??
+      findId(['issue']) ??
+      'urn:zkpip:mvs.issue.schema.json';
+    return id;
   }
-  if (includesAny(base, ['public', 'publicsignals'])) {
-    const id = findId(['public', 'publicsignals']);
-    if (id) return id;
+
+  // ---- ecosystem: fájlnév VAGY könyvtárnév alapján ----
+  if (includesAny(base, ['ecosystem']) || /\/ecosystem\//.test(full)) {
+    const id =
+      allIds.find((x) => /mvs(\.|:schemas:)?ecosystem\.schema\.json/i.test(x)) ??
+      findId(['ecosystem']) ??
+      'urn:zkpip:mvs.ecosystem.schema.json';
+    return id;
   }
-  if (includesAny(base, ['cir', 'circuit'])) {
-    const id = findId(['cir', 'circuit', 'witness']);
+
+  // verification (legacy: groth16/evm or folder)
+  if (includesAny(base, ['groth16', 'evm']) || /\/verification\//.test(full)) {
+    const id =
+      findId(['verification', 'groth16', 'evm']) ?? 'urn:zkpip:mvs.verification.schema.json';
+    return id;
+  }
+
+  // public inputs/signals
+  if (includesAny(base, ['publicsignals', 'public-signals', 'public'])) {
+    const id = findId(['publicsignals', 'public-signals', 'public']);
     if (id) return id;
   }
 
-  const hasRoot = typeof schemasRoot === 'string' && schemasRoot.length > 0;
-  throw new Error(
-    `Cannot infer schema for: ${absPath}\n` +
-      (hasRoot
-        ? `Checked ${allIds.length} schemas under ${schemasRoot}.\n`
-        : `No schemasRoot provided; pass --schemas-root ./packages/core/schemas or set ZKPIP_SCHEMAS_ROOT.\n`) +
-      `Rename the file to include a hint (e.g. "proof-bundle", "groth16-evm") or pass --schema-id explicitly.`,
-  );
+  // CIR / circuit specs
+  if (includesAny(base, ['cir', 'circuit', 'witness']) || /\/cir(cuit)?\//.test(full)) {
+    const id = findId(['cir', 'circuit', 'witness']) ?? 'urn:zkpip:mvs.cir.schema.json';
+    return id;
+  }
+
+  const CANON_CORE_ID = 'urn:zkpip:mvs.core.schema.json';
+  return CANON_CORE_ID;
 }

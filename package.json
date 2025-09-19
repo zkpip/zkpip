@@ -37,8 +37,10 @@
     "spec:manifests:quiet": "tsx scripts/spec/make-manifests.ts --index docs/spec/hash-index.json --outdir docs/spec/examples/canvectors --kid dev-1 --check-index=0",
     "spec:manifests": "tsx scripts/spec/make-manifests.ts --index docs/spec/hash-index.json --outdir docs/spec/examples/canvectors --kid dev-1 --base https://zkpip.org",
     "spec:manifests:check": "tsx scripts/spec/make-manifests.ts --check-index 1 --dry-run 1 --fail-on-change 1 --base https://zkpip.org",
+    "spec:manifests:write": "tsx scripts/spec/make-manifests.ts --check-index 0 --dry-run 0 --fail-on-change 0 --base https://zkpip.org",
     "spec:sign": "dotenv -e .env -- tsx scripts/spec/sign-manifests.ts --dir docs/spec/examples/canvectors --kid dev-1",
     "spec:validate": "tsx scripts/spec/validate-specs.ts --manifestDir docs/spec/examples/canvectors --jwks docs/spec/keys.jwks",
+    "spec:validate:envelope": "vitest run packages/core/src/__tests__/proofEnvelope.vectors.test.ts",
     "spec:all": "npm run spec:hash && npm run spec:manifests:quiet && npm run spec:sign && npm run spec:validate",
     "spec:sync": "tsx scripts/spec/make-manifests.ts --index docs/spec/hash-index.json --outdir docs/spec/examples/canvectors --kid dev-1 --check-index=1 --update-index=1",
     "lint:fresh": "eslint . --ext .ts,.tsx --max-warnings=0 --no-cache",
@@ -50,20 +52,23 @@
   },
   "lint-staged": {
     "docs/spec/examples/canvectors/*.manifest.json": [
-      "prettier --write",
-      "git add"
+      "prettier --write"
     ],
     "*.{json,ts,tsx,js,md,yml,yaml}": [
-      "prettier --write",
-      "git add"
+      "prettier --write"
+    ],
+    "ignore": [
+      "docs/spec/examples/canvectors/*.manifest.json",
+      "packages/core/tmp-schemas/**"
     ]
   },
   "devDependencies": {
     "@noble/ed25519": "^3.0.0",
     "@noble/hashes": "^2.0.0",
-    "@types/node": "^24.3.0",
+    "@types/node": "^20.19.17",
     "@typescript-eslint/eslint-plugin": "^8.42.0",
     "@typescript-eslint/parser": "^8.42.0",
+    "@vitest/coverage-v8": "^3.2.4",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
     "dotenv": "^17.2.2",
@@ -77,15 +82,16 @@
     "husky": "^9.1.7",
     "lint-staged": "^16.1.6",
     "prettier": "^3.6.2",
-    "rimraf": "^6.0.1",
+    "rimraf": "^5.0.5",
     "snarkjs": "^0.7.5",
-    "tsx": "^4.20.5",
-    "typescript": "^5.9.2",
+    "tsx": "^4.15.7",
+    "typescript": "^5.6.3",
     "typescript-eslint": "^8.42.0",
     "vitest": "^3.2.4"
   },
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "packages/*/*"
   ],
   "engines": {
     "node": ">=18"

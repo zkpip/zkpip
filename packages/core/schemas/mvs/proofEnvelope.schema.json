@@ -1,0 +1,21 @@
+{
+  "$id": "urn:zkpip:mvs.proofEnvelope.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ZKPIP ProofEnvelope v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "proofSystem", "framework", "vkey", "proof", "publics"],
+  "properties": {
+    "version": { "const": 1 },
+    "proofSystem": { "type": "string", "enum": ["groth16", "plonk"] },
+    "framework": { "type": "string", "minLength": 1 },
+    "vkey": { "type": ["object", "array", "string", "number", "boolean", "null"] },
+    "proof": { "type": ["object", "array", "string", "number", "boolean", "null"] },
+    "publics": {
+      "type": "array",
+      "items": { "anyOf": [{ "type": "string" }, { "type": "number" }, { "type": "integer" }] },
+      "minItems": 1
+    },
+    "meta": { "type": "object", "additionalProperties": true }
+  }
+}

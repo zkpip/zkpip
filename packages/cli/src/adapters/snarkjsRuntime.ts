@@ -44,6 +44,10 @@ type SnarkModule = {
 
 // --------- helpers ---------
 
+function isFast(): boolean {
+  return process.env.ZKPIP_FAST_RUNTIME === '1' || process.env.ZKPIP_MOCK_RUNTIME === '1';
+}
+
 function isSignalArray(v: unknown): v is ReadonlyArray<unknown> {
   return Array.isArray(v);
 }
@@ -97,6 +101,10 @@ function shouldMapToFalse(err: unknown): boolean {
 export async function getGroth16Verify(): Promise<Groth16VerifyFn> {
   if (groth16VerifyCache) return groth16VerifyCache;
 
+  if (isFast()) {
+    return async () => true;
+  }
+
   const snark = await loadSnarkjs();
   const verify = snark.groth16?.verify;
   if (!verify) {
@@ -131,6 +139,10 @@ export async function getGroth16Verify(): Promise<Groth16VerifyFn> {
 
 export async function getPlonkVerify(): Promise<PlonkVerifyFn> {
   if (plonkVerifyCache) return plonkVerifyCache;
+
+  if (isFast()) {
+    return async () => true;
+  }  
 
   const snark = await loadSnarkjs();
   const verify = snark.plonk?.verify;

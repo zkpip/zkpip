@@ -1,36 +1,25 @@
 // Map verify outcome → process exit code used by tests/CI.
 
-type VerifyOk = { ok: true };
-type VerifyErr = {
-  ok: false;
-  error:
-    | 'verification_failed'
-    | 'adapter_not_found'
-    | 'schema_invalid'
-    | 'io_error'
-    | 'adapter_error';
-  message?: string;
-  stage?: 'io' | 'schema' | 'verify' | string;
-};
-
-export type VerifyOutcomeU = VerifyOk | VerifyErr;
+import type { VerifyOutcomeU } from '../types/cli.js';
 
 export function mapVerifyOutcomeToExitCode(out: VerifyOutcomeU): number {
   if (out.ok) return 0;
-  // Stage hints first (I/O: ENOENT, JSON.parse, etc.)
-  if (out.stage === 'io' || /ENOENT|EACCES|JSON\.parse/i.test(out.message ?? '')) return 2;
-  if (out.stage === 'schema') return 3;
 
-  switch (out.error) {
-    case 'verification_failed':
-      return 1;
-    case 'io_error':
-      return 2;
-    case 'schema_invalid':
-      return 3;
-    case 'adapter_not_found':
-      return 4;
-    default:
-      return 1; // adapter_error → treat as verify fail
-  }
+  const err = (out as { error?: unknown }).error;
+  const stage = (out as { stage?: unknown }).stage;
+
+  // Adapter kiválasztás / nem található
+  if (err === 'adapter_not_found' || stage === 'adapter') return 4;
+
+  // I/O hibák
+  if (stage === 'io') return 2;
+
+  // Séma hibák: akkor is 3, ha a stage hiányzik, de az error= 'schema_invalid'
+  if (stage === 'schema' || err === 'schema_invalid') return 3;
+
+  // Kripto verifikációs bukás
+  if (err === 'verification_failed' || stage === 'verify') return 1;
+
+  // Fallback: bármely nem-ok → 1
+  return 1;
 }

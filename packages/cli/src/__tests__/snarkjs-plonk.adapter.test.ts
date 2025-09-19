@@ -70,9 +70,8 @@ vi.mock('../utils/dumpNormalized.js', () => {
 });
 
 // Mock snarkjs runtime: tests control the outcome via verifySpy
-type VerifyPlonkArgs = [object, ReadonlyArray<string>, object | string];
-type VerifyPlonkRet = Promise<boolean>;
-const verifySpy = vi.fn<VerifyPlonkArgs, VerifyPlonkRet>();
+const verifySpy =
+  vi.fn<(vk: unknown, publics: readonly string[], proof: unknown) => Promise<boolean>>();
 
 vi.mock('../adapters/snarkjsRuntime.js', () => {
   return {

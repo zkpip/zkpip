@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "proofSystem": "halo2",
+  "framework": "snarkjs",
+  "vkey": {},
+  "proof": {},
+  "publics": ["1"]
+}

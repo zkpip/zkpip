@@ -25,6 +25,8 @@ export interface RunOptions {
   readonly binOverride?: string;
 }
 
+export { runCliFast } from './runCliFast.js';
+
 /** packages/cli absolute path based on this helper location */
 function pkgRoot(): string {
   // typical location: .../packages/cli/src/__tests__/helpers/cliRunner.ts
@@ -68,7 +70,10 @@ function ensureFlags(
 }
 
 /** Single entry-point: run the CLI with robust defaults. */
-export async function runCli(args: readonly string[], options?: RunOptions): Promise<RunResult> {
+export async function runCli(
+  args: readonly string[],
+  options?: RunOptions,
+): Promise<RunResult> {
   const bin = options?.binOverride?.trim() || resolveBinPath();
 
   const finalArgs = ensureFlags(args, {
@@ -76,8 +81,14 @@ export async function runCli(args: readonly string[], options?: RunOptions): Pro
     exitCodes: options?.ensureExitCodes !== false,
   });
 
+  // DEFAULT: fast runtime OFF for tests so invalid vectors really fail
+  const fastRuntime = options?.env?.ZKPIP_FAST_RUNTIME ?? '0';
+
   const env: Record<string, string> = {
     ...(process.env as Record<string, string>),
+    NODE_NO_WARNINGS: '1',
+    FORCE_COLOR: '0',
+    ZKPIP_FAST_RUNTIME: String(fastRuntime),
     ...(options?.env ?? {}),
   };
 
@@ -85,6 +96,9 @@ export async function runCli(args: readonly string[], options?: RunOptions): Pro
     reject: false,
     cwd: options?.cwd ?? pkgRoot(),
     env,
+    stdio: 'pipe',
+    preferLocal: true,
+    nodeOptions: ['--no-warnings'],
   });
 
   return { stdout, stderr, exitCode };

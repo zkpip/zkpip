@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "proofSystem": "groth16",
+  "framework": "snarkjs",
+  "vkey": ["0x01", "0x02"],
+  "proof": "opaque-proof-json",
+  "publics": [0, 1, 2]
+}
