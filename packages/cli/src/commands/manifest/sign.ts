@@ -1,9 +1,10 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import type { CommandModule, Argv } from 'yargs';
+import type { CommandModule, Argv, ArgumentsCamelCase } from 'yargs';
 import { signManifest } from '@zkpip/core';
 import type { ZkpipManifest } from '@zkpip/core';
 import { readUtf8Checked, resolvePath, ensureParentDir } from '../../utils/fs.js';
+import { readPrivatePemForKeyId } from '../../utils/keystore.js';
 
 interface Args {
   in: string;
@@ -22,25 +23,34 @@ export const manifestSignCmd: CommandModule<unknown, Args> = {
       y
         .option('in',   { type: 'string', demandOption: true, desc: 'Input manifest JSON path' })
         .option('out',  { type: 'string', demandOption: true, desc: 'Output manifest JSON path' })
-        .option('priv', { type: 'string', demandOption: true, desc: 'Private key PEM (PKCS#8) path' })
-        .option('keyId', { type: 'string', demandOption: true, desc: 'Signature keyId to embed' })
+        .option('priv', { type: 'string', demandOption: false, desc: 'Private key PEM (PKCS#8) path; if omitted, keystore is used' })
+        .option('keyId', { type: 'string', demandOption: true, desc: 'Signature keyId to embed (also keystore lookup key)' })
         .alias('keyId', 'key-id')
+        .option('store', { type: 'string', demandOption: false, desc: 'Keystore root (defaults to ~/.zkpip/keys)' })
         .option('json', { type: 'boolean', default: false, desc: 'JSON structured CLI output' })
         .option('createOutDir', { type: 'boolean', default: false, desc: 'Create parent dir for --out if missing' })
         .alias('createOutDir', 'mkdirs')
+        .check((argv) => {
+          // enforce: priv OR keystore via keyId must be usable (keyId anyway required)
+          if (!argv.priv && !argv.keyId) throw new Error('Either --priv must be provided, or a valid --key-id for keystore lookup.');
+          return true;
+        })
         .strictOptions()
     ) as unknown as Argv<Args>,
-  handler: (argv) => {
+  handler: (argv: ArgumentsCamelCase<Args>) => {
     const inPath = resolvePath(argv.in);
     const outPath = resolvePath(argv.out);
-    const privPath = resolvePath(argv.priv);
+
+    const store: string | undefined = typeof argv.store === 'string' ? argv.store : undefined;
+    const privPath: string | undefined = typeof argv.priv === 'string' ? resolvePath(argv.priv) : undefined;
 
     try {
-      const privPem = readUtf8Checked(privPath);
       const manifest = JSON.parse(readUtf8Checked(inPath)) as ZkpipManifest;
-
-      // Only create when explicitly asked
       ensureParentDir(outPath, argv.createOutDir === true);
+
+      const privPem = privPath
+        ? readUtf8Checked(privPath)
+        : readPrivatePemForKeyId(argv.keyId, store);
 
       const { hash, signature } = signManifest({
         manifest,
