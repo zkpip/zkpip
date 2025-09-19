@@ -47,7 +47,9 @@
     "selftest:plonk": "node ./scripts/plonk-adapter-selftest.mjs /tmp/ci-inline.plonk.valid.json /tmp/ci-inline.plonk.invalid.json",
     "e2e": "tsx ./scripts/e2e.ts",
     "e2e:snarkjs": "E2E_ADAPTER=snarkjs-groth16 tsx ./scripts/e2e.ts",
-    "e2e:discover": "tsx ./scripts/e2e-discover.ts"
+    "e2e:discover": "tsx ./scripts/e2e-discover.ts",
+    "can:gen": "node ./scripts/gen-can-vectors.mjs --in samples/demo.manifest.json --key keys/ci.key --pub keys/ci.pub",
+    "can:verify": "node ./scripts/verify-can-vectors.mjs --pub keys/ci.pub"    
   },
   "dependencies": {
     "@zkpip/core": "0.1.0",

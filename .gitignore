@@ -1,3 +1,7 @@
+# Can-vectors are generated at CI/runtime
+can/manifest/**/*.json
+packages/cli/can/
+
 # Dev signing keys (ignore everywhere)
 **/keys/*.key
 **/keys/*.pem
