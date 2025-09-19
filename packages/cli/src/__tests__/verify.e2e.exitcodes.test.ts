@@ -12,14 +12,14 @@ type Err = {
 };
 
 describe('verify --use-exit-codes E2E', () => {
-  it('0 → valid bundle (verify success)', async () => {
+  it('0 → valid envelope (verify success)', async () => {
     const r = await runCliFast(['verify', '--adapter', 'snarkjs-plonk', '--verification', plonkValid]);
     expect(r.exitCode).toBe(0);
     const out = parseJson<Ok>(r.stdout, r.stderr);
     expect(out.ok).toBe(true);
   });
 
-  it('1 → verification failed (invalid bundle content)', async () => {
+  it('1 → verification failed (invalid envelope content)', async () => {
     const r = await runCli(['verify', '--adapter', 'snarkjs-plonk', '--verification', plonkInvalid]);
     expect(r.exitCode).toBe(1);
     const err = parseJson<Err>(r.stdout, r.stderr);
