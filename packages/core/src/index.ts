@@ -4,29 +4,13 @@ export * from './validation/index.js';
 export * from './constants/index.js';
 export * from './utils/index.js';
 
-/*
-// Public API barrel for @zkpip/core (NodeNext ESM)
-// English comments, no `any`.
+// --- existing manifest exports ---
+export * from './manifest/types.js';
+export { canonicalizeManifest } from './manifest/canonicalize.js';
+export { computeManifestHash } from './manifest/hashing.js';
+export { signManifest, verifyManifest } from './manifest/signing.js';
 
-// Validation API via a single stable path
-export {
-  createAjv,
-  addCoreSchemas,
-  validateError,
-  validateIssue,
-  validateEcosystem,
-} from './validation/index.js';
-
-// Constants / utilities
-export { CANONICAL_IDS } from './constants/index.js';
+// --- add AJV/schema utilities ---
+export { createAjv } from './validation/ajv.js';
+export { addCoreSchemas } from './validation/addCoreSchemas.js';
 export { loadSchemaJson } from './schemaUtils.js';
-
-// Types (re-export as alias to keep external API stable)
-export type { AjvLike as AjvInstance } from './validation/ajv-types.js';
-
-// Keep vectors wildcard if it contains value exports
-export * from './validate/vectors.js';
-
-// Small value to ensure the barrel always emits
-export const CORE_VERSION = '0.1.0';
-*/
