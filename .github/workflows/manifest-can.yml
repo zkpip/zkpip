@@ -1,0 +1,35 @@
+name: manifest-can
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  can:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: |
+          npm -w @zkpip/core run build
+          npm -w @zkpip/cli run build
+
+      - name: Generate ephemeral Ed25519 keys
+        run: |
+          mkdir -p keys
+          openssl genpkey -algorithm Ed25519 -out keys/ci.key
+          openssl pkey -in keys/ci.key -pubout -out keys/ci.pub
+
+      - name: Generate conformance vectors
+        run: npm -w @zkpip/cli run can:gen
+
+      - name: Verify conformance vectors
+        run: npm -w @zkpip/cli run can:verify
