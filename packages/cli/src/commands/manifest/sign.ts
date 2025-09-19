@@ -13,7 +13,8 @@ interface Args {
   priv?: string;            
   json?: boolean;
   createOutDir?: boolean;   
-  append?: boolean;         
+  append?: boolean;      
+  store?: string;     
 }
 
 export const manifestSignCmd: CommandModule<unknown, Args> = {
@@ -38,7 +39,8 @@ export const manifestSignCmd: CommandModule<unknown, Args> = {
 
         // NEW: append to signatures[]
         .option('append', { type: 'boolean', default: false,   desc: 'Append signature to signatures[] (convert from single if needed)' })
-
+        .option('store', { type: 'string', demandOption: false, desc: 'Keystore root (defaults to ~/.zkpip/keys)' })
+        
         .strictOptions()
     ) as Argv<Args>,
   handler: (argv: ArgumentsCamelCase<Args>) => {
@@ -47,7 +49,7 @@ export const manifestSignCmd: CommandModule<unknown, Args> = {
     const outPath = resolvePath(argv.out);
 
     // Optional keystore root and explicit private key path
-    const store: string | undefined = (argv as { store?: string }).store;
+    const store: string | undefined = argv.store;
     const privPath: string | undefined = typeof argv.priv === 'string' ? resolvePath(argv.priv) : undefined;
 
     try {
