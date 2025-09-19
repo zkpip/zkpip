@@ -12,6 +12,12 @@ export interface KeyRecord {
   createdAt?: Date;
 }
 
+export interface KeyMetadata {
+  keyId: string;
+  alg: 'ed25519';
+  createdAt: string; // ISO
+}
+
 export function defaultStoreRoot(): string {
   // ~/.zkpip/keys
   return resolve(os.homedir(), '.zkpip', 'keys');
@@ -57,6 +63,7 @@ export function saveKeypairForKeyId(keyId: string, storeRoot?: string, overwrite
   const { privatePem, publicPem } = generateEd25519Keypair();
   writeFileSync(rec.privatePemPath, privatePem, { encoding: 'utf8', mode: 0o600 });
   writeFileSync(rec.publicPemPath, publicPem, { encoding: 'utf8', mode: 0o644 });
+  try { writeMetadata(rec, keyId); } catch { /* ignore */ }
   return rec;
 }
 
@@ -87,11 +94,35 @@ export function listKeys(storeRoot?: string): KeyRecord[] {
       const pub = join(dir, 'public.pem');
       if (existsSync(priv) && existsSync(pub)) {
         const st = statSync(priv);
-        out.push({ keyId: '(unknown: see README)', dir, privatePemPath: priv, publicPemPath: pub, createdAt: st.mtime });
+        const rec = { keyId: '(unknown)', dir, privatePemPath: priv, publicPemPath: pub, createdAt: st.mtime } as KeyRecord;
+        const meta = readMetadata(rec);
+        if (meta?.keyId) rec.keyId = meta.keyId;
+        out.push(rec);
       }
-    } catch {
-      // ignore broken entries
-    }
+    } catch { /* ignore */ }
   }
   return out;
+}
+
+export function metadataPath(dir: string): string {
+  return join(dir, 'metadata.json');
+}
+
+export function writeMetadata(rec: KeyRecord, keyId: string): void {
+  const meta: KeyMetadata = {
+    keyId,
+    alg: 'ed25519',
+    createdAt: new Date().toISOString(),
+  };
+  writeFileSync(metadataPath(rec.dir), JSON.stringify(meta, null, 2) + '\n', 'utf8');
+}
+
+export function readMetadata(rec: KeyRecord): KeyMetadata | undefined {
+  const p = metadataPath(rec.dir);
+  if (!existsSync(p)) return undefined;
+  try {
+    const m = JSON.parse(readFileSync(p, 'utf8')) as KeyMetadata;
+    if (m && m.keyId && m.alg) return m;
+  } catch { /* ignore */ }
+  return undefined;
 }

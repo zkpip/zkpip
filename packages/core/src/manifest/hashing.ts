@@ -1,13 +1,19 @@
 import { createHash } from 'node:crypto';
-import { canonicalizeManifestForHash } from './canonicalize.js';
-import type { ZkpipManifest, ManifestHash } from './types.js';
+import { canonicalizeManifestToBytes } from './canonicalize.js';
 
-function toBase64Url(buf: Buffer): string {
-  return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+export interface ManifestHash {
+  alg: 'sha256';
+  value: string; // base64url without padding
 }
 
-export function computeManifestHash(manifest: ZkpipManifest): ManifestHash {
-  const canonical = canonicalizeManifestForHash(manifest); // <-- exclude 'signature' + 'hash'
-  const digest = createHash('sha256').update(canonical, 'utf8').digest();
-  return { alg: 'sha256', value: toBase64Url(digest) };
+function toBase64Url(buf: Uint8Array): string {
+  return Buffer.from(buf)
+    .toString('base64')
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+export function computeManifestHash(manifest: unknown): ManifestHash {
+  const bytes = canonicalizeManifestToBytes(manifest); // excludes hash/signature(s)
+  const sha = createHash('sha256').update(bytes).digest(); // Buffer
+  return { alg: 'sha256', value: toBase64Url(sha) };
 }

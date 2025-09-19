@@ -41,22 +41,43 @@ export interface VerifyParams {
   publicKeyPem: string;
 }
 
-export function verifyManifest({ manifest, publicKeyPem }: VerifyParams): { ok: boolean; reason?: string } {
-  if (!manifest.signature) return { ok: false, reason: 'missing_signature' };
-  if (!manifest.hash) return { ok: false, reason: 'missing_hash' };
-  const { signature, hash } = manifest;
-  if (signature.alg !== 'Ed25519') return { ok: false, reason: `unsupported_alg:${signature.alg}` };
+function* collectSignatures(m: ZkpipManifest): Generator<ManifestSignature> {
+  if (m.signature) yield m.signature;
+  if (Array.isArray(m.signatures)) {
+    for (const s of m.signatures) if (s) yield s;
+  }
+}
 
-  // Recompute hash and compare
+function b64UrlToStd(s: string): string {
+  // allow URL-safe base64 too
+  return s.replace(/-/g, '+').replace(/_/g, '/');
+}
+
+export interface VerifyParams {
+  manifest: ZkpipManifest;
+  publicKeyPem: string;
+}
+
+export function verifyManifest({ manifest, publicKeyPem }: VerifyParams): { ok: boolean; reason?: string } {
+  if (!manifest.hash) return { ok: false, reason: 'missing_hash' };
+
   const recomputed = computeManifestHash(manifest);
-  if (recomputed.value !== hash.value) {
+  if (recomputed.value !== manifest.hash.value) {
     return { ok: false, reason: 'hash_mismatch' };
   }
 
-  const pub = fromPemPublic(publicKeyPem);
-  const sigBuf = Buffer.from(signature.sig.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
-  const msgBuf = Buffer.from(hash.value.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
+  let tried = 0;
+  for (const signature of collectSignatures(manifest)) {
+    tried++;
+    if (signature.alg !== 'Ed25519') continue;
 
-  const ok = nodeVerify(null, msgBuf, pub, sigBuf);
-  return ok ? { ok } : { ok: false, reason: 'signature_invalid' };
+    const pub = fromPemPublic(publicKeyPem);
+    const sigBuf = Buffer.from(b64UrlToStd(signature.sig), 'base64');
+    const msgBuf = Buffer.from(b64UrlToStd(manifest.hash.value), 'base64');
+
+    const ok = nodeVerify(null, msgBuf, pub, sigBuf);
+    if (ok) return { ok: true };
+  }
+  if (tried === 0) return { ok: false, reason: 'missing_signature' };
+  return { ok: false, reason: 'signature_invalid' };
 }
