@@ -15,17 +15,17 @@ interface Args {
 }
 
 export const manifestVerifyCmd: CommandModule<unknown, Args> = {
-  command: 'manifest verify',
+  command: 'verify',
   describe: 'Verify a signed manifest (M1/A)',
   builder: (y: Argv<unknown>): Argv<Args> =>
     (
-        y
-        .option('in',   { type: 'string', demandOption: true, desc: 'Input manifest JSON path' })
-        .option('out',  { type: 'string', demandOption: true, desc: 'Output manifest JSON path' })
-        .option('priv', { type: 'string', demandOption: true, desc: 'Private key PEM (PKCS#8) path' })
-        .option('keyId', { type: 'string', demandOption: true, desc: 'Signature keyId to embed' })
-        .alias('keyId', 'key-id')
+      y
+        .option('in',  { type: 'string', demandOption: true, desc: 'Signed manifest JSON path' })
+        .option('pub', { type: 'string', demandOption: true, desc: 'Public key PEM (SPKI) path' })
         .option('json', { type: 'boolean', default: false, desc: 'JSON structured CLI output' })
+        .option('useExitCodes', { type: 'boolean', default: false, desc: 'Return 0/1 based on result' })
+        .alias('useExitCodes', 'use-exit-codes')
+        .strictOptions()
     ) as unknown as Argv<Args>,
   handler: (argv) => {
     const inPath = resolve(argv.in);

@@ -12,17 +12,20 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
-function sortObject(obj: Record<string, unknown>): Record<string, unknown> {
+export interface CanonicalizeOptions {
+  dropFields?: ReadonlyArray<string>;
+}
+
+function sortObject(obj: Record<string, unknown>, drop: Set<string>): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   const keys = Object.keys(obj).sort();
   for (const k of keys) {
-    // Drop "signature" on canonicalization input
-    if (k === 'signature') continue;
+    if (drop.has(k)) continue;                // <-- drop fields like 'signature', 'hash'
     const val = obj[k];
     if (Array.isArray(val)) {
-      result[k] = val.map((x) => (isPlainObject(x) ? sortObject(x as Record<string, unknown>) : x));
+      result[k] = val.map((x) => (isPlainObject(x) ? sortObject(x as Record<string, unknown>, drop) : x));
     } else if (isPlainObject(val)) {
-      result[k] = sortObject(val as Record<string, unknown>);
+      result[k] = sortObject(val as Record<string, unknown>, drop);
     } else {
       result[k] = val;
     }
@@ -30,9 +33,13 @@ function sortObject(obj: Record<string, unknown>): Record<string, unknown> {
   return result;
 }
 
-export function canonicalizeManifest(manifest: ZkpipManifest): string {
-  const sorted = sortObject(manifest as Record<string, unknown>);
+export function canonicalizeManifest(manifest: ZkpipManifest, opts?: CanonicalizeOptions): string {
+  const drop = new Set<string>(opts?.dropFields ?? []);
+  const sorted = sortObject(manifest as Record<string, unknown>, drop);
   const json = JSON.stringify(sorted);
-  // Ensure single LF at end for cross-platform stability
   return json.endsWith('\n') ? json : `${json}\n`;
+}
+
+export function canonicalizeManifestForHash(manifest: ZkpipManifest): string {
+  return canonicalizeManifest(manifest, { dropFields: ['signature', 'hash'] });
 }
