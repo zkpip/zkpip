@@ -1,3 +1,6 @@
+# smoke outputs
+out/**
+
 # Can-vectors are generated at CI/runtime
 can/manifest/**/*.json
 packages/cli/can/
