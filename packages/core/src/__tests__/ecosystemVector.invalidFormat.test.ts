@@ -1,11 +1,20 @@
 // packages/core/src/__tests__/ecosystemVector.invalidFormat.test.ts
-import { describe, it, expect } from 'vitest';
-import { createAjv, addCoreSchemas, CANONICAL_IDS } from '../index.js';
-import { validateAgainstResult } from '../testing/ajv-helpers.js';
-import { vectors, readJson } from '../test-helpers/vectorPaths.js';
+// Negative validation tests for ecosystem vector: invalid date-time fields.
 
-function isObject(x: unknown): x is Record<string, unknown> {
-  return typeof x === 'object' && x !== null;
+import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { createAjv } from '../validation/createAjv.js';
+import { addCoreSchemas } from '../validation/addCoreSchemas.js';
+import { validateAgainstResult } from '../testing/ajv-helpers.js';
+import { MVS_ROOT } from '../test-helpers/vectorPaths.js';
+import { stringifyFail } from '../test-helpers/asserts.js';
+
+// Use a literal canonical ID to avoid runtime constant/circular issues.
+const SCHEMA_ECOSYSTEM = 'urn:zkpip:mvs.ecosystem.schema.json';
+
+function loadJson(p: string): Record<string, unknown> {
+  return JSON.parse(readFileSync(p, 'utf8'));
 }
 
 describe('Negative: ecosystem createdAt/updatedAt invalid format', () => {
@@ -13,25 +22,33 @@ describe('Negative: ecosystem createdAt/updatedAt invalid format', () => {
     const ajv = createAjv();
     addCoreSchemas(ajv);
 
-    const vecPath = vectors.ecosystemAztec();
-    const parsed: unknown = readJson(vecPath);
+    const vecPath = join(MVS_ROOT, 'ecosystem/aztec.json');
+    const data = loadJson(vecPath);
+    (data as Record<string, unknown>)['createdAt'] = 'INVALID_DATE';
 
-    if (!isObject(parsed)) {
-      throw new Error('Parsed JSON is not an object');
-    }
-
-    const data: Record<string, unknown> = { ...parsed };
-
-    // set invalid value
-    data.createdAt = 'INVALID_DATE';
-
-    const res = validateAgainstResult(ajv, CANONICAL_IDS.ecosystem, data);
-
-    // assert failure without console.*
+    const res = validateAgainstResult(ajv, SCHEMA_ECOSYSTEM, data);
     expect(res.ok).toBe(false);
     if (!res.ok) {
-      expect(res.text).toMatch(/createdAt/);
-      expect(res.text).toMatch(/date-time/);
+      const msg = stringifyFail(res as Record<string, unknown> & { ok: boolean });
+      expect(msg).toMatch(/createdAt/i);
+      expect(msg).toMatch(/date-time/i);
+    }
+  });
+
+  it('should fail when updatedAt is not a valid date-time', () => {
+    const ajv = createAjv();
+    addCoreSchemas(ajv);
+
+    const vecPath = join(MVS_ROOT, 'ecosystem/aztec.json');
+    const data = loadJson(vecPath);
+    (data as Record<string, unknown>)['updatedAt'] = 'NOT_A_TIMESTAMP';
+
+    const res = validateAgainstResult(ajv, SCHEMA_ECOSYSTEM, data);
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      const msg = stringifyFail(res as Record<string, unknown> & { ok: boolean });
+      expect(msg).toMatch(/updatedAt/i);
+      expect(msg).toMatch(/date-time/i);
     }
   });
 });

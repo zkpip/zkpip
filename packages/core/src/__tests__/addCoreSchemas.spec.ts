@@ -3,13 +3,13 @@ import { describe, it, expect } from 'vitest';
 import { addCoreSchemas } from '../validation/addCoreSchemas.js';
 import { CANONICAL_IDS } from '../constants/canonicalIds.js';
 import type { AjvRegistryLike } from '../validation/ajv-types.js';
-import type { ValidateFunction } from 'ajv/dist/2020';
+import type { ValidateFunction } from 'ajv';
 
 function createRegistry(): { reg: AjvRegistryLike; keys: Set<string> } {
   const keys = new Set<string>();
 
   // Minimal dummy validator satisfying Ajv's ValidateFunction signature
-  const dummyValidate = (((_data: unknown) => true) as unknown) as ValidateFunction<unknown>;
+  const dummyValidate = ((() => true) as unknown) as ValidateFunction<unknown>;
 
   const reg: AjvRegistryLike = {
     addSchema: (_schema: object, key?: string) => {

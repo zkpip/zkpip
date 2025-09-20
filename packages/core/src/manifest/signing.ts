@@ -36,11 +36,6 @@ export function signManifest({ manifest, privateKeyPem, keyId, alg = 'Ed25519' }
   return { hash, signature };
 }
 
-export interface VerifyParams {
-  manifest: ZkpipManifest;
-  publicKeyPem: string;
-}
-
 function* collectSignatures(m: ZkpipManifest): Generator<ManifestSignature> {
   if (m.signature) yield m.signature;
   if (Array.isArray(m.signatures)) {

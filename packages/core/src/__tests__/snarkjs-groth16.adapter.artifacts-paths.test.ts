@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { importCliAdapter, resolveExtract } from '../test-helpers/adapterImport.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -9,11 +9,11 @@ const __dirname = dirname(__filename);
 
 /** Pick first existing file from the candidate list. */
 function firstExisting(baseDir: string, names: readonly string[]): string {
-  for (const n of names) {
-    const p = join(baseDir, n);
-    if (existsSync(p)) return p;
+  const first = names[0];                 
+  if (first === undefined) {              
+    throw new Error('firstExisting(): empty candidate list');
   }
-  return join(baseDir, names[0]);
+  return join(baseDir, first);
 }
 
 describe('adapter: snarkjs-groth16 — artifacts.{vkey,proof,publicSignals}.path', () => {

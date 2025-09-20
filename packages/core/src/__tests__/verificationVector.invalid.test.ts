@@ -1,11 +1,17 @@
 // packages/core/src/__tests__/ecosystemVector.invalid.test.ts
-import { describe, it, expect } from 'vitest';
-import { createAjv, addCoreSchemas, CANONICAL_IDS } from '../index.js';
 import { validateAgainstResult } from '../testing/ajv-helpers.js';
-import { vectors, readJson } from '../test-helpers/vectorPaths.js';
+import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { createAjv } from '../validation/createAjv.js';
+import { addCoreSchemas } from '../validation/addCoreSchemas.js';
+import { MVS_ROOT } from '../test-helpers/vectorPaths.js';
 
-function isObject(x: unknown): x is Record<string, unknown> {
-  return typeof x === 'object' && x !== null;
+// Use a literal canonical ID to avoid runtime constant issues.
+const SCHEMA_ECOSYSTEM = 'urn:zkpip:mvs.ecosystem.schema.json';
+
+function load(p: string): Record<string, unknown> {
+  return JSON.parse(readFileSync(p, 'utf8'));
 }
 
 describe('Negative: ecosystem/aztec.json (missing required field)', () => {
@@ -13,18 +19,22 @@ describe('Negative: ecosystem/aztec.json (missing required field)', () => {
     const ajv = createAjv();
     addCoreSchemas(ajv);
 
-    const vecPath = vectors.ecosystemAztec();
-    const parsed: unknown = readJson(vecPath);
-
-    if (!isObject(parsed)) throw new Error('Expected JSON object');
-
-    const data: Record<string, unknown> = { ...parsed };
+    const vecPath = join(MVS_ROOT, 'ecosystem/aztec.json');
+    const data = load(vecPath);
     delete (data as { schemaVersion?: unknown }).schemaVersion;
 
-    const res = validateAgainstResult(ajv, CANONICAL_IDS.ecosystem, data);
+    const res = validateAgainstResult(ajv, SCHEMA_ECOSYSTEM, data);
     expect(res.ok).toBe(false);
+
+    // Build a helpful message regardless of the error payload shape
     if (!res.ok) {
-      expect(res.text).toMatch(/schemaVersion/);
+      // Some implementations return { ok:false, errors: AjvError[] }, others { ok:false, text:string }
+      const msg =
+        ('errors' in res && Array.isArray((res as unknown as { errors: unknown[] }).errors))
+          ? JSON.stringify((res as { errors: unknown[] }).errors)
+          : String((res as { text?: string }).text ?? '');
+
+      expect(msg).toMatch(/required property 'schemaVersion'|must have required property 'schemaVersion'/i);
     }
   });
 });

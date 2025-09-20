@@ -1,5 +1,5 @@
 import type { CommandModule, Argv, ArgumentsCamelCase } from 'yargs';
-import { defaultStoreRoot, saveKeypairForKeyId, pathsForKeyId } from '../../utils/keystore.js';
+import { defaultStoreRoot, saveKeypairForKeyId } from '../../utils/keystore.js';
 
 interface Args {
   alg: 'ed25519';

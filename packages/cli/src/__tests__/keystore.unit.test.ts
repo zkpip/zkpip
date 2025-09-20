@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -23,7 +23,7 @@ describe('keystore utils (unit)', () => {
       expect(rec.publicPemPath.endsWith('/public.pem')).toBe(true);
       expect(priv).toContain('BEGIN PRIVATE KEY');
       expect(pub).toContain('BEGIN PUBLIC KEY');
-      expect(require('node:fs').existsSync(require('node:path').join(rec.dir,'metadata.json'))).toBe(true);
+      expect(existsSync(join(rec.dir, 'metadata.json'))).toBe(true);
     } finally {
       rmSync(store, { recursive: true, force: true });
     }

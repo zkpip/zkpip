@@ -3,8 +3,7 @@
 
 import { readFileSync } from 'node:fs';
 import { exit } from 'node:process';
-import { createAjv } from '@zkpip/core';
-import { addCoreSchemas } from '@zkpip/core';
+import { createAjv, addCoreSchemas } from '@zkpip/core';
 
 const SCHEMA_ID = 'urn:zkpip:mvs:schemas:proofEnvelope.schema.json';
 

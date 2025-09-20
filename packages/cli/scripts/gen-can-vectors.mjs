@@ -45,7 +45,6 @@ const norm = (p) => (isAbsolute(p) ? p : resolve(REPO_ROOT, p));
 // Args (prefer repo-root-relative like "samples/...", "keys/...")
 const inPath  = norm(requireArg('--in'));   // unsigned manifest
 const keyPath = norm(requireArg('--key'));  // private key (PKCS#8)
-const pubPath = norm(requireArg('--pub'));  // public key (SPKI)
 
 // Output dirs under repo root
 const canValidDir  = resolve(REPO_ROOT, 'can/manifest/valid');

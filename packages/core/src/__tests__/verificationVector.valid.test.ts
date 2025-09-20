@@ -1,11 +1,17 @@
-// packages/core/src/__tests__/verificationVector.valid.test.ts
-import { describe, it, expect } from 'vitest';
-import { createAjv, addCoreSchemas, CANONICAL_IDS } from '../index.js';
+// Positive validation tests for known vectors.
 import { validateAgainstResult } from '../testing/ajv-helpers.js';
-import { vectors, readJson } from '../test-helpers/vectorPaths.js';
+import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { createAjv } from '../validation/createAjv.js';
+import { addCoreSchemas } from '../validation/addCoreSchemas.js';
+import { MVS_ROOT } from '../test-helpers/vectorPaths.js';
 
-function isObject(x: unknown): x is Record<string, unknown> {
-  return typeof x === 'object' && x !== null;
+// Use a literal canonical ID to avoid runtime constant issues.
+const SCHEMA_VERIFICATION = 'urn:zkpip:mvs.verification.schema.json';
+
+function load(p: string): Record<string, unknown> {
+  return JSON.parse(readFileSync(p, 'utf8'));
 }
 
 describe('Vector: verification/groth16-evm.valid.json', () => {
@@ -13,17 +19,17 @@ describe('Vector: verification/groth16-evm.valid.json', () => {
     const ajv = createAjv();
     addCoreSchemas(ajv);
 
-    // Use centralized helper (new path with legacy fallback)
-    const vecPath = vectors.groth16Valid();
-    const parsed: unknown = readJson(vecPath);
+    const vecPath = join(MVS_ROOT, 'verification/groth16-evm.valid.json');
+    const data = load(vecPath);
 
-    expect(isObject(parsed)).toBe(true);
-    const data = parsed as Record<string, unknown>;
-
-    const res = validateAgainstResult(ajv, CANONICAL_IDS.verification, data);
-
+    const res = validateAgainstResult(ajv, SCHEMA_VERIFICATION, data);
     if (!res.ok) {
-      throw new Error(res.text);
+      const msg =
+        ('errors' in res && Array.isArray((res as unknown as { errors: unknown[] }).errors))
+          ? JSON.stringify((res as { errors: unknown[] }).errors)
+          : String((res as { text?: string }).text ?? '');
+      // eslint-disable-next-line no-console
+      console.error('Validation failed:', msg);
     }
     expect(res.ok).toBe(true);
   });

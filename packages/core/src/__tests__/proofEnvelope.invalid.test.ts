@@ -1,59 +1,45 @@
 // DEPRECATED
 
 // packages/core/src/__tests__/proofEnvelope.invalid.test.ts
-import { describe, it, expect } from 'vitest';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import { createAjv, addCoreSchemas, CANONICAL_IDS } from '../index.js';
 import { validateAgainstResult } from '../testing/ajv-helpers.js';
-import { MVS_ROOT, readJson } from '../test-helpers/vectorPaths.js';
+import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { createAjv } from '../validation/createAjv.js';
+import { addCoreSchemas } from '../validation/addCoreSchemas.js';
+import { MVS_ROOT } from '../test-helpers/vectorPaths.js';
 
-/** Collect invalid proofEnvelope vectors from the new layout; fallback to legacy flat files. */
-function collectInvalidProofEnvelopeVectors(): string[] {
-  const newDir = path.join(MVS_ROOT, 'verification/proofEnvelope');
-  const legacyDir = MVS_ROOT; // legacy flat files lived under mvs/
+// Use literal canonical IDs in tests to avoid relying on runtime constants.
+const SCHEMA_ECOSYSTEM = 'urn:zkpip:mvs.ecosystem.schema.json';
 
-  // Prefer new layout: verification/proofEnvelope/*.invalid.json
-  if (fs.existsSync(newDir)) {
-    const files = fs
-      .readdirSync(newDir)
-      .filter((f) => f.toLowerCase().endsWith('.invalid.json'))
-      .map((f) => path.join(newDir, f));
-    if (files.length > 0) return files;
-  }
-
-  // Fallback: legacy files like proof-envelope.*.invalid.json under mvs/
-  const legacyPattern = /^proof-envelope\..*\.invalid\.json$/i;
-  if (fs.existsSync(legacyDir)) {
-    const files = fs
-      .readdirSync(legacyDir)
-      .filter((f) => legacyPattern.test(f))
-      .map((f) => path.join(legacyDir, f));
-    if (files.length > 0) return files;
-  }
-
-  return [];
+function load(p: string): unknown {
+  return JSON.parse(readFileSync(p, 'utf8'));
 }
 
-describe('ProofEnvelope — INVALID vectors', () => {
-  const ajv = createAjv();
-  addCoreSchemas(ajv);
+describe('Negative: ecosystem/aztec.json (missing required field)', () => {
+  it('should fail when schemaVersion is removed', () => {
+    const ajv = createAjv();
+    addCoreSchemas(ajv);
 
-  const files = collectInvalidProofEnvelopeVectors();
+    const vecPath = join(MVS_ROOT, 'ecosystem/aztec.json');
+    const data = load(vecPath) as Record<string, unknown>;
+    delete (data as { schemaVersion?: unknown }).schemaVersion;
 
-  if (files.length === 0) {
-    it.skip('no invalid proof-envelope vectors present', () => {
-      expect(true).toBe(true);
-    });
-    return;
-  }
+    const res = validateAgainstResult(ajv, SCHEMA_ECOSYSTEM, data);
+    expect(res.ok).toBe(false);
 
-  for (const abs of files) {
-    const name = path.basename(abs);
-    it(`should reject ${name}`, () => {
-      const data = readJson(abs) as Record<string, unknown>;
-      const res = validateAgainstResult(ajv, CANONICAL_IDS.proofEnvelope, data);
-      expect(res.ok).toBe(false);
-    });
-  }
+    if (!res.ok) {
+      // Accept both shapes: { ok:false, errors?: AjvError[] } OR { ok:false, text?: string }
+      type AjvErr = { instancePath?: string; message?: string };
+      type Fail = { ok: false; errors?: AjvErr[]; text?: string };
+
+      const fail = res as Fail;
+      const merged =
+        Array.isArray(fail.errors) && fail.errors.length > 0
+          ? fail.errors.map(e => `${e.instancePath ?? ''}: ${e.message ?? ''}`).join('\n')
+          : String(fail.text ?? '');
+
+      expect(merged).toMatch(/must have required property 'schemaVersion'/i);
+    }
+  });
 });

@@ -1,11 +1,20 @@
 // packages/core/src/__tests__/issueVector.valid.test.ts
-import { describe, it, expect } from 'vitest';
-import { createAjv, addCoreSchemas, CANONICAL_IDS } from '../index.js';
-import { validateAgainstResult } from '../testing/ajv-helpers.js';
-import { vectors, readJson } from '../test-helpers/vectorPaths.js';
+// Positive validation test for the issue vector.
 
-function isObject(x: unknown): x is Record<string, unknown> {
-  return typeof x === 'object' && x !== null;
+import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { createAjv } from '../validation/createAjv.js';
+import { addCoreSchemas } from '../validation/addCoreSchemas.js';
+import { validateAgainstResult } from '../testing/ajv-helpers.js';
+import { MVS_ROOT } from '../test-helpers/vectorPaths.js';
+import { stringifyFail } from '../test-helpers/asserts.js';
+
+// Use a literal canonical ID to avoid runtime constant issues.
+const SCHEMA_ISSUE = 'urn:zkpip:mvs.issue.schema.json';
+
+function loadJson(p: string): Record<string, unknown> {
+  return JSON.parse(readFileSync(p, 'utf8'));
 }
 
 describe('Vector: issue/public-input-order.json', () => {
@@ -13,16 +22,13 @@ describe('Vector: issue/public-input-order.json', () => {
     const ajv = createAjv();
     addCoreSchemas(ajv);
 
-    const vecPath = vectors.issuePublicInputOrder();
-    const parsed: unknown = readJson(vecPath);
+    const vecPath = join(MVS_ROOT, 'issue/public-input-order.json');
+    const data = loadJson(vecPath);
 
-    expect(isObject(parsed)).toBe(true);
-    const data = parsed as Record<string, unknown>;
-
-    const res = validateAgainstResult(ajv, CANONICAL_IDS.issue, data);
-
+    const res = validateAgainstResult(ajv, SCHEMA_ISSUE, data);
     if (!res.ok) {
-      throw new Error(res.text);
+      // eslint-disable-next-line no-console
+      console.error('Validation failed:', stringifyFail(res));
     }
     expect(res.ok).toBe(true);
   });
