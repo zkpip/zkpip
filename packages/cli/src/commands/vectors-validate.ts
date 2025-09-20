@@ -1,5 +1,5 @@
 // packages/cli/src/commands/vectors-validate.ts
-// Validate proof-bundle vectors against MVS JSON Schemas (yargs-free).
+// Validate proof-envelope vectors against MVS JSON Schemas (yargs-free).
 // - English comments
 // - No `any`
 // - NodeNext ESM compatible
@@ -86,7 +86,7 @@ function resolveAbs(p?: string): string | undefined {
   return path.isAbsolute(p) ? p : path.resolve(process.cwd(), p);
 }
 
-/** Recursively collect JSON files; we filter to filenames containing "proof-bundle" to match the schema below. */
+/** Recursively collect JSON files; we filter to filenames containing "proof-envelope" to match the schema below. */
 function walkJson(root: string): readonly string[] {
   const out: string[] = [];
   const stack: string[] = [root];
@@ -99,7 +99,7 @@ function walkJson(root: string): readonly string[] {
       else if (ent.isFile() && p.endsWith('.json')) out.push(p);
     }
   }
-  return out.filter((p) => path.basename(p).includes('proof-bundle')).sort();
+  return out.filter((p) => path.basename(p).includes('proof-envelope')).sort();
 }
 
 function safeParseJson(raw: string): JSONValue {
@@ -116,10 +116,10 @@ export async function runVectorsValidateCli(argv: readonly string[]): Promise<vo
     const schemasRoot = resolveAbs(flags.schemasRoot);
     if (schemasRoot) process.env.ZKPIP_SCHEMAS_ROOT = schemasRoot;
 
-    // AJV + schema registration (legacy proof-bundle)
+    // AJV + schema registration (legacy proof-envelope)
     const ajv = createAjv();
-    const proofBundleSchema = loadSchemaJson('mvs/proof-bundle.schema.json');
-    ajv.addSchema(proofBundleSchema, 'mvs/proof-bundle');
+    const proofEnvelopeSchema = loadSchemaJson('mvs/proof-envelope.schema.json');
+    ajv.addSchema(proofEnvelopeSchema, 'mvs/proof-envelope');
 
     const files = walkJson(vectorsRoot);
     if (files.length === 0) {
@@ -133,8 +133,8 @@ export async function runVectorsValidateCli(argv: readonly string[]): Promise<vo
       return;
     }
 
-    const validate = ajv.getSchema('mvs/proof-bundle');
-    if (!validate) throw new Error(`Schema 'mvs/proof-bundle' is not registered`);
+    const validate = ajv.getSchema('mvs/proof-envelope');
+    if (!validate) throw new Error(`Schema 'mvs/proof-envelope' is not registered`);
 
     const results: ValidationRow[] = [];
     for (const abs of files) {
@@ -152,12 +152,12 @@ export async function runVectorsValidateCli(argv: readonly string[]): Promise<vo
       const payload = {
         ok: allOk,
         vectorsRoot,
-        schema: 'mvs/proof-bundle',
+        schema: 'mvs/proof-envelope',
         results,
       } as const;
       process.stdout.write(JSON.stringify(payload, null, 2) + '\n');
     } else {
-      process.stdout.write(`Schema: mvs/proof-bundle\nRoot:   ${vectorsRoot}\n\n`);
+      process.stdout.write(`Schema: mvs/proof-envelope\nRoot:   ${vectorsRoot}\n\n`);
       for (const r of results) {
         process.stdout.write(`${r.valid ? '✅' : '❌'} ${r.file}\n`);
         if (!r.valid && r.errors.length > 0) {

@@ -20,7 +20,7 @@ type JSONObject = { readonly [k: string]: JSONValue };
 
 type EntryMeta = Readonly<{
   schemaVersion?: string;
-  bundleId?: string;
+  envelopeId?: string;
   proofSystem?: string;
   curve?: string;
   publicSignals?: Readonly<{
@@ -153,7 +153,7 @@ function getPath<T extends JSONValue = JSONValue>(o: unknown, pathStr: string): 
 
 function extractMeta(data: unknown): EntryMeta {
   const schemaVersion = pick<string>(data, ['schemaVersion', 'meta.schemaVersion']) ?? undefined;
-  const bundleId = pick<string>(data, ['bundleId', 'meta.bundleId']) ?? undefined;
+  const envelopeId = pick<string>(data, ['envelopeId', 'meta.envelopeId']) ?? undefined;
   const proofSystem =
     pick<string>(data, ['proofSystem', 'meta.proofSystem', 'verifier.proofSystem']) ?? undefined;
   const curve = pick<string>(data, ['curve', 'meta.curve', 'verifier.curve']) ?? undefined;
@@ -172,7 +172,7 @@ function extractMeta(data: unknown): EntryMeta {
 
   return {
     schemaVersion,
-    bundleId,
+    envelopeId,
     proofSystem,
     curve,
     publicSignals: { length: pubLen, first: pubFirst },

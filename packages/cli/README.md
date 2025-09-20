@@ -193,7 +193,7 @@ zkpip verify-batch \
   --pattern "**/*.json" \
   --bridge snarkjs-plonk \
   --trust-set trust/keys.json \
-  --bundle-name "shopify-checkout-2025-09-19" \
+  --envelope-name "shopify-checkout-2025-09-19" \
   --out reports/batch-report.ndjson \
   --concurrency 8 \
   --keep-going \
@@ -208,7 +208,7 @@ zkpip verify-batch \
 * `--bridge <id>`: proof-bridge to interpret files; per-bridge defaults for expected shapes.
 * `--trust-set <path>`: optional trust enforcement.
 * `--api-key <key>` / `--endpoint <url>`: override config (see below).
-* `--bundle-name <name>`: human label for the batch; used by SealScan.
+* `--envelope-name <name>`: human label for the batch; used by SealScan.
 * `--out <path>`: write NDJSON with per-file results + a final summary line.
 * `--concurrency <n>`: local parallelism (upload/verify windowing).
 * `--keep-going` / `--fail-fast` (default: keep-going).
@@ -248,7 +248,7 @@ zkpip verify-batch \
 **DX guarantees:**
 
 * Resumable: `--resume <batchId>` to continue failed uploads.
-* Idempotent: re-running with same `--bundle-name` deduplicates.
+* Idempotent: re-running with same `--envelope-name` deduplicates.
 * Rate limits surfaced in CLI with backoff; `429` handled automatically.
 * Privacy: file paths hashed in telemetry; content never logged client-side.
 
