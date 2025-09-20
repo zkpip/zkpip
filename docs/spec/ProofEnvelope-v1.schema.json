@@ -1,50 +1,197 @@
 {
+  "$id": "urn:zkpip:mvs:schemas:proofEnvelope.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:zkpip:schemas:proof-envelope:v1",
-  "title": "ZKPIP ProofEnvelope v1",
+  "title": "ZKPIP MVS Proof Envelope",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "proofSystem", "framework", "result"],
+  "required": [
+    "envelopeId",
+    "schemaVersion",
+    "proofSystem",
+    "curve",
+    "prover",
+    "program",
+    "artifacts"
+  ],
+  "anyOf": [
+    {
+      "required": [
+        "result"
+      ]
+    },
+    {
+      "properties": {
+        "artifacts": {
+          "required": [
+            "vkey",
+            "proof",
+            "publicSignals"
+          ]
+        }
+      }
+    }
+  ],
   "properties": {
+    "envelopeId": {
+      "type": "string",
+      "pattern": "^urn:uuid:[0-9a-fA-F-]{36}$",
+      "description": "Globally unique envelope identifier (URN UUID)."
+    },
     "schemaVersion": {
       "type": "string",
-      "const": "1.0.0",
-      "description": "Envelope schema version."
+      "pattern": "^0\\.1\\.0$"
     },
     "proofSystem": {
       "type": "string",
-      "enum": ["groth16", "plonk"],
-      "description": "Underlying proof system."
+      "enum": [
+        "groth16"
+      ]
     },
-    "framework": {
+    "curve": {
       "type": "string",
-      "enum": ["snarkjs", "zokrates"],
-      "description": "Tooling or framework used to produce/verify the proof."
+      "enum": [
+        "bn128",
+        "bn254"
+      ]
     },
-    "curve": { "type": "string" },
+    "prover": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
     "program": {
       "type": "object",
       "additionalProperties": false,
+      "required": [
+        "language"
+      ],
       "properties": {
-        "name": { "type": "string" },
-        "version": { "type": "string" }
+        "language": {
+          "type": "string",
+          "enum": [
+            "circom"
+          ]
+        },
+        "entry": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
       }
     },
-    "bundleId": { "type": "string", "description": "Deterministic content hash or human ID." },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "vkey": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "proof": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "publicSignals": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "wasm": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "zkey": {
+          "$ref": "#/$defs/ArtifactRef"
+        }
+      }
+    },
     "result": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["publics"],
+      "required": [
+        "proof",
+        "publicSignals"
+      ],
       "properties": {
-        "publics": {
-          "type": "array",
-          "items": { "type": "string" },
-          "description": "Public inputs normalized to strings."
+        "proof": {
+          "type": "object"
         },
-        "proof": { "type": ["object", "string"] },
-        "verificationKey": { "type": ["object", "string"] }
+        "publicSignals": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          }
+        }
       }
     },
-    "meta": { "type": "object", "additionalProperties": true }
+    "meta": {
+      "type": "object"
+    }
+  },
+  "$defs": {
+    "ArtifactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "uri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "mediaType": {
+          "type": "string"
+        },
+        "hash": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "alg",
+            "value"
+          ],
+          "properties": {
+            "alg": {
+              "type": "string",
+              "enum": [
+                "sha256"
+              ]
+            },
+            "value": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{64}$"
+            }
+          }
+        }
+      }
+    }
   }
 }
