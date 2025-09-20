@@ -33,11 +33,11 @@ try {
 }
 
 const base = {
-  $schema: 'urn:zkpip:mvs:schemas:proofBundle.schema.json',
-  $id: 'urn:zkpip:mvs:vectors:verification:groth16:proof-bundle.valid.json',
-  mvs: { kind: 'proofBundle', version: '1.0.0' },
+  $schema: 'urn:zkpip:mvs:schemas:proofEnvelope.schema.json',
+  $id: 'urn:zkpip:mvs:vectors:verification:groth16:proof-envelope.valid.json',
+  mvs: { kind: 'proofEnvelope', version: '1.0.0' },
   schemaVersion: '1.0.0',
-  bundleId: crypto.randomUUID(),
+  envelopeId: crypto.randomUUID(),
   proofSystem: 'groth16',
   curve: 'bn128',
   prover: { name: 'snarkjs', version: snarkjsVersion },
@@ -46,14 +46,14 @@ const base = {
 };
 
 fs.mkdirSync(out, { recursive: true });
-fs.writeFileSync(path.join(out, 'proof-bundle.valid.json'), JSON.stringify(base, null, 2));
+fs.writeFileSync(path.join(out, 'proof-envelope.valid.json'), JSON.stringify(base, null, 2));
 
 const invalid = JSON.parse(JSON.stringify(base));
 if (Array.isArray(invalid.artifacts.publicSignals) && invalid.artifacts.publicSignals.length) {
   invalid.artifacts.publicSignals[0] = String(invalid.artifacts.publicSignals[0]) + '_X';
 }
 invalid.$id = invalid.$id.replace('valid', 'invalid');
-fs.writeFileSync(path.join(out, 'proof-bundle.invalid.json'), JSON.stringify(invalid, null, 2));
+fs.writeFileSync(path.join(out, 'proof-envelope.invalid.json'), JSON.stringify(invalid, null, 2));
 
-console.log('Wrote:', path.join(out, 'proof-bundle.valid.json'));
-console.log('Wrote:', path.join(out, 'proof-bundle.invalid.json'));
+console.log('Wrote:', path.join(out, 'proof-envelope.valid.json'));
+console.log('Wrote:', path.join(out, 'proof-envelope.invalid.json'));

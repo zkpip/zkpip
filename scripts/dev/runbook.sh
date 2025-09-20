@@ -39,18 +39,18 @@ snarkjs zkey export verificationkey circuit_final.zkey verification_key.json
 # --- 4) Prove using your witness ---
 snarkjs groth16 prove circuit_final.zkey witness.wtns proof.json public.json
 
-# --- 5) Build a proof-bundle for our generator (bundle.verification_key/proof/public) ---
+# --- 5) Build a proof-envelope for our generator (bundle.verification_key/proof/public) ---
 jq -n \
   --slurpfile vk verification_key.json \
   --slurpfile pf proof.json \
   --slurpfile pb public.json \
   '{ bundle: { verification_key: $vk[0], proof: $pf[0], public: $pb[0] } }' \
-  > "$FIX_VALID/proof-bundle.valid.json"
+  > "$FIX_VALID/proof-envelope.valid.json"
 
 # --- 6) Create verification.json (our CLI input; publics will be string[]) ---
 node "$ROOT/scripts/make-verification-json.mjs" \
   --framework=snarkjs --proofSystem=groth16 \
-  --in="$FIX_VALID/proof-bundle.valid.json" \
+  --in="$FIX_VALID/proof-envelope.valid.json" \
   --out="$FIX_VALID/verification.json"
 
 # --- 7) Run the CLI verify (expect ok:true + exit 0) ---

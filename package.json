@@ -45,8 +45,12 @@
     "spec:sync": "tsx scripts/spec/make-manifests.ts --index docs/spec/hash-index.json --outdir docs/spec/examples/canvectors --kid dev-1 --check-index=1 --update-index=1",
     "lint:fresh": "eslint . --ext .ts,.tsx --max-warnings=0 --no-cache",
     "typecheck": "tsc --noEmit -p packages/core/tsconfig.json && tsc --noEmit -p packages/cli/tsconfig.typecheck.json && tsc --noEmit -p scripts/tsconfig.json",
-    "prepush:check": "npm run lint && npm run typecheck && npm run spec:hash && npm run spec:manifests && npm run spec:sign && npm run spec:validate && npm -w @zkpip/cli test"
-  },
+    "prepush:check": "npm run lint && npm run typecheck && npm run spec:hash && npm run spec:manifests && npm run spec:sign && npm run spec:validate && npm -w @zkpip/cli test",
+    "check:envelopeId-urn": "bash ./scripts/ci/check-envelope-id.sh",
+    "check:nobundleid": "vitest run packages/core/src/__tests__/nobundleid.sanity.test.ts",
+    "ci:check:envelopeId": "bash ./scripts/ci/check-envelope-id.sh",
+    "ci:docs:proofEnvelope": "npm -w @zkpip/cli run docs:examples:validate"
+    },
   "dependencies": {
     "zokrates-js": "^1.1.9"
   },
