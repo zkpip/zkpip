@@ -2,43 +2,49 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022"],
+    "lib": [
+      "ES2022"
+    ],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-
     "baseUrl": ".",
     "paths": {
-      "@zkpip/core": ["../core/dist/index.d.ts", "../core/src/index.ts"],
-      "@zkpip/core/*": ["../core/dist/*", "../core/src/*"]
+      "@zkpip/core": [
+        "../core/dist/index.d.ts",
+        "../core/src/index.ts"
+      ],
+      "@zkpip/core/*": [
+        "../core/dist/*",
+        "../core/src/*"
+      ]
     },
-
     "rootDir": "src",
     "outDir": "dist",
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
     "composite": true,
-
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
     "exactOptionalPropertyTypes": true,
     "noUncheckedIndexedAccess": true,
     "noEmitOnError": true,
-
-    "types": ["node", "vitest"],
+    "types": [
+      "node",
+      "vitest"
+    ],
     "skipLibCheck": true,
-
     "resolveJsonModule": true,
-
     "esModuleInterop": true,
-
     "forceConsistentCasingInFileNames": true,
-
     "noEmit": false,
     "emitDeclarationOnly": false
   },
-  "include": ["src/**/*", "src/**/*.ts"],
+  "include": [
+    "src/**/*",
+    "src/**/*.ts"
+  ],
   "exclude": [
     "scripts/**",
     "e2e-artifacts/**",
@@ -46,5 +52,9 @@
     "**/*.test.ts",
     "**/*.expect.json"
   ],
-  "references": [{ "path": "../core" }]
+  "references": [
+    {
+      "path": "../core"
+    }
+  ]
 }

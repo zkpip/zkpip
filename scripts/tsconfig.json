@@ -5,7 +5,12 @@
     "target": "ES2022",
     "strict": true,
     "resolveJsonModule": true,
-    "types": ["node"]
+    "types": [
+      "node"
+    ]
   },
-  "include": ["./**/*.ts", "./types/**/*.d.ts"]
+  "include": [
+    "./**/*.ts",
+    "./types/**/*.d.ts"
+  ]
 }

@@ -5,7 +5,11 @@
   "website": "https://aztec.network",
   "repo": "https://github.com/AztecProtocol/aztec-packages",
   "zkTech": "PLONKish, UltraPlonk",
-  "languages": ["TypeScript", "Noir", "Rust"],
+  "languages": [
+    "TypeScript",
+    "Noir",
+    "Rust"
+  ],
   "verifierAvailable": true,
   "docs": "https://docs.aztec.network",
   "description": "Privacy-first L2 with programmable cryptography and Noir-based circuits."
