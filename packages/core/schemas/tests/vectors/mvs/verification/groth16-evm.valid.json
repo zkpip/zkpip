@@ -4,16 +4,15 @@
   "id": "groth16-evm-0001",
   "createdAt": "2025-08-13T00:00:00Z",
   "updatedAt": "2025-08-13T00:00:00Z",
-
   "proofSystem": "Groth16",
   "curve": "bn254",
   "commitmentScheme": "N/A",
-  "hashFunctions": ["keccak256"],
+  "hashFunctions": [
+    "keccak256"
+  ],
   "publicInputsSchema": "abi://tuple(uint256 a, uint256 b)",
-
   "circuitCommitment": null,
   "proverBackend": "snarkjs",
-
   "verifier": {
     "type": "evm",
     "evm": {
@@ -21,14 +20,12 @@
       "chainId": 11155111
     }
   },
-
   "result": {
     "verified": true,
     "gasUsed": 123456,
     "errorCode": null,
     "errorMsgShort": null
   },
-
   "ext": {
     "note": "Minimal passing example for Groth16 on bn254 with EVM verifier."
   }

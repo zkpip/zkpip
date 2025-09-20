@@ -4,23 +4,27 @@
   "id": "aztec-main",
   "createdAt": "2025-08-13T00:00:00Z",
   "updatedAt": "2025-08-13T00:00:00Z",
-
   "project": "Aztec",
-  "category": ["zk-rollup"],
-
+  "category": [
+    "zk-rollup"
+  ],
   "proofSystem": "Plonk",
   "curve": "bn254",
   "commitmentScheme": "Pedersen",
-  "languages": ["Noir"],
-
-  "hashes": ["sha256-REPLACE_ME"],
-
+  "languages": [
+    "Noir"
+  ],
+  "hashes": [
+    "sha256-REPLACE_ME"
+  ],
   "toolchain": {
     "prover": null,
     "verifierLib": null,
     "cli": []
   },
   "docs": "https://docs.aztec.network/",
-  "repos": ["https://github.com/AztecProtocol/aztec-packages"],
+  "repos": [
+    "https://github.com/AztecProtocol/aztec-packages"
+  ],
   "notes": null
 }

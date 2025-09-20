@@ -1,8 +1,25 @@
 {
-  "version": 1,
+  "envelopeId": "urn:uuid:00000000-0000-4000-8000-00000000BAD1",
+  "schemaVersion": "0.1.0",
   "proofSystem": "halo2",
-  "framework": "snarkjs",
-  "vkey": {},
-  "proof": {},
-  "publics": ["1"]
+  "curve": "bn128",
+  "prover": {
+    "name": "snarkjs",
+    "version": "0.7.x"
+  },
+  "program": {
+    "language": "circom",
+    "name": "example"
+  },
+  "artifacts": {
+    "vkey": {
+      "path": "fixtures/snarkjs-groth16/valid/verification.json"
+    },
+    "proof": {
+      "path": "fixtures/snarkjs-groth16/valid/proof.json"
+    },
+    "publicSignals": {
+      "path": "fixtures/snarkjs-groth16/valid/public.json"
+    }
+  }
 }

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "0.1.0",
+  "envelopeId": "urn:uuid:00000000-0000-4000-8000-0000000000A2",
+  "prover": "snarkjs",
+  "proofSystem": "groth16",
+  "curve": "bn128",
+  "program": {
+    "language": "circom",
+    "entry": "circuits/auth.circom"
+  },
+  "artifacts": {
+    "wasm": {
+      "path": "artifacts/auth.wasm"
+    },
+    "zkey": {
+      "path": "artifacts/auth.zkey"
+    }
+  }
+}

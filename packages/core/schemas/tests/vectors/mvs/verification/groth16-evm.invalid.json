@@ -1,13 +1,30 @@
 {
   "system": "groth16",
-  "vk": { "dummy": true },
-  "proof": {
-    "a": [0, 0],
-    "b": [
-      [0, 0],
-      [0, 0]
-    ],
-    "c": [0, 0]
+  "vk": {
+    "dummy": true
   },
-  "publicSignals": ["999", "bad"]
+  "proof": {
+    "a": [
+      0,
+      0
+    ],
+    "b": [
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ]
+    ],
+    "c": [
+      0,
+      0
+    ]
+  },
+  "publicSignals": [
+    "999",
+    "bad"
+  ]
 }

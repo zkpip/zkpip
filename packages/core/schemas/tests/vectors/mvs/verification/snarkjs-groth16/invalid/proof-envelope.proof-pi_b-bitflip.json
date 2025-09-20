@@ -1,5 +1,5 @@
 {
-  "bundleId": "urn:uuid:5dd08df4-abce-4431-8134-8bbf99722fa4",
+  "envelopeId": "urn:uuid:52f5e617-9365-492b-bbc4-07886df3d028",
   "schemaVersion": "0.1.0",
   "proofSystem": "groth16",
   "curve": "bn128",
@@ -20,23 +20,23 @@
       }
     },
     "proof": {
-      "path": "packages/core/schemas/tests/vectors/mvs/verification/proof.invalid.json",
-      "uri": "file:///home/tony/projects/zkpip/zkpip/packages/core/schemas/tests/vectors/mvs/verification/proof.invalid.json",
-      "size": 855,
+      "path": "packages/core/schemas/tests/vectors/mvs/verification/test/groth16/proof.json",
+      "uri": "file:///home/tony/projects/zkpip/zkpip/packages/core/schemas/tests/vectors/mvs/verification/test/groth16/proof.json",
+      "size": 804,
       "mediaType": "application/json",
       "hash": {
         "alg": "sha256",
-        "value": "e5fb722dd252bb8eab049dcbc660ee6360d38d6301af5d2c42997dcea6eace5e"
+        "value": "a041206cc6588922525873ad943b3fa6ff66023b46c7fcaa89390eaf64689101"
       }
     },
     "publicSignals": {
-      "path": "packages/core/schemas/tests/vectors/mvs/verification/public.invalid.json",
-      "uri": "file:///home/tony/projects/zkpip/zkpip/packages/core/schemas/tests/vectors/mvs/verification/public.invalid.json",
-      "size": 94,
+      "path": "packages/core/schemas/tests/vectors/mvs/verification/test/groth16/public.json",
+      "uri": "file:///home/tony/projects/zkpip/zkpip/packages/core/schemas/tests/vectors/mvs/verification/test/groth16/public.json",
+      "size": 91,
       "mediaType": "application/json",
       "hash": {
         "alg": "sha256",
-        "value": "2b384db1c02bbe39e9e4cf8d37e02949ef9b2a5c33127ce72179074c33d27fef"
+        "value": "8a0975bce970a1a38ffbfa14fc48806a3bb8f19e31ba3e30606c5d98215d0a17"
       }
     },
     "wasm": {
@@ -63,20 +63,23 @@
   "result": {
     "proof": {
       "pi_a": [
-        "5762165772830815332764100667427397308107837829101237978364254241187088389737",
+        "5762165772830815332764100667427397308107837829101237978364254241187088389736",
         "14452694028382076242600899956823507072033438386136754378602839240848677288410",
         "1"
       ],
       "pi_b": [
         [
-          "5353444613018396769429860340491959052203283653430763780168137803938519979203",
+          "5353444613018396769429860340491959052203283653430763780168137803938519979200",
           "20753084011403349862663411203482508312674891041415540270570590177653213020800"
         ],
         [
           "7800045933724427704552460821632795105624385489661399640668976364757724938367",
           "16402226541904512468591550122305925087104064235836406901868496295973357428800"
         ],
-        ["1", "0"]
+        [
+          "1",
+          "0"
+        ]
       ],
       "pi_c": [
         "546425697663088181826605327186928932198145734075503409620170897714138273054",
@@ -87,7 +90,7 @@
       "curve": "bn128"
     },
     "publicSignals": [
-      "19820469076730107577691234630797803937210158605698999776717232705083708883457",
+      "19820469076730107577691234630797803937210158605698999776717232705083708883456",
       "11"
     ]
   }
