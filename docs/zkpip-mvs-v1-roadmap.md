@@ -75,8 +75,8 @@
 ## 6) Milestones
 
 - **M1:** ProofBundle/ProofEnvelope refactor + schema freeze.  
-- **M2:** 3 adapters passing conformance.  
+- **M2:** 3 adapters passing conformance (maybe +Circom?).  
 - **M3:** ProofBridge demo (snarkjs <-> zokrates).  
 - **M4:** CLI single-proof validation (schema + exit codes).  
-- **M5:** Minimal SealScan with per-Seal pages.  
+- **M5:** Minimal SealScan with per-Seal pages. (SwiftSeal, BridgeSeal)  
 - **M6:** Docs + CI workflows; GA release.  
