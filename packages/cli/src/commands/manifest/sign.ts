@@ -1,5 +1,4 @@
-import { readFileSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { writeFileSync } from 'node:fs';
 import type { CommandModule, Argv, ArgumentsCamelCase } from 'yargs';
 import { signManifest } from '@zkpip/core';
 import type { ManifestSignature, ZkpipManifest } from '@zkpip/core';

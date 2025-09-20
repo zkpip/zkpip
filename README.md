@@ -82,7 +82,7 @@ This dual meaning is intentional:the **Project** exists to host tools and schema
 
 ```ts
 export const SCHEMA_ALIASES = {
-  'mvs.proofBundle': 'https://zkpip.org/mvs/proof-bundle.schema.json',
+  'mvs.proofEnvelope': 'https://zkpip.org/mvs/proof-envelope.schema.json',
   'mvs.cir': 'https://zkpip.org/mvs/cir.schema.json',
 } as const;
 ```

@@ -1,0 +1,8 @@
+{
+  "type": "proofEnvelope",
+  "id": "bundle-noversion",
+  "proof": {
+    "scheme": "plonk",
+    "curve": "bls12_381"
+  }
+}

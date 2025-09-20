@@ -1,5 +1,7 @@
 {
   "name": "zkpip-demo",
   "version": "0.0.1",
-  "meta": { "purpose": "dev-smoke" }
+  "meta": {
+    "purpose": "dev-smoke"
+  }
 }

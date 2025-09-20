@@ -2,7 +2,7 @@
 export type VerificationOutcome = 'valid' | 'invalid' | 'error';
 
 export interface VerificationInput {
-  proofBundle: unknown; // JSON parsed bundle
+  proofEnvelope: unknown; // JSON parsed bundle
   options?: Record<string, unknown>; // adapter-specific opts (e.g., fast mode)
 }
 

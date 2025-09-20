@@ -1,29 +1,31 @@
 // packages/core/src/__tests__/compileCoreSchemas.test.ts
-import { describe, it, expect } from 'vitest';
-import { createAjv, addCoreSchemas, CANONICAL_IDS } from '../index.js';
-import type { ValidateFunction } from 'ajv';
+// Ensure all core schemas are loaded and registered under their canonical $id.
 
-/** Type guard for Ajv validate functions */
-function isValidateFn(x: unknown): x is ValidateFunction {
-  return typeof x === 'function';
-}
+import { describe, it, expect } from 'vitest';
+import { createAjv } from '../validation/createAjv.js';
+import { addCoreSchemas } from '../validation/addCoreSchemas.js';
+
+const CANONICAL_IDS_LIST: readonly string[] = [
+  'urn:zkpip:mvs.verification.schema.json',
+  'urn:zkpip:mvs.core.schema.json',
+  'urn:zkpip:mvs.cir.schema.json',
+  'urn:zkpip:mvs.issue.schema.json',
+  'urn:zkpip:mvs.ecosystem.schema.json',
+  'urn:zkpip:mvs.proofEnvelope.schema.json',
+];
 
 describe('Core schemas compile', () => {
   it('should load and register all core schemas with canonical $id', () => {
     const ajv = createAjv();
     addCoreSchemas(ajv);
 
-    for (const id of Object.values(CANONICAL_IDS)) {
+    for (const id of CANONICAL_IDS_LIST) {
       const maybe = ajv.getSchema(id);
-
-      expect(maybe).toBeTruthy(); // ensures defined
-
-      if (!isValidateFn(maybe)) {
-        throw new Error(`Schema is not a validate function: ${id}`);
+      if (!maybe) {
+        // eslint-disable-next-line no-console
+        console.error(`Schema not registered: ${id}`);
       }
-
-      // At this point TypeScript knows it's a function
-      expect(typeof maybe).toBe('function');
+      expect(maybe, `missing AJV schema for ${id}`).toBeTruthy();
     }
   });
 });

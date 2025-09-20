@@ -50,7 +50,9 @@
     "e2e:discover": "tsx ./scripts/e2e-discover.ts",
     "can:gen": "node ./scripts/gen-can-vectors.mjs --in samples/demo.manifest.json --key keys/ci.key --pub keys/ci.pub",
     "can:verify": "node ./scripts/verify-can-vectors.mjs --pub keys/ci.pub",
-    "trust:init": "node ./scripts/trust-init.mjs"
+    "trust:init": "node ./scripts/trust-init.mjs",
+    "docs:examples:validate": "tsx ./scripts/validate-proof-envelope.ts ../../docs/spec/examples/proof-envelope.result.json ../../docs/spec/examples/proof-envelope.artifacts.json",
+    "validate:proof-envelope": "tsx ./scripts/validate-proof-envelope.ts"
   },
   "dependencies": {
     "@zkpip/core": "0.1.0",

@@ -35,6 +35,6 @@ export function computeUseExit(argv: unknown): boolean {
 }
 
 export function getVerificationRaw(opts: VerifyHandlerArgs): string {
-  // Accept both --verification and legacy --bundle
+  // Accept both --verification and legacy --envelope
   return String(opts.verification ?? opts.bundle ?? '');
 }

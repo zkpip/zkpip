@@ -2,7 +2,7 @@
 // { verification_key, proof, public } as Json.
 //
 // Supported variants (any of these can be either top-level or nested under
-//   artifacts / bundle / proofBundle):
+//   artifacts / bundle / proofEnvelope):
 // - verification_key | verificationKey | vkey | vk
 // - proof | proofData | pi
 // - public | publics | publicSignals | inputs | public_inputs
@@ -67,7 +67,7 @@ function pickTriplet(obj: unknown): Triplet | undefined {
 export function normalizeVerification(input: Json): Triplet {
   // 1) Try nested containers first
   if (isRec(input)) {
-    const candidates = [input['artifacts'], input['bundle'], input['proofBundle']];
+    const candidates = [input['artifacts'], input['bundle'], input['proofEnvelope']];
     for (const c of candidates) {
       const t = pickTriplet(c);
       if (t) return t;

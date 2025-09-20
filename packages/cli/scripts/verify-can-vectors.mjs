@@ -16,7 +16,6 @@ function requireArg(name) {
   return process.argv[i + 1];
 }
 
-const __filename = fileURLToPath(import.meta.url);
 const __dirname = resolve(fileURLToPath(import.meta.url), '..');
 const PKG_ROOT = resolve(__dirname, '..');      // packages/cli
 const REPO_ROOT = resolve(PKG_ROOT, '..', '..'); // repo root

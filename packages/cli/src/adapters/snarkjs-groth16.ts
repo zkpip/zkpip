@@ -50,13 +50,43 @@ function readArtifactsFromDir(dir: string): Extracted {
   return { verificationKey: vkey, proof, publics };
 }
 
-function extractTriplet(input: unknown): Extracted {
+export function extractTriplet(input: unknown): Extracted {
+  // Normalize root
   const root = getRec(input);
+
+  // 1) New schema — artifacts.path (directory with verification/proof/public files)
   const artifacts = getRec(root?.artifacts);
   const artPath =
-    artifacts?.path && typeof artifacts.path === 'string' ? artifacts.path : undefined;
-  if (artPath) return readArtifactsFromDir(artPath);
+    typeof artifacts?.path === 'string' && artifacts.path.length > 0 ? artifacts.path : undefined;
+  if (artPath) {
+    return readArtifactsFromDir(artPath);
+  }
 
+  // 2) New schema — artifacts.{vkey,proof,publicSignals}.path (individual file refs)
+  const vkeyRef = getRec(artifacts?.vkey);
+  const proofRef = getRec(artifacts?.proof);
+  const publicsRef = getRec(artifacts?.publicSignals);
+
+  const vkeyPath =
+    typeof vkeyRef?.path === 'string' && vkeyRef.path.length > 0 ? vkeyRef.path : undefined;
+  const proofPath =
+    typeof proofRef?.path === 'string' && proofRef.path.length > 0 ? proofRef.path : undefined;
+  const publicsPath =
+    typeof publicsRef?.path === 'string' && publicsRef.path.length > 0 ? publicsRef.path : undefined;
+
+  if (vkeyPath && proofPath && publicsPath) {
+    // Load files referenced by ArtifactRef.path
+    const vkeyObj = JSON.parse(readFileSync(vkeyPath, 'utf8')) as Record<string, unknown>;
+    const proofObj = JSON.parse(readFileSync(proofPath, 'utf8')) as Record<string, unknown>;
+    const publicsRaw = JSON.parse(readFileSync(publicsPath, 'utf8')) as unknown;
+
+    const publics =
+      Array.isArray(publicsRaw) ? stringifyPublics(publicsRaw) : stringifyPublics([publicsRaw]);
+
+    return { verificationKey: vkeyObj, proof: proofObj, publics };
+  }
+
+  // 3) Legacy fields — support bundle/result and mixed key names
   const bundle = getRec(root?.bundle);
   const result = getRec(root?.result);
 
@@ -140,4 +170,5 @@ export default {
   framework: FRAMEWORK,
   canHandle,
   verify,
+  extractTriplet
 };

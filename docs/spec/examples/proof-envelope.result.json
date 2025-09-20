@@ -1,0 +1,17 @@
+{
+  "envelopeId": "urn:uuid:00000000-0000-4000-8000-000000000042",
+  "schemaVersion": "0.1.0",
+  "proofSystem": "groth16",
+  "curve": "bn128",
+  "prover": { "name": "snarkjs", "version": "0.7.0" },
+  "program": { "language": "circom", "entry": "circuits/main.circom", "name": "main" },
+  "artifacts": {},
+  "result": {
+    "proof": {
+      "pi_a": ["0x00", "0x00"],
+      "pi_b": [[["0x00","0x00"],["0x00","0x00"]]],
+      "pi_c": ["0x00", "0x00"]
+    },
+    "publicSignals": ["1", "2", "3"]
+  }
+}

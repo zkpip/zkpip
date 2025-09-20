@@ -1,6 +1,5 @@
 {
   "extends": "../../tsconfig.base.json",
-
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
@@ -9,33 +8,39 @@
     },
     "./schemas/*": "./dist/schemas/*"
   },
-
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022"],
+    "lib": [
+      "ES2022"
+    ],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-
     "rootDir": "src",
     "outDir": "dist",
-
     "declaration": true,
     "declarationMap": true,
-
     "sourceMap": true,
     "composite": true,
-
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
     "exactOptionalPropertyTypes": true,
     "noUncheckedIndexedAccess": true,
     "noEmitOnError": true,
-
     "resolveJsonModule": true,
     "skipLibCheck": true,
-    "types": ["node"]
+    "types": [
+      "node"
+    ]
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["dist", "scripts/**", "schemas/**", "**/*.test.ts", "**/__tests__/**"]
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "dist",
+    "scripts/**",
+    "schemas/**",
+    "**/*.test.ts",
+    "**/__tests__/**"
+  ]
 }

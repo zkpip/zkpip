@@ -1,9 +1,17 @@
 {
   "files": [],
   "references": [
-    { "path": "packages/core" },
-    { "path": "packages/cli" },
-    { "path": "packages/adapters/core" },
-    { "path": "packages/adapters/snarkjs-groth16" }
+    {
+      "path": "packages/core"
+    },
+    {
+      "path": "packages/cli"
+    },
+    {
+      "path": "packages/adapters/core"
+    },
+    {
+      "path": "packages/adapters/snarkjs-groth16"
+    }
   ]
 }

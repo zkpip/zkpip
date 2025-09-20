@@ -1,13 +1,20 @@
 // packages/core/src/__tests__/ecosystemVector.emptyArrays.test.ts
+// Negative: ecosystem arrays must have at least 1 element.
+
 import { describe, it, expect } from 'vitest';
-import { createAjv, addCoreSchemas, CANONICAL_IDS } from '../index.js';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { createAjv } from '../validation/createAjv.js';
+import { addCoreSchemas } from '../validation/addCoreSchemas.js';
 import { validateAgainstResult } from '../testing/ajv-helpers.js';
-import { vectors, readJson } from '../test-helpers/vectorPaths.js';
+import { MVS_ROOT } from '../test-helpers/vectorPaths.js';
+import { stringifyFail } from '../test-helpers/asserts.js';
 
-type EcosystemLike = { languages?: unknown; hashes?: unknown };
+// Use literal canonical ID to avoid runtime constant issues.
+const SCHEMA_ECOSYSTEM = 'urn:zkpip:mvs.ecosystem.schema.json';
 
-function isEcosystemLike(x: unknown): x is EcosystemLike {
-  return typeof x === 'object' && x !== null && 'languages' in x && 'hashes' in x;
+function loadJson(p: string): Record<string, unknown> {
+  return JSON.parse(readFileSync(p, 'utf8'));
 }
 
 describe('Negative: ecosystem arrays must have at least 1 element', () => {
@@ -15,23 +22,21 @@ describe('Negative: ecosystem arrays must have at least 1 element', () => {
     const ajv = createAjv();
     addCoreSchemas(ajv);
 
-    const p = vectors.ecosystemAztec();
-    const parsed: unknown = readJson(p);
+    const vecPath = join(MVS_ROOT, 'ecosystem/aztec.json');
+    const data = loadJson(vecPath);
 
-    expect(isEcosystemLike(parsed)).toBe(true);
-    const data = parsed as Record<string, unknown>;
+    // Force arrays to be empty – schema should reject these.
+    (data as Record<string, unknown>)['languages'] = [];
+    (data as Record<string, unknown>)['hashes'] = [];
 
-    // Force empty arrays for the fields under test
-    data.languages = [];
-    data.hashes = [];
-
-    const res = validateAgainstResult(ajv, CANONICAL_IDS.ecosystem, data);
-
+    const res = validateAgainstResult(ajv, SCHEMA_ECOSYSTEM, data);
     expect(res.ok).toBe(false);
+
     if (!res.ok) {
-      expect(res.text).toMatch(/languages/);
-      expect(res.text).toMatch(/hashes/);
-      expect(res.text).toMatch(/must NOT have fewer than 1 items|must contain at least 1 items/);
+      const msg = stringifyFail(res as Record<string, unknown> & { ok: boolean });
+      expect(msg).toMatch(/languages/i);
+      expect(msg).toMatch(/hashes/i);
+      expect(msg).toMatch(/must NOT have fewer than 1 items|minItems|at least 1/i);
     }
   });
 });

@@ -1,18 +1,25 @@
 {
-  "version": 1,
+  "envelopeId": "urn:uuid:00000000-0000-4000-8000-000000000001",
+  "schemaVersion": "0.1.0",
   "proofSystem": "groth16",
-  "framework": "snarkjs",
-  "vkey": { "alpha1": "0x01" },
-  "proof": {
-    "pi_a": ["0x0", "0x0"],
-    "pi_b": [
-      [
-        ["0x0", "0x0"],
-        ["0x0", "0x0"]
-      ]
-    ],
-    "pi_c": ["0x0", "0x0"]
+  "curve": "bn128",
+  "prover": {
+    "name": "snarkjs",
+    "version": "0.7.x"
   },
-  "publics": ["1", "2", "3"],
-  "meta": { "source": "unit-fixture" }
+  "program": {
+    "language": "circom",
+    "name": "example"
+  },
+  "artifacts": {
+    "vkey": {
+      "path": "/home/tony/projects/zkpip/zkpip/fixtures/snarkjs-groth16/valid/verification.json"
+    },
+    "proof": {
+      "path": "/home/tony/projects/zkpip/zkpip/fixtures/snarkjs-groth16/valid/proof.json"
+    },
+    "publicSignals": {
+      "path": "/home/tony/projects/zkpip/zkpip/fixtures/snarkjs-groth16/valid/public.json"
+    }
+  }
 }

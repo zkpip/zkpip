@@ -91,8 +91,8 @@ const INVALID_DIR = path.join(VECTORS_ROOT, 'invalid');
 
 // Try common locations for the base valid bundle
 const SRC_VALID_CANDIDATES = [
-  path.join(VALID_DIR, 'proof-bundle.valid.json'),
-  path.join(ROOT, 'packages/core/schemas/tests/vectors/mvs/verification/proof-bundle.valid.json'),
+  path.join(VALID_DIR, 'proof-envelope.valid.json'),
+  path.join(ROOT, 'packages/core/schemas/tests/vectors/mvs/verification/proof-envelope.valid.json'),
 ];
 
 async function pickBaseValid(): Promise<string> {
@@ -112,7 +112,7 @@ async function main(): Promise<void> {
 
   // VALID expect (subset only)
   {
-    const out = path.join(VALID_DIR, 'proof-bundle.valid.expect.json');
+    const out = path.join(VALID_DIR, 'proof-envelope.valid.expect.json');
     assertUnderDir(out, 'valid');
     await writeJson(out, { ok: true, adapter: 'snarkjs-groth16' });
   }
@@ -120,7 +120,7 @@ async function main(): Promise<void> {
   // Also copy the base valid bundle into adapter-specific 'valid/'
   // so Stage 1 has a real positive test case.
   {
-    const outValid = path.join(VALID_DIR, 'proof-bundle.valid.json');
+    const outValid = path.join(VALID_DIR, 'proof-envelope.valid.json');
     assertUnderDir(outValid, 'valid');
     await writeJson(outValid, base); // 'base' is the frozen original valid bundle
   }
@@ -139,11 +139,11 @@ async function main(): Promise<void> {
       result!['publicSignals'] = [inc, ...pub.slice(1)];
     }
 
-    const f = path.join(INVALID_DIR, 'proof-bundle.public-mutation.json');
+    const f = path.join(INVALID_DIR, 'proof-envelope.public-mutation.json');
     assertUnderDir(f, 'invalid');
     await writeJson(f, m);
 
-    const e = path.join(INVALID_DIR, 'proof-bundle.public-mutation.expect.json');
+    const e = path.join(INVALID_DIR, 'proof-envelope.public-mutation.expect.json');
     assertUnderDir(e, 'invalid');
     await writeJson(e, { ok: false, adapter: 'snarkjs-groth16', error: 'verification_failed' });
   }
@@ -163,11 +163,11 @@ async function main(): Promise<void> {
       (pi_a as MutableJSONArray)[0] = s.slice(0, -1) + newLast;
     }
 
-    const f = path.join(INVALID_DIR, 'proof-bundle.proof-bitflip.json');
+    const f = path.join(INVALID_DIR, 'proof-envelope.proof-bitflip.json');
     assertUnderDir(f, 'invalid');
     await writeJson(f, m);
 
-    const e = path.join(INVALID_DIR, 'proof-bundle.proof-bitflip.expect.json');
+    const e = path.join(INVALID_DIR, 'proof-envelope.proof-bitflip.expect.json');
     assertUnderDir(e, 'invalid');
     await writeJson(e, { ok: false, adapter: 'snarkjs-groth16', error: 'verification_failed' });
   }
@@ -187,11 +187,11 @@ async function main(): Promise<void> {
       (pi_c as MutableJSONArray)[0] = s.slice(0, -1) + newLast;
     }
 
-    const f = path.join(INVALID_DIR, 'proof-bundle.proof-pi_c-bitflip.json');
+    const f = path.join(INVALID_DIR, 'proof-envelope.proof-pi_c-bitflip.json');
     assertUnderDir(f, 'invalid');
     await writeJson(f, m);
 
-    const e = path.join(INVALID_DIR, 'proof-bundle.proof-pi_c-bitflip.expect.json');
+    const e = path.join(INVALID_DIR, 'proof-envelope.proof-pi_c-bitflip.expect.json');
     assertUnderDir(e, 'invalid');
     await writeJson(e, { ok: false, adapter: 'snarkjs-groth16', error: 'verification_failed' });
   }
@@ -214,11 +214,11 @@ async function main(): Promise<void> {
       }
     }
 
-    const f = path.join(INVALID_DIR, 'proof-bundle.proof-pi_b-bitflip.json');
+    const f = path.join(INVALID_DIR, 'proof-envelope.proof-pi_b-bitflip.json');
     assertUnderDir(f, 'invalid');
     await writeJson(f, m);
 
-    const e = path.join(INVALID_DIR, 'proof-bundle.proof-pi_b-bitflip.expect.json');
+    const e = path.join(INVALID_DIR, 'proof-envelope.proof-pi_b-bitflip.expect.json');
     assertUnderDir(e, 'invalid');
     await writeJson(e, { ok: false, adapter: 'snarkjs-groth16', error: 'verification_failed' });
   }

@@ -141,7 +141,7 @@ async function main(): Promise<void> {
           'verify',
           '--adapter',
           adapter,
-          '--bundle',
+          '--envelope',
           abs,
           '--json',
           '--use-exit-codes',

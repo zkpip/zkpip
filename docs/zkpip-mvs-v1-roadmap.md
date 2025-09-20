@@ -2,13 +2,13 @@
 
 > **Scope:** OSS-first, free single-proof validation with three basic adapters; no monetization in v1.  
 > **Licensing:** Apache-2.0 (code), CC BY 4.0 (docs), ToS for CanVectors.  
-> **Trademarks:** ZKPIP™, ProofEnvelope™, ProofBundle™, SealScan™, CanVectors™.
+> **Trademarks:** ZKPIP™, ProofEnvelope™, ProofEnvelope™, SealScan™, CanVectors™.
 
 ---
 
 ## 0) Objectives (MVS v1)
 
-- **Core refactor:** Stable **ProofBundle / ProofEnvelope** as foundation.  
+- **Core refactor:** Stable **ProofEnvelope / ProofEnvelope** as foundation.  
 - **Adapters:** 3 basic adapters (snarkjs-plonk, snarkjs-groth16, zokrates-groth16).  
   _(Optional in v1: Circom compatibility via extractor/normalizer → feeding snarkjs inputs.)_  
 - **ProofBridge demo:** one free converter (e.g. snarkjs <-> zokrates), CPU-only, single proof, to demonstrate ProofEnvelope interoperability.  
@@ -74,9 +74,9 @@
 
 ## 6) Milestones
 
-- **M1:** ProofBundle/ProofEnvelope refactor + schema freeze.  
-- **M2:** 3 adapters passing conformance.  
+- **M1:** ProofEnvelope/ProofEnvelope refactor + schema freeze.  
+- **M2:** 3 adapters passing conformance (maybe +Circom?).  
 - **M3:** ProofBridge demo (snarkjs <-> zokrates).  
 - **M4:** CLI single-proof validation (schema + exit codes).  
-- **M5:** Minimal SealScan with per-Seal pages.  
+- **M5:** Minimal SealScan with per-Seal pages. (SwiftSeal, BridgeSeal)  
 - **M6:** Docs + CI workflows; GA release.  

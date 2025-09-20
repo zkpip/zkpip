@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "0.1.0",
+  "envelopeId": "urn:uuid:00000000-0000-4000-8000-0000000000AF",
+  "prover": "snarkjs",
+  "proofSystem": "groth16",
+  "curve": "bn128",
+  "program": {
+    "language": "circom",
+    "entry": "circuits/main.circom"
+  },
+  "artifacts": {
+    "wasm": {
+      "path": "build/main.wasm"
+    }
+  }
+}

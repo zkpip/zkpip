@@ -11,13 +11,13 @@ import { fileURLToPath } from 'url';
  * - verification → mvs.verification.schema.json    (fallback: error.schema.json)
  * - issue        → mvs.issue.schema.json
  * - ecosystem    → mvs.ecosystem.schema.json
- * - proofBundle  → mvs.proof-bundle.schema.json
+ * - proofEnvelope  → mvs.proof-envelope.schema.json
  * - cir          → mvs.cir.schema.json
  *
  * If you still need legacy aliases for compatibility, you can add them
  * where indicated below. Otherwise, prefer using the MVS keys everywhere.
  */
-type PreferredSchema = 'core' | 'verification' | 'issue' | 'ecosystem' | 'proofBundle' | 'cir';
+type PreferredSchema = 'core' | 'verification' | 'issue' | 'ecosystem' | 'proofEnvelope' | 'cir';
 
 /** Final return type: preferred keys only. */
 export type SchemaIds = Record<PreferredSchema, string>;
@@ -75,7 +75,7 @@ export function loadSchemaIds(): SchemaIds {
 
   const ecosystem = readFirstExisting(base, ['mvs.ecosystem.schema.json', 'ecosystem.schema.json']);
 
-  const proofBundle = readFirstExisting(base, ['mvs.proof-bundle.schema.json']);
+  const proofEnvelope = readFirstExisting(base, ['mvs.proof-envelope.schema.json']);
 
   const cir = readFirstExisting(base, ['mvs.cir.schema.json']);
 
@@ -86,7 +86,7 @@ export function loadSchemaIds(): SchemaIds {
     verification,
     issue,
     ecosystem,
-    proofBundle,
+    proofEnvelope,
     cir,
   };
 }

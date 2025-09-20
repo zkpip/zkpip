@@ -1,4 +1,3 @@
-import { resolve } from 'node:path';
 import type { CommandModule, Argv, ArgumentsCamelCase } from 'yargs';
 import { verifyManifest } from '@zkpip/core';
 import type { ZkpipManifest } from '@zkpip/core';

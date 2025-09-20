@@ -1,11 +1,20 @@
 // packages/core/src/__tests__/ecosystemVector.valid.test.ts
-import { describe, it, expect } from 'vitest';
-import { createAjv, addCoreSchemas, CANONICAL_IDS } from '../index.js';
-import { validateAgainstResult } from '../testing/ajv-helpers.js';
-import { vectors, readJson } from '../test-helpers/vectorPaths.js';
+// Positive validation test for the ecosystem vector.
 
-function isObject(x: unknown): x is Record<string, unknown> {
-  return typeof x === 'object' && x !== null;
+import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { createAjv } from '../validation/createAjv.js';
+import { addCoreSchemas } from '../validation/addCoreSchemas.js';
+import { validateAgainstResult } from '../testing/ajv-helpers.js';
+import { MVS_ROOT } from '../test-helpers/vectorPaths.js';
+import { stringifyFail } from '../test-helpers/asserts.js';
+
+// Use a literal canonical ID to avoid runtime constant issues.
+const SCHEMA_ECOSYSTEM = 'urn:zkpip:mvs.ecosystem.schema.json';
+
+function loadJson(path: string): Record<string, unknown> {
+  return JSON.parse(readFileSync(path, 'utf8'));
 }
 
 describe('Vector: ecosystem/aztec.json', () => {
@@ -13,16 +22,13 @@ describe('Vector: ecosystem/aztec.json', () => {
     const ajv = createAjv();
     addCoreSchemas(ajv);
 
-    const vecPath = vectors.ecosystemAztec();
-    const parsed: unknown = readJson(vecPath);
+    const vecPath = join(MVS_ROOT, 'ecosystem/aztec.json');
+    const data = loadJson(vecPath);
 
-    expect(isObject(parsed)).toBe(true);
-    const data = parsed as Record<string, unknown>;
-
-    const res = validateAgainstResult(ajv, CANONICAL_IDS.ecosystem, data);
-
+    const res = validateAgainstResult(ajv, SCHEMA_ECOSYSTEM, data);
     if (!res.ok) {
-      throw new Error(res.text);
+      // eslint-disable-next-line no-console
+      console.error('Validation failed:', stringifyFail(res));
     }
     expect(res.ok).toBe(true);
   });

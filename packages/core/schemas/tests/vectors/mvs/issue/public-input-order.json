@@ -4,13 +4,11 @@
   "id": "public-input-order-001",
   "createdAt": "2025-08-13T00:00:00Z",
   "updatedAt": "2025-08-13T00:00:00Z",
-
   "symptom": "Verification fails when public inputs are provided in a different order than expected by the verifier/circuit binding.",
   "suspectedLayer": "verifier",
   "category": "proof-verification",
   "severity": "major",
   "occurrence": "recurrent",
-
   "reproSteps": [
     "Generate a valid Groth16 proof for a circuit with two public inputs [a, b].",
     "Call the verifier with inputs in the expected order (a, b) → verified = true.",

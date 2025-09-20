@@ -1,8 +1,19 @@
 {
-  "version": 1,
+  "envelopeId": "urn:uuid:00000000-0000-4000-8000-00000000BAD2",
+  "schemaVersion": "0.1.0",
   "proofSystem": "groth16",
-  "framework": "snarkjs",
-  "vkey": {},
-  "proof": {},
-  "publics": []
+  "curve": "bn128",
+  "prover": {
+    "name": "snarkjs",
+    "version": "0.7.x"
+  },
+  "program": {
+    "language": "circom",
+    "name": "example"
+  },
+  "artifacts": {},
+  "result": {
+    "proof": {},
+    "publicSignals": []
+  }
 }

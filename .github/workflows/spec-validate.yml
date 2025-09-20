@@ -31,3 +31,6 @@ jobs:
       - run: npm run spec:manifests:check -- --base https://zkpip.org
 
       - run: npm run spec:validate -- --jwks docs/spec/keys.jwks
+
+      - name: Validate docs examples (ProofEnvelope)
+        run: npm -w @zkpip/cli run docs:examples:validate

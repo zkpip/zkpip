@@ -1,0 +1,15 @@
+{
+  "envelopeId": "urn:uuid:00000000-0000-4000-8000-000000000043",
+  "schemaVersion": "0.1.0",
+  "proofSystem": "groth16",
+  "curve": "bn254",
+  "prover": "snarkjs",
+  "program": { "language": "circom", "entry": "circuits/main.circom", "name": "main" },
+  "artifacts": {
+    "vkey": { "path": "build/verification_key.json" },
+    "proof": { "path": "build/proof.json" },
+    "publicSignals": { "path": "build/public.json" },
+    "wasm": { "path": "build/main.wasm" },
+    "zkey": { "path": "build/main.zkey" }
+  }
+}

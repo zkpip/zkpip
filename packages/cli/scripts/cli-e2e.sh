@@ -12,8 +12,8 @@ ROOT="$(cd -- "$SCRIPT_DIR" && git rev-parse --show-toplevel 2>/dev/null || echo
 CLI="$ROOT/packages/cli/dist/index.js"
 VROOT="$ROOT/packages/core/schemas/tests/vectors/mvs/verification"
 
-VALID_BUNDLE="$VROOT/proof-bundle.valid.json"
-INVALID_BUNDLE="$VROOT/proof-bundle.invalid.json"
+VALID_BUNDLE="$VROOT/proof-envelope.valid.json"
+INVALID_BUNDLE="$VROOT/proof-envelope.invalid.json"
 PUBLIC_INVALID="$VROOT/public.invalid.json"
 
 # --- helpers ---
@@ -87,7 +87,7 @@ echo "==> Inline first publicSignal from INVALID: $INVALID_FIRST"
 # --- smoke test ---
 echo "==> Smoke: verify valid (expect exit 0)"
 node "$CLI" verify \
-  --bundle "$(abs "$VALID_BUNDLE")" \
+  --envelope "$(abs "$VALID_BUNDLE")" \
   --adapter snarkjs-groth16 \
   --json \
   --exit-codes
@@ -95,7 +95,7 @@ node "$CLI" verify \
 set +e
 echo "==> Smoke: verify invalid (expect exit 1)"
 node "$CLI" verify \
-  --bundle "$(abs "$INVALID_BUNDLE")" \
+  --envelope "$(abs "$INVALID_BUNDLE")" \
   --adapter snarkjs-groth16 \
   --json \
   --exit-codes

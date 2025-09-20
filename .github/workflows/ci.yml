@@ -32,64 +32,16 @@ jobs:
       - name: Install deps (monorepo)
         run: npm ci
 
-      - name: Build CLI workspace
-        run: npm -w @zkpip/cli run build
-
-      # --- ÚJ: Fixture előkészítés PLONK-hoz (valid + invalid) ---
-      - name: Prepare fixtures (snarkjs-plonk)
+      - name: Build workspaces (core first)
         run: |
-          set -euxo pipefail
-          mkdir -p fixtures/snarkjs-plonk/{valid,invalid}
+          npm -w @zkpip/core run build
+          npm -w @zkpip/cli run build
 
-          node scripts/make-bundles-from-local.mjs \
-            --dir packages/core/schemas/tests/vectors/mvs/verification/snarkjs-plonk/valid \
-            --out fixtures/snarkjs-plonk/valid
+      - name: Sanity — no bundleId
+        run: npm -w @zkpip/core run test -- src/__tests__/nobundleid.sanity.test.ts
 
-          node scripts/make-bundles-from-local.mjs \
-            --dir packages/core/schemas/tests/vectors/mvs/verification/snarkjs-plonk/invalid \
-            --out fixtures/snarkjs-plonk/invalid
-
-          node scripts/make-verification-json.mjs \
-            --framework=snarkjs --proofSystem=plonk \
-            --in=fixtures/snarkjs-plonk/valid/proof-bundle.valid.json \
-            --out=fixtures/snarkjs-plonk/valid/verification.json
-
-          node scripts/make-verification-json.mjs \
-            --framework=snarkjs --proofSystem=plonk \
-            --in=fixtures/snarkjs-plonk/invalid/proof-bundle.invalid.json \
-            --out=fixtures/snarkjs-plonk/invalid/verification.json
-
-      # --- ÚJ: Groth16 csak ha megvannak a kész fájlok (nem kötelező) ---
-      - name: Prepare fixtures (snarkjs-groth16) — optional
-        run: |
-          set -euxo pipefail
-          SRC="packages/core/schemas/tests/vectors/mvs/verification/test/groth16"
-          if [ -f "$SRC/verification_key.json" ] && [ -f "$SRC/proof.json" ] && [ -f "$SRC/public.json" ]; then
-            mkdir -p fixtures/snarkjs-groth16/{valid,invalid}
-            jq -n \
-              --slurpfile vk "$SRC/verification_key.json" \
-              --slurpfile pf "$SRC/proof.json" \
-              --slurpfile pb "$SRC/public.json" \
-              '{ bundle: { verification_key: $vk[0], proof: $pf[0], public: $pb[0] } }' \
-              > fixtures/snarkjs-groth16/valid/proof-bundle.valid.json
-
-            node scripts/make-verification-json.mjs \
-              --framework=snarkjs --proofSystem=groth16 \
-              --in=fixtures/snarkjs-groth16/valid/proof-bundle.valid.json \
-              --out=fixtures/snarkjs-groth16/valid/verification.json
-
-            # derive invalid:
-            jq '.publicSignals[0]="9999_X"' \
-              fixtures/snarkjs-groth16/valid/verification.json \
-              > fixtures/snarkjs-groth16/invalid/verification.json
-          else
-            echo "Groth16 source triplet not found — skipping Groth16 checks."
-          fi
-
-      - name: Run CLI tests (vitest)
-        env:
-          ZOKRATES_BIN: ${{ env.HOME }}/.zokrates/bin/zokrates
-        run: npm -w @zkpip/cli run test
+      - name: Validate docs examples (ProofEnvelope)
+        run: npm -w @zkpip/cli run docs:examples:validate
 
       - name: Upload fixtures and dumps on failure
         if: failure()

@@ -4,25 +4,61 @@
   "title": "CanVectors Manifest v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "id", "framework", "proofSystem", "urls", "sha256", "size", "kid"],
+  "required": [
+    "version",
+    "id",
+    "framework",
+    "proofSystem",
+    "urls",
+    "sha256",
+    "size",
+    "kid"
+  ],
   "properties": {
-    "version": { "type": "string", "const": "1" },
+    "version": {
+      "type": "string",
+      "const": "1"
+    },
     "id": {
       "type": "string",
       "pattern": "^can:[a-z0-9-]+:(groth16|plonk):[a-z0-9-]+:(valid|invalid)$",
       "description": "Vector ID convention: can:<framework>:<proofSystem>:<suite>:<validity>"
     },
-    "framework": { "type": "string" },
-    "proofSystem": { "type": "string", "enum": ["groth16", "plonk"] },
-    "urls": { "type": "array", "items": { "type": "string", "format": "uri" }, "minItems": 1 },
+    "framework": {
+      "type": "string"
+    },
+    "proofSystem": {
+      "type": "string",
+      "enum": [
+        "groth16",
+        "plonk"
+      ]
+    },
+    "urls": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "uri"
+      },
+      "minItems": 1
+    },
     "sha256": {
       "type": "string",
       "pattern": "^[a-f0-9]{64}|TBD$",
       "description": "Hex digest of the canonicalized payload (JCS)."
     },
-    "size": { "type": "integer", "minimum": 0 },
-    "meta": { "type": "object", "additionalProperties": true },
-    "kid": { "type": "string", "description": "Key ID used to sign this manifest." }
+    "size": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "kid": {
+      "type": "string",
+      "description": "Key ID used to sign this manifest."
+    }
   },
   "x-canonicalization": "JCS-RFC8785"
 }

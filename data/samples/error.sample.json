@@ -10,6 +10,8 @@
     "issueUrl": "https://github.com/org/repo/issues/374",
     "commit": "abc1234"
   },
-  "affectedVersions": ["v1.2.3"],
+  "affectedVersions": [
+    "v1.2.3"
+  ],
   "severity": "high"
 }

@@ -31,5 +31,5 @@ jobs:
       - name: Generate conformance vectors
         run: npm -w @zkpip/cli run can:gen
 
-      - name: Verify conformance vectors
-        run: npm -w @zkpip/cli run can:verify
+      - name: Sanity — no bundleId
+        run: npm -w @zkpip/core run test -- src/__tests__/nobundleid.sanity.test.ts

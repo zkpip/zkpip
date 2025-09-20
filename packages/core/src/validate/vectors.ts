@@ -49,7 +49,7 @@ function normalizeSchemaRef(schemaRef?: string): string | undefined {
     CANONICAL_IDS.ecosystem,
     CANONICAL_IDS.issue,
     CANONICAL_IDS.cir,
-    CANONICAL_IDS.proofBundle,
+    CANONICAL_IDS.proofEnvelope,
     CANONICAL_IDS.proofEnvelope, // NEW
   ]);
   if (canonicalSet.has(s)) return s;
@@ -70,7 +70,7 @@ function normalizeSchemaRef(schemaRef?: string): string | undefined {
         case 'cir':
           return CANONICAL_IDS.cir;
         case 'proofbundle':
-          return CANONICAL_IDS.proofBundle;
+          return CANONICAL_IDS.proofEnvelope;
         case 'proofenvelope':
           return CANONICAL_IDS.proofEnvelope;
       }
@@ -93,7 +93,7 @@ function normalizeSchemaRef(schemaRef?: string): string | undefined {
         case 'cir':
           return CANONICAL_IDS.cir;
         case 'proofbundle':
-          return CANONICAL_IDS.proofBundle;
+          return CANONICAL_IDS.proofEnvelope;
         case 'proofenvelope':
           return CANONICAL_IDS.proofEnvelope;
       }
@@ -114,7 +114,7 @@ function normalizeSchemaRef(schemaRef?: string): string | undefined {
     case 'cir.schema.json':
       return CANONICAL_IDS.cir;
     case 'proofbundle.schema.json':
-      return CANONICAL_IDS.proofBundle;
+      return CANONICAL_IDS.proofEnvelope;
     case 'proofenvelope.schema.json':
       return CANONICAL_IDS.proofEnvelope;
   }

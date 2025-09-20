@@ -1,6 +1,6 @@
 // packages/core/scripts/make-bundles-from-local.mjs
 // ESM only – Node 18+
-// Kimenet: proof-bundle.valid.json és proof-bundle.invalid.json (+ invalid proof/public fájlok)
+// Kimenet: proof-envelope.valid.json és proof-envelope.invalid.json (+ invalid proof/public fájlok)
 // Kötelező inputok a --dir mappában: verification_key.json (vagy vkey.json), proof.json, public.json
 // Opcionális: *.wasm, *.zkey, circuit.circom
 
@@ -174,7 +174,7 @@ async function main() {
   const curve = typeof vkey?.curve === 'string' ? vkey.curve : 'bn128';
 
   const base = {
-    bundleId: `urn:uuid:${uuid()}`,
+    envelopeId: `urn:uuid:${uuid()}`,
     schemaVersion: '0.1.0',
     proofSystem: 'groth16',
     curve,
@@ -244,15 +244,15 @@ async function main() {
 
   const invalid = {
     ...base,
-    bundleId: `urn:uuid:${uuid()}`, // <<< ÚJ ID MINDIG az invalidnak
+    envelopeId: `urn:uuid:${uuid()}`, // <<< ÚJ ID MINDIG az invalidnak
     artifacts: artifactsInvalid,
     result: { proof: invalidProof, publicSignals: invalidPublic },
   };
 
   // Írás
   await fsp.mkdir(out, { recursive: true });
-  const validOut = path.join(out, 'proof-bundle.valid.json');
-  const invalidOut = path.join(out, 'proof-bundle.invalid.json');
+  const validOut = path.join(out, 'proof-envelope.valid.json');
+  const invalidOut = path.join(out, 'proof-envelope.invalid.json');
 
   await writeJsonPretty(validOut, valid);
   await writeJsonPretty(invalidOut, invalid);
