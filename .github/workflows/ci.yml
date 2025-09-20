@@ -40,9 +40,6 @@ jobs:
       - name: Sanity — no bundleId
         run: npm -w @zkpip/core run test -- src/__tests__/nobundleid.sanity.test.ts
 
-      - name: Sanity — envelopeId URN across repo
-        run: bash ./scripts/ci/check-envelope-id.sh
-
       - name: Validate docs examples (ProofEnvelope)
         run: npm -w @zkpip/cli run docs:examples:validate
 

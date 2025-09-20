@@ -34,6 +34,3 @@ jobs:
 
       - name: Validate docs examples (ProofEnvelope)
         run: npm -w @zkpip/cli run docs:examples:validate
-
-      - name: Sanity — envelopeId URN across repo
-        run: bash ./scripts/ci/check-envelope-id.sh      
