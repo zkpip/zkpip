@@ -52,26 +52,26 @@ $SNARKJS zkey export verificationkey circuit_final.zkey verification_key.json
 echo "==> Prove"
 $SNARKJS groth16 prove circuit_final.zkey witness.wtns proof.json public.json
 
-echo '==> Build proof-bundle.valid.json'
+echo '==> Build proof-envelope.valid.json'
 if command -v jq >/dev/null 2>&1; then
   jq -n \
     --slurpfile vk verification_key.json \
     --slurpfile pf proof.json \
     --slurpfile pb public.json \
     '{ bundle: { verification_key: $vk[0], proof: $pf[0], public: $pb[0] } }' \
-    > "$FIX_VALID/proof-bundle.valid.json"
+    > "$FIX_VALID/proof-envelope.valid.json"
 else
   # Fallback without jq (Node-based bundler)
-  node -e 'const fs=require("fs");const vk=JSON.parse(fs.readFileSync("verification_key.json","utf8"));const pf=JSON.parse(fs.readFileSync("proof.json","utf8"));const pb=JSON.parse(fs.readFileSync("public.json","utf8"));fs.writeFileSync(process.argv[1],JSON.stringify({bundle:{verification_key:vk,proof:pf,public:pb}},null,2));' "$FIX_VALID/proof-bundle.valid.json"
+  node -e 'const fs=require("fs");const vk=JSON.parse(fs.readFileSync("verification_key.json","utf8"));const pf=JSON.parse(fs.readFileSync("proof.json","utf8"));const pb=JSON.parse(fs.readFileSync("public.json","utf8"));fs.writeFileSync(process.argv[1],JSON.stringify({bundle:{verification_key:vk,proof:pf,public:pb}},null,2));' "$FIX_VALID/proof-envelope.valid.json"
 fi
 
 echo "==> Make verification.json"
 node "$ROOT/scripts/make-verification-json.mjs" \
   --framework=snarkjs --proofSystem=groth16 \
-  --in="$FIX_VALID/proof-bundle.valid.json" \
+  --in="$FIX_VALID/proof-envelope.valid.json" \
   --out="$FIX_VALID/verification.json"
 
 echo "==> DONE."
 echo "Artifacts:"
-echo "  $FIX_VALID/proof-bundle.valid.json"
+echo "  $FIX_VALID/proof-envelope.valid.json"
 echo "  $FIX_VALID/verification.json"

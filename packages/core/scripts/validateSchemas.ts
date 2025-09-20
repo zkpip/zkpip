@@ -29,13 +29,13 @@ function listJsonFiles(root: string): string[] {
 
 function shouldSchemaValidate(vectorsRoot: string, absPath: string): boolean {
   const rp = norm(path.relative(vectorsRoot, absPath));
-  if (rp.startsWith('mvs/verification/proofBundle/')) return false; // komponens minták
+  if (rp.startsWith('mvs/verification/proofEnvelope/')) return false; // komponens minták
   if (rp.startsWith('mvs/verification/test/groth16/')) return false; // komponens minták
   return true;
 }
 
 function makeSchemaValidButCryptoInvalidSet(vectorsRoot: string) {
-  const allowRel = new Set<string>(['mvs/verification/proof-bundle.invalid.json']);
+  const allowRel = new Set<string>(['mvs/verification/proof-envelope.invalid.json']);
   const allowAbs = new Set<string>();
   for (const r of allowRel) allowAbs.add(norm(path.join(vectorsRoot, r)));
   return { allowAbs };
