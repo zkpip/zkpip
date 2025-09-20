@@ -9,13 +9,13 @@ describe('schemaUtils.loadSchemaJson', () => {
 
   beforeAll(async () => {
     await mkdir(tmpRoot, { recursive: true });
-    // canonical: tmp-schemas/mvs/proof-bundle.schema.json
-    const canonicalPath = path.join(tmpRoot, 'mvs', 'proof-bundle.schema.json');
+    // canonical: tmp-schemas/mvs/proof-envelope.schema.json
+    const canonicalPath = path.join(tmpRoot, 'mvs', 'proof-envelope.schema.json');
     await mkdir(path.dirname(canonicalPath), { recursive: true });
     await writeFile(canonicalPath, JSON.stringify({ ok: true }), 'utf8');
 
-    // alias: tmp-schemas/mvs.proof-bundle.schema.json
-    const aliasPath = path.join(tmpRoot, 'mvs.proof-bundle.schema.json');
+    // alias: tmp-schemas/mvs.proof-envelope.schema.json
+    const aliasPath = path.join(tmpRoot, 'mvs.proof-envelope.schema.json');
     await writeFile(aliasPath, JSON.stringify({ alias: true }), 'utf8');
 
     // plain file: tmp-schemas/simple.json
@@ -23,14 +23,14 @@ describe('schemaUtils.loadSchemaJson', () => {
   });
 
   it('loads by URN → canonical path', async () => {
-    const data = await loadSchemaJson('urn:zkpip:mvs.proof-bundle.schema.json', {
+    const data = await loadSchemaJson('urn:zkpip:mvs.proof-envelope.schema.json', {
       schemasRoot: tmpRoot,
     });
     expect(data).toEqual({ ok: true });
   });
 
   it('loads by URN → alias fallback', async () => {
-    const data = await loadSchemaJson('urn:zkpip:mvs.proof-bundle.schema.json', {
+    const data = await loadSchemaJson('urn:zkpip:mvs.proof-envelope.schema.json', {
       schemasRoot: tmpRoot,
     });
 

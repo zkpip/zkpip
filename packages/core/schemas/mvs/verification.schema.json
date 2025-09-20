@@ -2,7 +2,11 @@
   "$id": "urn:zkpip:mvs.verification.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "ZKPIP MVS — Verification Record",
-  "allOf": [{ "$ref": "urn:zkpip:mvs.core.schema.json" }],
+  "allOf": [
+    {
+      "$ref": "urn:zkpip:mvs.core.schema.json"
+    }
+  ],
   "type": "object",
   "required": [
     "schemaVersion",
@@ -19,28 +23,66 @@
     "result"
   ],
   "properties": {
-    "recordType": { "const": "verification" },
-    "proofSystem": { "type": "string", "description": "e.g., Groth16, Plonk, Halo2, STARK…" },
-    "curve": { "type": "string", "description": "e.g., bn254, bls12-381, N/A for STARKs" },
-    "commitmentScheme": { "type": "string", "description": "e.g., KZG, IPA, FRI, N/A" },
+    "recordType": {
+      "const": "verification"
+    },
+    "proofSystem": {
+      "type": "string",
+      "description": "e.g., Groth16, Plonk, Halo2, STARK…"
+    },
+    "curve": {
+      "type": "string",
+      "description": "e.g., bn254, bls12-381, N/A for STARKs"
+    },
+    "commitmentScheme": {
+      "type": "string",
+      "description": "e.g., KZG, IPA, FRI, N/A"
+    },
     "hashFunctions": {
       "type": "array",
-      "items": { "type": "string" },
+      "items": {
+        "type": "string"
+      },
       "minItems": 1
     },
-    "publicInputsSchema": { "type": "string" },
-    "circuitCommitment": { "type": ["string", "null"] },
-    "proverBackend": { "type": ["string", "null"] },
+    "publicInputsSchema": {
+      "type": "string"
+    },
+    "circuitCommitment": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "proverBackend": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "verifier": {
       "type": "object",
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "properties": {
-        "type": { "type": "string", "enum": ["evm", "offchain", "hybrid"] },
+        "type": {
+          "type": "string",
+          "enum": [
+            "evm",
+            "offchain",
+            "hybrid"
+          ]
+        },
         "evm": {
           "type": "object",
           "properties": {
-            "contractAddress": { "type": "string" },
-            "chainId": { "type": "integer" }
+            "contractAddress": {
+              "type": "string"
+            },
+            "chainId": {
+              "type": "integer"
+            }
           },
           "required": [],
           "additionalProperties": true
@@ -50,12 +92,32 @@
     },
     "result": {
       "type": "object",
-      "required": ["verified"],
+      "required": [
+        "verified"
+      ],
       "properties": {
-        "verified": { "type": "boolean" },
-        "gasUsed": { "type": ["integer", "null"], "minimum": 0 },
-        "errorCode": { "type": ["string", "null"] },
-        "errorMsgShort": { "type": ["string", "null"] }
+        "verified": {
+          "type": "boolean"
+        },
+        "gasUsed": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "errorCode": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "errorMsgShort": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
       },
       "additionalProperties": true
     },

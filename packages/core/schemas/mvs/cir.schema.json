@@ -4,11 +4,32 @@
   "title": "ZKPIP Canonical Intermediate Representation (CIR) v0.1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["formatVersion", "proofSystem", "curve", "fieldModulus", "circuits"],
+  "required": [
+    "formatVersion",
+    "proofSystem",
+    "curve",
+    "fieldModulus",
+    "circuits"
+  ],
   "properties": {
-    "formatVersion": { "const": "0.1" },
-    "proofSystem": { "type": "string", "enum": ["groth16", "plonk", "halo2"] },
-    "curve": { "type": "string", "enum": ["bn128", "bls12-381"] },
+    "formatVersion": {
+      "const": "0.1"
+    },
+    "proofSystem": {
+      "type": "string",
+      "enum": [
+        "groth16",
+        "plonk",
+        "halo2"
+      ]
+    },
+    "curve": {
+      "type": "string",
+      "enum": [
+        "bn128",
+        "bls12-381"
+      ]
+    },
     "fieldModulus": {
       "type": "string",
       "description": "Prime modulus as a decimal string (avoid JSON number limits).",
@@ -18,75 +39,137 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "vk": { "$ref": "#/$defs/ArtifactRef" },
-        "pk": { "$ref": "#/$defs/ArtifactRef" }
+        "vk": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "pk": {
+          "$ref": "#/$defs/ArtifactRef"
+        }
       }
     },
     "circuits": {
       "type": "array",
       "minItems": 1,
-      "items": { "$ref": "#/$defs/Circuit" }
+      "items": {
+        "$ref": "#/$defs/Circuit"
+      }
     },
     "extensions": {
       "type": "object",
       "maxProperties": 32,
       "patternProperties": {
-        "^[a-zA-Z][a-zA-Z0-9+.-]*:": { "type": "object" }
+        "^[a-zA-Z][a-zA-Z0-9+.-]*:": {
+          "type": "object"
+        }
       },
       "additionalProperties": false
     }
   },
-
   "$defs": {
     "ArtifactRef": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["path"],
+      "required": [
+        "path"
+      ],
       "properties": {
-        "path": { "type": "string", "minLength": 1 },
-        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
       }
     },
     "Circuit": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "hash", "nConstraints", "nSignalsPublic", "nSignalsPrivate"],
+      "required": [
+        "id",
+        "hash",
+        "nConstraints",
+        "nSignalsPublic",
+        "nSignalsPrivate"
+      ],
       "properties": {
-        "id": { "type": "string", "minLength": 1 },
-        "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
-        "nConstraints": { "type": "integer", "minimum": 1 },
-        "nSignalsPublic": { "type": "integer", "minimum": 0 },
-        "nSignalsPrivate": { "type": "integer", "minimum": 0 },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "nConstraints": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "nSignalsPublic": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "nSignalsPrivate": {
+          "type": "integer",
+          "minimum": 0
+        },
         "inputsSpec": {
           "type": "array",
-          "items": { "$ref": "#/$defs/IOSpec" }
+          "items": {
+            "$ref": "#/$defs/IOSpec"
+          }
         },
         "outputsSpec": {
           "type": "array",
-          "items": { "$ref": "#/$defs/IOSpec" }
+          "items": {
+            "$ref": "#/$defs/IOSpec"
+          }
         }
       }
     },
     "IOSpec": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "type"],
+      "required": [
+        "name",
+        "type"
+      ],
       "properties": {
-        "name": { "type": "string", "pattern": "^[a-zA-Z_][a-zA-Z0-9_\\[\\]\\.]*$" },
-        "type": { "type": "string", "enum": ["field", "bool", "u32", "bytes"] },
+        "name": {
+          "type": "string",
+          "pattern": "^[a-zA-Z_][a-zA-Z0-9_\\[\\]\\.]*$"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "field",
+            "bool",
+            "u32",
+            "bytes"
+          ]
+        },
         "range": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["min", "max"],
+          "required": [
+            "min",
+            "max"
+          ],
           "properties": {
-            "min": { "type": "string", "pattern": "^-?[0-9]+$" },
-            "max": { "type": "string", "pattern": "^-?[0-9]+$" }
+            "min": {
+              "type": "string",
+              "pattern": "^-?[0-9]+$"
+            },
+            "max": {
+              "type": "string",
+              "pattern": "^-?[0-9]+$"
+            }
           }
         }
       }
     }
   },
-
   "examples": [
     {
       "formatVersion": "0.1",
@@ -94,7 +177,9 @@
       "curve": "bn128",
       "fieldModulus": "21888242871839275222246405745257275088548364400416034343698204186575808495617",
       "artifacts": {
-        "vk": { "path": "build/vk.json" }
+        "vk": {
+          "path": "build/vk.json"
+        }
       },
       "circuits": [
         {
@@ -103,8 +188,18 @@
           "nConstraints": 1024,
           "nSignalsPublic": 2,
           "nSignalsPrivate": 3,
-          "inputsSpec": [{ "name": "pub.x", "type": "field" }],
-          "outputsSpec": [{ "name": "out.y", "type": "field" }]
+          "inputsSpec": [
+            {
+              "name": "pub.x",
+              "type": "field"
+            }
+          ],
+          "outputsSpec": [
+            {
+              "name": "out.y",
+              "type": "field"
+            }
+          ]
         }
       ]
     }

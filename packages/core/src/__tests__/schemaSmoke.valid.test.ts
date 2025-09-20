@@ -10,11 +10,11 @@ describe('Core Schemas Smoke', () => {
     expect(() => addCoreSchemas(ajv)).not.toThrow();
 
     // Legacy flat aliases (kept for backward-compat)
-    expect(ajv.getSchema('mvs/proof-bundle')).toBeTruthy();
+    expect(ajv.getSchema('mvs/proof-envelope')).toBeTruthy();
     expect(ajv.getSchema('mvs/cir')).toBeTruthy();
 
     // New subpath aliases reflecting the folder layout
-    expect(ajv.getSchema('mvs/verification/proofBundle')).toBeTruthy();
+    expect(ajv.getSchema('mvs/verification/proofEnvelope')).toBeTruthy();
     expect(ajv.getSchema('mvs/verification/cir')).toBeTruthy();
   });
 });
