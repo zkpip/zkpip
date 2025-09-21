@@ -55,10 +55,16 @@ module.exports = {
     'import/resolver': {
       // Simpler TS resolver; doesn't require pointing at tsconfig projects
       typescript: {
-        project: ['./tsconfig.eslint.json'],
+        project: [
+          './tsconfig.json',
+          './packages/*/tsconfig.json',
+          './packages/*/*/tsconfig.json',
+        ],
         alwaysTryTypes: true,
       },
-      node: { extensions: ['.ts', '.tsx', '.js', '.mjs'] },
+      node: {
+        extensions: ['.ts', '.tsx', '.js', '.mjs', '.cjs', '.d.ts'],
+      },
     },
   },
 };

@@ -50,7 +50,7 @@
     "check:nobundleid": "vitest run packages/core/src/__tests__/nobundleid.sanity.test.ts",
     "ci:check:envelopeId": "bash ./scripts/ci/check-envelope-id.sh",
     "ci:docs:proofEnvelope": "npm -w @zkpip/cli run docs:examples:validate"
-    },
+  },
   "dependencies": {
     "zokrates-js": "^1.1.9"
   },
