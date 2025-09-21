@@ -39,11 +39,15 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "noEmit": false,
-    "emitDeclarationOnly": false
+    "emitDeclarationOnly": false    
+  },
+  "engines": { 
+    "node": ">=20" 
   },
   "include": [
     "src/**/*",
-    "src/**/*.ts"
+    "src/**/*.ts",
+    "schemas/**/*"
   ],
   "exclude": [
     "scripts/**",

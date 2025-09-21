@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@zkpip/adapters-core": ["packages/adapters/core/src/index.ts"],
+      "@zkpip/core": ["packages/core/src/index.ts"],
+      "@zkpip/cli": ["packages/cli/src/index.ts"],
+    }
+  }
+}

@@ -1,7 +1,9 @@
 # ZKPIP CLI
 
 Zero-knowledge proof integration CLI (ESM, Node.js 22+).
-Focus: **manifest canonicalization, signing, verification** + **developer keystore** + **trusted key policy** (M1).
+Focus: **manifest canonicalization, signing, verification** + **developer keystore** + **trusted key policy** (M1), and proof vectors tooling.
+
+> _All docs and code comments are in English (OSS)._
 
 ## Quickstart
 
@@ -13,85 +15,212 @@ npm -w @zkpip/cli run build && npm -w @zkpip/cli link
 zkpip keys generate --alg ed25519 --key-id zkpip:dev:me --json
 
 # Sign a manifest (no --priv; uses keystore by --key-id)
-zkpip manifest sign \
-  --in samples/demo.manifest.json \
-  --out out/signed.json \
-  --key-id zkpip:dev:me \
-  --mkdirs \
-  --json
+zkpip manifest sign   --in samples/demo.manifest.json   --out out/signed.json   --key-id zkpip:dev:me   --mkdirs   --json
 
 # Trust set from keystore (helper)
 npm -w @zkpip/cli run trust:init -- zkpip:dev:me
 
 # Verify using only the trust set
-zkpip manifest verify \
-  --in out/signed.json \
-  --trust-set trust/keys.json \
-  --json --use-exit-codes
+zkpip manifest verify   --in out/signed.json   --trust-set trust/keys.json   --json --use-exit-codes
 ```
+
+---
+
+## Top-level help
+
+```bash
+zkpip --help
+zkpip help <command>
+```
+
+The help output ends with an **Error codes** epilogue (see also table below).
 
 ## Commands
 
 ```text
 zkpip manifest <sign|verify>
 zkpip keys <generate|list|show>
+zkpip forge
+zkpip verify
+zkpip vectors <pull|sign|verify-seal|push>     # sign/verify-seal/push are experimental
 ```
 
-### `manifest sign`
+---
 
-* Inputs:
+## `manifest sign`
 
-  * `--in <path>`: unsigned manifest JSON
-  * `--out <path>`: output signed manifest JSON
-  * `--key-id <id>`: embedded `signature.keyId`
-  * `--priv <path>` *(optional)*: PKCS#8 private key; if omitted, keystore is used by `--key-id`
-  * `--mkdirs` *(optional)*: create parent dir for `--out`
-  * `--json` *(optional)*: structured output
-* Output JSON:
+**Inputs**
 
-  ```json
-  { "ok": true, "alg": "Ed25519", "keyId": "<id>", "out": "<path>" }
-  ```
+- `--in <path>`: unsigned manifest JSON
+- `--out <path>`: output signed manifest JSON
+- `--key-id <id>`: embedded `signature.keyId`
+- `--priv <path>` _(optional)_: PKCS#8 private key; if omitted, keystore is used by `--key-id`
+- `--mkdirs` _(optional)_: create parent dir for `--out`
+- `--json` _(optional)_: structured output
 
-### `manifest verify`
+**Output JSON**
 
-* Inputs:
+```json
+{ "ok": true, "alg": "Ed25519", "keyId": "<id>", "out": "<path>" }
+```
 
-  * `--in <path>`: signed manifest
-  * `--pub <path>` *(optional)*: SPKI public key PEM
-  * `--trust-set <path>` *(optional)*: JSON `{ keys: [{ keyId, publicPem | publicPemPath }] }`
-  * `--use-exit-codes`: exit 0 on success, 1 on failure
-  * `--json`: structured output
-* Resolution:
+## `manifest verify`
 
-  1. If `--pub` is present, verify with it **and still enforce** membership when `--trust-set` provided.
-  2. Else if `--trust-set` is present, resolve public key by `signature.keyId`.
-  3. Else → error (`io_error`: no public key provided).
-* Output JSON:
+**Inputs**
 
-  ```json
-  { "ok": true, "reason": null }
-  ```
+- `--in <path>`: signed manifest
+- `--pub <path>` _(optional)_: SPKI public key PEM
+- `--trust-set <path>` _(optional)_: JSON `{ "keys": [{ "keyId": "...", "publicPem" | "publicPemPath": "..." }] }`
+- `--use-exit-codes`: exit 0 on success, 1 on failure
+- `--json`: structured output
 
-  or on failure:
+**Resolution**
 
-  ```json
-  { "ok": false, "reason": "signature_invalid" }
-  ```
+1. If `--pub` is present, verify with it **and still enforce** membership when `--trust-set` provided.
+2. Else if `--trust-set` is present, resolve public key by `signature.keyId`.
+3. Else → error (`io_error`: no public key provided).
 
-### `keys generate`
+**Output JSON**
 
-* Creates Ed25519 keypair in **keystore** (default `~/.zkpip/keys/<slug>/private.pem|public.pem`).
-* Permissions: private `0600`, public `0644`.
-* Options: `--key-id <id>`, `--store <dir>`, `--overwrite`, `--json`.
+```json
+{ "ok": true, "reason": null }
+```
 
-### `keys list`
+On failure:
 
-* Lists entries in `--store` (default keystore root).
+```json
+{ "ok": false, "reason": "signature_invalid" }
+```
 
-### `keys show`
+---
 
-* Prints public key PEM for `--key-id` (plain PEM or with `--json` includes `publicPemPath`).
+## `keys generate`
+
+Creates Ed25519 keypair in **keystore** (default `~/.zkpip/keys/<slug>/private.pem|public.pem`).
+
+- Permissions: private `0600`, public `0644`.
+- Options: `--key-id <id>`, `--store <dir>`, `--overwrite`, `--json`.
+
+## `keys list`
+
+Lists entries in `--store` (default keystore root).
+
+## `keys show`
+
+Prints public key PEM for `--key-id` (plain PEM or with `--json` includes `publicPemPath`).
+
+---
+
+## `forge`
+
+Generate a **ProofEnvelope** from adapter input triplets.
+
+**Inputs**
+
+- `--input <path>`: input JSON path (adapter-specific input or prepared object)
+- `--out <path>`: output path for the envelope JSON
+- `--adapter <id>`: one of `snarkjs-groth16 | snarkjs-plonk | zokrates-groth16`
+- `--dry-run` _(optional)_: print to stdout only, **no file writes**
+- `--strict` _(optional)_: treat suspicious fields as **errors** (forbid `$schema`, `$id`, artifact paths/URIs)
+- `--seed 0x...` _(optional)_: hex seed for deterministic `envelopeId` in tests
+
+**Output JSON (envelope shape)**
+
+> Stable canonical fields; dynamic `envelopeId` unless `--seed` is provided.
+
+```json
+{
+  "envelopeId": "env_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "protocol": "groth16",
+  "curve": "bn128",
+  "adapter": "snarkjs-groth16",
+  "createdAt": "2025-01-01T00:00:00.000Z",
+  "input": { /* adapter input object */ }
+}
+```
+
+**Exit codes**
+
+- `0` – success
+- `1` – error (respecting `ZKPIP_HARD_EXIT`, see below)
+
+---
+
+## `verify`
+
+Verify a **ProofEnvelope** or a verification JSON input.
+
+**Inputs**
+
+- `--verification <path>|-`: verification JSON (or `-` for stdin); may contain/point to a ProofEnvelope
+- `--adapter <id>` _(optional)_: enforce/override adapter
+- `--dump-normalized <path>` _(optional)_: write adapter-normalized bundle for debugging
+- `--use-exit-codes`: exit 0 on success, non-zero on failure
+- `--json`: structured result
+
+**Output JSON**
+
+```json
+{ "ok": true, "adapter": "snarkjs-groth16" }
+```
+
+On failure:
+
+```json
+{ "ok": false, "code": "schema_invalid", "message": "verification_key.IC missing" }
+```
+
+---
+
+## `vectors pull` (POC)
+
+Fetch canonical vectors or any JSON from URL / file / data URI with safe defaults.
+
+**Inputs**
+
+- `--url <url>`: source (`https://`, `http://`, `file://`, `data:`)
+- `--out-dir <dir>`: directory to write the fetched file (filename is derived)
+- `--allow-http` _(optional)_: allow **plain HTTP** (defaults to blocked)
+- `--max-mb <n>` _(optional)_: max allowed payload size (default: `5` MB)
+- `--timeout-ms <n>` _(optional)_: read timeout (default: `15000`)
+
+**Examples**
+
+```bash
+# Deterministic test (no network)
+zkpip vectors pull --url "data:application/json,%7B%22hello%22%3A%22world%22%7D" --out-dir /tmp
+
+# From file:// (absolute path only; traversal is blocked)
+zkpip vectors pull --url file:///home/me/proof.json --out-dir /tmp
+
+# Allow HTTP explicitly
+zkpip vectors pull --url http://example.com/data.json --out-dir /tmp --allow-http
+```
+
+The command prints the saved file path to stdout.
+
+On error it exits non‑zero and prints a machine‑readable JSON error to stderr.
+
+---
+
+## Experimental (dev-seal) — `vectors sign` / `vectors verify-seal`
+
+> Preview: local Ed25519 “dev-seal” (key in `./.zkpip/key`). Subject to change.
+
+- `zkpip vectors sign --in <canonical.json> --out <vector+seal.json>`
+- `zkpip vectors verify-seal --in <vector+seal.json>`
+
+Vector ID is derived as `urn:zkpip:vector:sha256:<hex>` from canonical hash; seal metadata contains signer and timestamp.
+
+---
+
+## Experimental (dev) — `vectors push`
+
+> Preview: disk backend with S3-compatible interface (to be replaced by AWS S3/KMS).
+
+- `zkpip vectors push --id <urn> --in <file> [--out-dir .zkpip/vectors]`
+
+---
 
 ## Trusted key list (policy)
 
@@ -101,8 +230,6 @@ zkpip keys <generate|list|show>
 {
   "keys": [
     { "keyId": "zkpip:dev:me", "publicPemPath": "keys/dev.pub" }
-    // or:
-    // { "keyId": "zkpip:dev:me", "publicPem": "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----\n" }
   ]
 }
 ```
@@ -112,6 +239,8 @@ Helper to bootstrap from keystore:
 ```bash
 npm -w @zkpip/cli run trust:init -- zkpip:dev:me
 ```
+
+---
 
 ## Keystore metadata
 
@@ -125,39 +254,45 @@ Each key folder contains a `metadata.json` written on generation:
 }
 ```
 
-* `keys list` surfaces the real `keyId` using this metadata (falls back to `(unknown)` if missing).
-* `keys show --json` returns: `{ ok, keyId, alg, createdAt, publicPemPath, publicPem }`.
+- `keys list` surfaces the real `keyId` using this metadata (falls back to `(unknown)` if missing).
+- `keys show --json` returns: `{ "ok": true, "keyId": "...", "alg": "Ed25519", "createdAt": "...", "publicPemPath": "...", "publicPem": "..." }`.
 
-## Error reasons (stable, machine-readable) (stable, machine-readable)
+---
 
-* `signature_invalid` – signature does not match payload/public key
-* `hash_mismatch` – payload modified after signing
-* `untrusted_key` – `signature.keyId` not present in trust set
-* `io_error` – file I/O or argument errors
+## Error codes (stable, machine‑readable)
 
-With `--json` the CLI never prints stack traces; errors are returned as:
+| code                  | meaning                                             |
+|-----------------------|-----------------------------------------------------|
+| `adapter_not_found`   | Selected adapter is not registered                  |
+| `schema_invalid`      | JSON does not conform to pinned schema              |
+| `io_error`            | Failed to read/write a file or network stream       |
+| `size_limit_exceeded` | `vectors pull` payload too large                    |
+| `http_blocked`        | `http://` blocked without `--allow-http`            |
+| `timeout`             | Read timeout exceeded                               |
+| `strict_violation`    | `--strict` forbids the given fields                 |
+| `UNKNOWN_COMMAND`     | Unknown top‑level command                           |
 
-```json
-{ "ok": false, "reason": "io_error", "message": "File not found: ..." }
-```
+**Environment**
+
+- `ZKPIP_HARD_EXIT=1` → hard exit (`process.exit(1)`), otherwise **soft**: set `process.exitCode = 1` and throw.
+
+---
 
 ## CI (M1)
 
-* Conformance vectors (generated): `can/manifest/{valid,invalid}`
-* GitHub Actions:
-
-  * build core+cli
-  * generate ephemeral Ed25519 (`keys/ci.key|ci.pub`)
-  * `npm -w @zkpip/cli run can:gen && can:verify`
-  * optional trust verify:
+- Conformance vectors (generated): `can/manifest/{valid,invalid}`
+- GitHub Actions highlights:
+  - build core + cli
+  - generate ephemeral Ed25519 (`keys/ci.key|ci.pub`)
+  - `npm -w @zkpip/cli run can:gen && can:verify`
+  - optional trust verify:
 
     ```bash
     echo '{ "keys":[{"keyId":"zkpip:ci","publicPemPath":"keys/ci.pub"}] }' > trust/keys.json
-    node packages/cli/dist/index.js manifest verify \
-      --in can/manifest/valid/ok.signed.json \
-      --trust-set trust/keys.json \
-      --json --use-exit-codes
+    node packages/cli/dist/index.js manifest verify       --in can/manifest/valid/ok.signed.json       --trust-set trust/keys.json       --json --use-exit-codes
     ```
+
+---
 
 ## Tests & coverage (dev)
 
@@ -169,7 +304,7 @@ npm -w @zkpip/cli exec vitest run
 npm -w @zkpip/cli run test:cov
 ```
 
-Vitest config should include both patterns:
+Vitest config should include:
 
 ```ts
 // vitest.config.ts
@@ -180,92 +315,21 @@ export default defineConfig({
 })
 ```
 
+---
+
 ## Batch verification & sealing (design preview)
 
-> This feature is planned for Display/Light plans. Single verification stays **free** for the 4 basic bridges; batch = **one bundle seal** via API.
-
-### CLI shape (draft)
+> Planned. Single-file local verification remains free for the 4 basic bridges; batch uses API and yields **one bundle seal** per batch.
 
 ```bash
-# discover files under a directory and verify via API as one batch (bundle seal)
-zkpip verify-batch \
-  --dir proofs/ \
-  --pattern "**/*.json" \
-  --bridge snarkjs-plonk \
-  --trust-set trust/keys.json \
-  --envelope-name "shopify-checkout-2025-09-19" \
-  --out reports/batch-report.ndjson \
-  --concurrency 8 \
-  --keep-going \
-  --json
+zkpip verify-batch   --dir proofs/   --pattern "**/*.json"   --bridge snarkjs-plonk   --trust-set trust/keys.json   --envelope-name "shopify-checkout-2025-09-19"   --out reports/batch-report.ndjson   --concurrency 8   --keep-going   --json
 ```
 
-**Flags (proposed):**
-
-* `--dir <folder>`: root to scan; combine with `--pattern` & `--exclude`.
-* `--pattern <glob>` (repeatable): file glob(s), default `**/*`.
-* `--exclude <glob>` (repeatable).
-* `--bridge <id>`: proof-bridge to interpret files; per-bridge defaults for expected shapes.
-* `--trust-set <path>`: optional trust enforcement.
-* `--api-key <key>` / `--endpoint <url>`: override config (see below).
-* `--envelope-name <name>`: human label for the batch; used by SealScan.
-* `--out <path>`: write NDJSON with per-file results + a final summary line.
-* `--concurrency <n>`: local parallelism (upload/verify windowing).
-* `--keep-going` / `--fail-fast` (default: keep-going).
-* `--dry-run`: list what would be sent; no network.
-* `--mkdirs`: create parent dirs for `--out`.
-
-**Output contract:**
-
-* NDJSON lines for each processed file:
-
-  ```json
-  { "file":"proofs/a.json", "ok":true, "bridgeId":"snarkjs-plonk", "reason":null, "sealId":"..." }
-  { "file":"proofs/b.json", "ok":false, "reason":"invalid_envelope_content", "message":"..." }
-  ...
-  { "summary": { "total": 100, "ok": 98, "failed": 2, "bundleSealId": "..." } }
-  ```
-* Non-matching/unsupported files are emitted with `reason:"unsupported_format"` and skipped.
-
-### API (draft)
-
-* `POST /v1/batches` → `{ batchId, uploadUrls[] }`
-* `PUT <uploadUrl>` per file (signed URL), or `POST /v1/batches/:id/files` with body
-* `POST /v1/batches/:id/verify` → starts verification + bundle seal
-* `GET /v1/batches/:id` → status + results (streamable NDJSON)
-
-**Config file:** `~/.zkpip/config.json`
-
-```json
-{
-  "endpoint": "https://api.zkpip.io",
-  "apiKey": "<secret>",
-  "orgName": "Imagella LLC",       // optional: shown on SealScan if Display plan enabled
-  "telemetry": true                  // opt-in usage metrics
-}
-```
-
-**DX guarantees:**
-
-* Resumable: `--resume <batchId>` to continue failed uploads.
-* Idempotent: re-running with same `--envelope-name` deduplicates.
-* Rate limits surfaced in CLI with backoff; `429` handled automatically.
-* Privacy: file paths hashed in telemetry; content never logged client-side.
-
-**Pricing rule (high level):**
-
-* Local single verifies (CPU-only) remain free for 4 basic bridges.
-* Batch uses API → 1 **bundle seal** per batch (counts toward plan).
-* SealScan shows bundle page with optional org/dev name (from config).
+(See original README for full draft.)
 
 ---
 
 ## Security notes
 
-* Never commit private keys. Keystore private files use `0600`.
-
-* For production, plan to switch to **KMS signer** (AWS KMS integration, M1/B).
-
-* Never commit private keys. Keystore private files use `0600`.
-
-* For production, plan to switch to **KMS signer** (AWS KMS integration, M1/B).
+- Never commit private keys. Keystore private files use `0600`.
+- For production, plan to switch to **KMS signer** (AWS KMS integration, M1/B).

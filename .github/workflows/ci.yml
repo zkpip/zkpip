@@ -12,18 +12,21 @@ concurrency:
 
 jobs:
   build-test-cli:
-    name: Build & Test (CLI)
+    name: Build & Test (core + CLI)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      # Dump-okat könnyebb így kivenni hiba esetén
+      CI: 'true'
+      # Light for debugging
       ZKPIP_DUMP_NORMALIZED: ${{ github.workspace }}/.tmp/normalized
+      # E2E - hard exit
+      ZKPIP_HARD_EXIT: '0'
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js (22.x)
+      - name: Setup Node.js (22.x) + npm cache
         uses: actions/setup-node@v4
         with:
           node-version: 22.x
@@ -32,17 +35,51 @@ jobs:
       - name: Install deps (monorepo)
         run: npm ci
 
-      - name: Build workspaces (core first)
-        run: |
-          npm -w @zkpip/core run build
-          npm -w @zkpip/cli run build
+      # --- Build order: core → cli ---
+      - name: Build @zkpip/core
+        run: npm -w @zkpip/core run build
 
-      - name: Sanity — no bundleId
+      - name: Build @zkpip/cli
+        run: npm -w @zkpip/cli run build
+
+      # --- Quality checks (root scripts, no workspaces)
+      - name: Lint
+        run: npm run lint --if-present
+
+      - name: Typecheck
+        run: npm run typecheck --if-present
+
+      # --- Targeted sanity/validator steps ---
+      - name: Sanity — no bundleId (core)
         run: npm -w @zkpip/core run test -- src/__tests__/nobundleid.sanity.test.ts
 
-      - name: Validate docs examples (ProofEnvelope)
+      - name: Validate docs examples (CLI ProofEnvelope)
         run: npm -w @zkpip/cli run docs:examples:validate
 
+      # --- Unit/IT tests (per full package) ---
+      - name: Test @zkpip/core (unit)
+        run: npm -w @zkpip/core test -- --reporter=dot
+
+      - name: Test @zkpip/cli (unit)
+        run: npm -w @zkpip/cli test -- --reporter=dot
+
+      # --- E2E / invalid vectors (Linux) ---
+      - name: E2E — invalid vectors must fail verify (CLI)
+        env:
+          ZKPIP_HARD_EXIT: '1'
+        run: |
+          npm -w @zkpip/cli test -- src/__tests__/invalid.vectors.e2e.test.ts --reporter=verbose
+
+      # --- Smoke runs
+      - name: Smoke — groth16/plonk (optional)
+        if: ${{ always() }}
+        env:
+          ZKPIP_HARD_EXIT: '1'
+        run: |
+          npm -w @zkpip/cli run smoke:groth16 || echo "smoke:groth16 missing or failed"
+          npm -w @zkpip/cli run smoke:plonk   || echo "smoke:plonk missing or failed"
+
+      # --- Artefacts on error: fix and temp outputs ---
       - name: Upload fixtures and dumps on failure
         if: failure()
         uses: actions/upload-artifact@v4
@@ -52,4 +89,15 @@ jobs:
             fixtures/**
             .tmp/normalized/**
             packages/cli/.tmp/**
+          if-no-files-found: ignore
+
+      # --- dist + README available ---
+      - name: Upload dist + README (optional)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zkpip-build-artifacts
+          path: |
+            packages/**/dist/**
+            packages/**/README.md
           if-no-files-found: ignore
