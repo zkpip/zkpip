@@ -42,12 +42,12 @@ jobs:
       - name: Build @zkpip/cli
         run: npm -w @zkpip/cli run build
 
-      # --- Quality checks
-      - name: Lint (all workspaces, optional)
-        run: npm -ws run lint --if-present
+      # --- Quality checks (root scripts, no workspaces)
+      - name: Lint
+        run: npm run lint --if-present
 
-      - name: Typecheck (all workspaces, optional)
-        run: npm -ws run typecheck --if-present
+      - name: Typecheck
+        run: npm run typecheck --if-present
 
       # --- Targeted sanity/validator steps ---
       - name: Sanity — no bundleId (core)
