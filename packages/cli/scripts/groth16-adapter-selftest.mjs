@@ -1,6 +1,6 @@
 // Minimal self-test for snarkjs-groth16 adapter (NodeNext/ESM)
 import { readFileSync, writeFileSync } from 'node:fs';
-import { snarkjsGroth16 } from '../dist/adapters/snarkjs-groth16.js';
+import { getAdapterById } from '../dist/registry/adapterRegistry.js';
 
 function loadJson(p) {
   return JSON.parse(readFileSync(p, 'utf8'));
@@ -90,6 +90,7 @@ const tests = [
 let fails = 0;
 for (const t of tests) {
   // eslint-disable-next-line no-await-in-loop
+  const snarkjsGroth16 = await getAdapterById('snarkjs-groth16');
   const res = await snarkjsGroth16.verify(t.input);
   const pass =
     'ok' in t.expect

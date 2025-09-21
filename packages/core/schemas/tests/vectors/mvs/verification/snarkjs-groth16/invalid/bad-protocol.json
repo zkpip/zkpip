@@ -1,0 +1,6 @@
+{
+  "protocol": "groth16x",
+  "curve": "bn128",
+  "proof": {},
+  "publicSignals": []
+}

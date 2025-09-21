@@ -1,5 +1,7 @@
 node_modules/
 dist/
 coverage/
-*.tsbuildinfo
-packages/*/dist/
+.tmp/
+packages/**/dist/
+packages/**/.tmp/
+fixtures/

@@ -10,7 +10,7 @@
     ".": "./dist/index.js"
   },
   "files": [
-    "dist"
+    "dist/**", "schemas/**"
   ],
   "sideEffects": false,
   "engines": {
@@ -18,7 +18,7 @@
   },
   "scripts": {
     "pretest": "npm run build",
-    "lint": "ESLINT_USE_FLAT_CONFIG=true eslint .",
+    "lint": "eslint .",
     "format": "prettier -w \"src/**/*.{ts,js,mjs,cjs,md,json,yml,yaml}\"",
     "format:check": "prettier -c \"src/**/*.{ts,js,mjs,cjs,md,json,yml,yaml}\"",
     "clean": "rimraf dist tsconfig.tsbuildinfo ./.tmp/normalized/*",
@@ -52,7 +52,10 @@
     "can:verify": "node ./scripts/verify-can-vectors.mjs --pub keys/ci.pub",
     "trust:init": "node ./scripts/trust-init.mjs",
     "docs:examples:validate": "tsx ./scripts/validate-proof-envelope.ts ../../docs/spec/examples/proof-envelope.result.json ../../docs/spec/examples/proof-envelope.artifacts.json",
-    "validate:proof-envelope": "tsx ./scripts/validate-proof-envelope.ts"
+    "validate:proof-envelope": "tsx ./scripts/validate-proof-envelope.ts",
+    "forge:e2e": "vitest run src/__tests__/forge.e2e.test.ts",
+    "pull:poc": "vitest run src/__tests__/vectors-pull.poc.test.ts",
+    "test:invalid": "vitest run src/__tests__/invalid.vectors.e2e.test.ts --reporter=verbose"
   },
   "dependencies": {
     "@zkpip/core": "0.1.0",

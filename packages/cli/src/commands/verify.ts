@@ -12,14 +12,156 @@ import type { Json, JsonObject } from '../types/json.js';
 import { mapVerifyOutcomeToExitCode } from '../utils/exitCodeMap.js';
 import { normalizeVerification } from '../utils/normalizeVerification.js';
 import { dumpNormalized } from '../utils/dumpNormalized.js';
+import { isProofEnvelope } from '../verify/verificationLoader.js';
+import { existsSync } from 'node:fs';
+import { join, isAbsolute, dirname as pathDirname, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __THIS_FILE__ = fileURLToPath(import.meta.url);
+
+function findRepoRootFrom(filePath: string): string | undefined {
+  let dir = pathDirname(filePath);
+  for (let i = 0; i < 8; i++) {
+    if (existsSync(join(dir, 'packages'))) return dir;
+    const next = pathDirname(dir);
+    if (next === dir) break;
+    dir = next;
+  }
+  return undefined;
+}
+
+const REPO_ROOT_GUESS = findRepoRootFrom(__THIS_FILE__);
 
 function toAdapterId(s: string): AdapterId {
   if (isAdapterId(s)) return s;
   throw new Error(`Unknown adapter: ${s}`);
 }
 
-function isJsonObject(j: Json): j is JsonObject {
-  return typeof j === 'object' && j !== null && !Array.isArray(j);
+/** Small string helper */
+function isNonEmptyString(v: unknown): v is string {
+  return typeof v === 'string' && v.length > 0;
+}
+
+// adapter-id → default meta (fallback)
+function defaultsForAdapter(adapterId: AdapterId): { curve: string; protocol: string } {
+  switch (adapterId) {
+    case 'snarkjs-groth16': return { curve: 'bn128', protocol: 'groth16' };
+    case 'snarkjs-plonk':   return { curve: 'bn128', protocol: 'plonk' };
+    case 'zokrates-groth16':return { curve: 'bn128', protocol: 'groth16' };
+    default:                return { curve: 'bn128', protocol: 'groth16' };
+  }
+}
+
+/** Narrow object check without using `any`. */
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
+/** True if value is a plain JSON object (not null, not array). */
+function isJsonObject(v: unknown): v is JsonObject {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function fileUriToPath(uri: string): string | undefined {
+  if (!uri.toLowerCase().startsWith('file://')) return undefined;
+  return uri.replace(/^file:\/\//i, '');
+}
+
+/** Resolve vkey using uri/path with bounded, deterministic attempts (no deep walks). */
+async function readVkeyFromArtifacts(
+  envelope: Json,
+  verificationFilePath: string | undefined,
+): Promise<Json | undefined> {
+  if (!isJsonObject(envelope)) return undefined;
+  const arts = envelope['artifacts'];
+  if (!isRecord(arts)) return undefined;
+
+  // 1) Prefer absolute file:// URI
+  const vkeyRec = (arts as Record<string, unknown>)['vkey'];
+  if (isRecord(vkeyRec)) {
+    const uri = vkeyRec['uri'];
+    const absFromUri = fileUriToPath(typeof uri === 'string' ? uri : '');
+    if (absFromUri && existsSync(absFromUri)) {
+      const text = await readFile(absFromUri, 'utf8');
+      return JSON.parse(text) as Json;
+    }
+
+    // 2) path handling
+    const p = vkeyRec['path'];
+    if (typeof p === 'string' && p.length > 0) {
+      // 2a) absolute path
+      if (isAbsolute(p) && existsSync(p)) {
+        const text = await readFile(p, 'utf8');
+        return JSON.parse(text) as Json;
+      }
+      // 2b) relative to verification file directory (if known)
+      if (verificationFilePath && verificationFilePath.includes('/')) {
+        const baseDir = verificationFilePath.slice(0, verificationFilePath.lastIndexOf('/'));
+        const cand = join(baseDir, p);
+        if (existsSync(cand)) {
+          const text = await readFile(cand, 'utf8');
+          return JSON.parse(text) as Json;
+        }
+      }
+      // 2c) relative to CWD
+      {
+        const cand = join(process.cwd(), p);
+        if (existsSync(cand)) {
+          const text = await readFile(cand, 'utf8');
+          return JSON.parse(text) as Json;
+        }
+      }
+      // 2d) monorepo root + 'packages/...'
+      if (p.startsWith(`packages${sep}`) || p.startsWith('packages/')) {
+        if (REPO_ROOT_GUESS) {
+          const cand = join(REPO_ROOT_GUESS, p);
+          if (existsSync(cand)) {
+            const text = await readFile(cand, 'utf8');
+            return JSON.parse(text) as Json;
+          }
+        }
+      }
+    }
+  }
+
+  // 3) Fallback: artifacts.verificationPath (legacy)
+  const verifPath = (arts as Record<string, unknown>)['verificationPath'];
+  if (typeof verifPath === 'string' && verifPath.length > 0) {
+    // 3a) absolute
+    if (isAbsolute(verifPath) && existsSync(verifPath)) {
+      const text = await readFile(verifPath, 'utf8');
+      return JSON.parse(text) as Json;
+    }
+    // 3b) relative to verification file directory
+    if (verificationFilePath && verificationFilePath.includes('/')) {
+      const baseDir = verificationFilePath.slice(0, verificationFilePath.lastIndexOf('/'));
+      const cand = join(baseDir, verifPath);
+      if (existsSync(cand)) {
+        const text = await readFile(cand, 'utf8');
+        return JSON.parse(text) as Json;
+      }
+    }
+    // 3c) relative to CWD
+    {
+      const cand = join(process.cwd(), verifPath);
+      if (existsSync(cand)) {
+        const text = await readFile(cand, 'utf8');
+        return JSON.parse(text) as Json;
+      }
+    }
+    // 3d) monorepo root + 'packages/...'
+    if (verifPath.startsWith(`packages${sep}`) || verifPath.startsWith('packages/')) {
+      if (REPO_ROOT_GUESS) {
+        const cand = join(REPO_ROOT_GUESS, verifPath);
+        if (existsSync(cand)) {
+          const text = await readFile(cand, 'utf8');
+          return JSON.parse(text) as Json;
+        }
+      }
+    }
+  }
+
+  return undefined;
 }
 
 function normalizeVerifyResult(res: unknown): boolean {
@@ -42,12 +184,7 @@ export async function verifyCommand(argv: VerifyHandlerArgs): Promise<void> {
       (result.ok ? console.log : console.error)(result.ok ? 'OK' : 'ERROR');
     }
 
-    if (result.ok) {
-      // success → don’t hard-exit, just set exitCode
-      process.exitCode = 0;
-      return;
-    }
-    // failure → exit with mapped code (ensures execa sees non-zero)
+    // Hard-exit ALWAYS to avoid open handles keeping the loop alive.
     process.exit(code);
   }
 
@@ -101,9 +238,11 @@ export async function verifyCommand(argv: VerifyHandlerArgs): Promise<void> {
 
   // 3) Resolve and parse verification JSON
   let verificationJson: Json;
+  let verificationPathResolved: string | undefined; 
   try {
     const resolved = await resolveVerificationArg(raw);
     if (typeof resolved === 'string') {
+      verificationPathResolved = resolved; // <-- remember absolute/relative path
       const text = await readFile(resolved, 'utf8');
       verificationJson = JSON.parse(text) as Json;
     } else {
@@ -131,23 +270,109 @@ export async function verifyCommand(argv: VerifyHandlerArgs): Promise<void> {
       };
       return emit(normalizedOut);
     }
-    const fw = verificationJson['framework'];
-    const ps = verificationJson['proofSystem'];
-    if (typeof fw !== 'string' || typeof ps !== 'string') {
-      normalizedOut = {
-        ok: false,
-        stage: 'schema',
-        error: 'schema_invalid',
-        message: 'missing framework/proofSystem in verification JSON (quick precheck)',
-      };
-      return emit(normalizedOut);
+
+    // If this is a ProofEnvelope (MVS v0.1.0), skip legacy precheck.
+    // Envelope presence is validated by the adapter/AJV later.
+    if (!isProofEnvelope(verificationJson as unknown)) {
+      const fw = verificationJson['framework'];
+      const ps = verificationJson['proofSystem'];
+      if (typeof fw !== 'string' || typeof ps !== 'string') {
+        normalizedOut = {
+          ok: false,
+          stage: 'schema',
+          error: 'schema_invalid',
+          message: 'missing framework/proofSystem in verification JSON (quick precheck)',
+        };
+        return emit(normalizedOut);
+      }
     }
   }
 
   // 4.1) Normalize to adapter bundle shape
+  // Envelope-aware: if input is a ProofEnvelope, extract from result.{proof, publicSignals}.
+  // Otherwise fall back to legacy normalizer.
+
   let bundle: { verification_key: Json; proof: Json; public: Json };
+
   try {
-    bundle = normalizeVerification(verificationJson);
+    if (isProofEnvelope(verificationJson as unknown)) {
+      // Envelope path
+      const env = verificationJson as unknown as {
+        proofSystem?: string;
+        curve?: string;
+        result: { proof: Json; publicSignals: Json };
+      };
+
+      // vkey load (pass the resolved verification file path you already captured)
+      const maybeVkey = await readVkeyFromArtifacts(verificationJson, verificationPathResolved);
+      if (!isJsonObject(maybeVkey)) {
+        return emit({
+          ok: false, stage: 'schema', error: 'schema_invalid',
+          message: 'verification_key not found (artifacts.vkey.path|uri unresolved)',
+        });
+      }
+
+      // If it's an object, clone it; otherwise start from empty {}
+      const vkeyObj: JsonObject = isJsonObject(maybeVkey) ? { ...maybeVkey } : {};  
+
+      // Normalize fields required by snarkjs adapter (avoids `.toUpperCase()` on undefined)
+      const { curve: curveDef, protocol: protoDef } = defaultsForAdapter(adapterId);
+      const envCurve = isNonEmptyString((verificationJson as JsonObject).curve)
+        ? (verificationJson as JsonObject).curve
+        : undefined;
+      const envProto = isNonEmptyString((verificationJson as JsonObject).proofSystem)
+        ? (verificationJson as JsonObject).proofSystem
+        : undefined;
+
+      // curve
+      if (!isNonEmptyString((vkeyObj as Record<string, unknown>).curve)) {
+        (vkeyObj as Record<string, unknown>).curve = envCurve ?? curveDef;
+      }
+      // protocol
+      if (!isNonEmptyString((vkeyObj as Record<string, unknown>).protocol)) {
+        (vkeyObj as Record<string, unknown>).protocol = envProto ?? protoDef;
+      }
+
+      // --- PUBLIC SIGNALS NORMALIZATION (FIX) ---
+      const psRaw = env.result.publicSignals;
+
+      // Normalize to a non-empty array for snarkjs adapters
+      let publicsNorm: Json;
+      if (Array.isArray(psRaw)) {
+        publicsNorm = psRaw as Json;
+      } else if (isRecord(psRaw)) {
+        // object -> values as array
+        // publicsNorm = Object.values(psRaw) as unknown as Json;
+        publicsNorm = Object.keys(psRaw)
+          .sort()
+          .map((k) => (psRaw as Record<string, unknown>)[k]) as unknown as Json;
+      } else if (psRaw == null) {
+        publicsNorm = [] as unknown as Json;
+      } else {
+        publicsNorm = [psRaw] as unknown as Json;
+      }
+
+      // checking empty array
+      if (!Array.isArray(publicsNorm) || (publicsNorm as unknown[]).length === 0) {
+        return emit({
+          ok: false,
+          stage: 'schema',
+          error: 'schema_invalid',
+          message: 'publicSignals must be a non-empty array for snarkjs adapters',
+        });
+      }
+
+      // Finally build the bundle
+      bundle = {
+        verification_key: vkeyObj,
+        proof: env.result.proof,
+        public: publicsNorm,
+      };
+
+    } else {
+      // Legacy path
+      bundle = normalizeVerification(verificationJson);
+    }
   } catch (err) {
     return emit({
       ok: false,

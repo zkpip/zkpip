@@ -1,0 +1,15 @@
+{
+  "$id": "urn:zkpip:schema:proof-envelope:0.1.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["envelopeId", "protocol", "curve", "adapter", "createdAt", "input"],
+  "properties": {
+    "envelopeId": { "type": "string", "pattern": "^env_[0-9a-f]{32}$" },
+    "protocol": { "enum": ["groth16", "plonk"] },
+    "curve": { "enum": ["bn128"] },
+    "adapter": { "type": "string" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "input": { "type": "object" }
+  },
+  "additionalProperties": false
+}

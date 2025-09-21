@@ -1,0 +1,7 @@
+{
+  "protocol": "groth16",
+  "curve": "bn128",
+  "verificationKey": { "alpha": {}, "beta": {} },
+  "proof": {},
+  "publicSignals": []
+}

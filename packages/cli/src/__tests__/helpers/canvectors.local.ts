@@ -6,7 +6,7 @@
 
 import { existsSync, promises as fsp } from 'node:fs';
 import { resolve, join } from 'node:path';
-import { VectorId, VectorManifestV1, VectorProvider, ResolvedVector } from './canvectors.types.js';
+import type { VectorId, VectorManifestV1, VectorProvider, ResolvedVector } from './canvectors.types.js';
 import { fixturesPath } from './cliRunner.js';
 
 type ResolvedVectorOpt = Omit<ResolvedVector, 'manifest'> & { manifest?: VectorManifestV1 };

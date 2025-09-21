@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
-import { VectorId, VectorManifestV1, VectorProvider, ResolvedVector } from './canvectors.types.js';
+import type { VectorId, VectorManifestV1, VectorProvider, ResolvedVector } from './canvectors.types.js';
 
 const CACHE_DIR = process.env.CANVECTORS_CACHE_DIR ?? '.cache/canvectors';
 
