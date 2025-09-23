@@ -1,4 +1,4 @@
-import type { Argv, Arguments, CommandModule } from 'yargs';
+import type { Argv, ArgumentsCamelCase, CommandModule } from 'yargs';
 import { readFile } from 'node:fs/promises';
 import { writeFile } from '#fs-compat';
 import { resolve } from 'node:path';
@@ -11,8 +11,8 @@ type BaseArgs = { in: string; out: string };
 export const convertCanonicalCmd: CommandModule<unknown, BaseArgs> = {
   command: 'convert canonical',
   describe: 'Produce canonical JSON with stable order',
-  builder: (y: Argv<InOutArgs>) => y.option('in', { type: 'string', demandOption: true }).option('out', { type: 'string', demandOption: true }),
-  handler: async (argv: Arguments<InOutArgs>) => {
+  builder: (y: Argv<unknown>) => y.option('in', { type: 'string', demandOption: true }).option('out', { type: 'string', demandOption: true }),
+  handler: async (argv: ArgumentsCamelCase<InOutArgs>) => {
     const raw = await readFile(resolve(String(argv.in)), 'utf8');
     const obj = JSON.parse(raw) as CanonicalInput;
     const body = normalizeJsonStable(obj) + '\n';
@@ -23,8 +23,8 @@ export const convertCanonicalCmd: CommandModule<unknown, BaseArgs> = {
 export const convertHexCmd: CommandModule<unknown, BaseArgs> = {
   command: 'convert hex',
   describe: 'Convert canonical JSON → hex payload',
-  builder: (y: Argv<InOutArgs>) => y.option('in', { type: 'string', demandOption: true }).option('out', { type: 'string', demandOption: true }),
-  handler: async (argv: Arguments<InOutArgs>) => {
+  builder: (y: Argv<unknown>) => y.option('in', { type: 'string', demandOption: true }).option('out', { type: 'string', demandOption: true }),
+  handler: async (argv: ArgumentsCamelCase<InOutArgs>) => {
     const raw = await readFile(resolve(String(argv.in)), 'utf8');
     const hex = Buffer.from(raw, 'utf8').toString('hex');
     await writeFile(resolve(String(argv.out)), `0x${hex}\n`, 'utf8');
@@ -34,8 +34,8 @@ export const convertHexCmd: CommandModule<unknown, BaseArgs> = {
 export const convertBase64Cmd: CommandModule<unknown, BaseArgs> = {
   command: 'convert base64',
   describe: 'Convert canonical JSON → base64 payload',
-  builder: (y: Argv<InOutArgs>) => y.option('in', { type: 'string', demandOption: true }).option('out', { type: 'string', demandOption: true }),
-  handler: async (argv: Arguments<InOutArgs>) => {
+  builder: (y: Argv<unknown>) => y.option('in', { type: 'string', demandOption: true }).option('out', { type: 'string', demandOption: true }),
+  handler: async (argv: ArgumentsCamelCase<InOutArgs>) => {
     const raw = await readFile(resolve(String(argv.in)), 'utf8');
     const b64 = Buffer.from(raw, 'utf8').toString('base64');
     await writeFile(resolve(String(argv.out)), `${b64}\n`, 'utf8');
