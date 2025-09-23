@@ -29,7 +29,7 @@ jobs:
       - name: Setup Node.js (22.x) + npm cache
         uses: actions/setup-node@v4
         with:
-          node-version: 22.x
+          node-version: 18.20.4
           cache: npm
 
       - name: Install deps (monorepo)

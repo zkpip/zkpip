@@ -21,10 +21,15 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '22.x'
+          node-version: 18.20.4
           cache: 'npm'
 
       - run: npm ci
+
+      - name: Debug versions
+        run: |
+          node -v
+          node -e "console.log('ajv version =', require('ajv/package.json').version)"
 
       - run: git diff --quiet || (echo "Workspace dirty before validate" && git status && exit 1)
 
