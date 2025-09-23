@@ -1,5 +1,5 @@
 {
-  "extends": "./tsconfig.json",
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "./dist",
     "noEmit": false,
@@ -7,7 +7,13 @@
     "declarationMap": false,
     "emitDeclarationOnly": false,
     "sourceMap": true,
-    "composite": true
+    "composite": true,
+    "rootDir": "src",
+    "baseUrl": ".",
+    "paths": {
+      "#fs-compat": ["./src/shims/fs-compat.ts"]
+    }
   },
-  "include": ["src/**/*", "scripts/**/*"]
+  "include": ["src/**/*"],
+  "exclude": ["src/__tests__/**"]
 }

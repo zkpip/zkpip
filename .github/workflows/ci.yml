@@ -40,8 +40,7 @@ jobs:
           set -euxo pipefail
           npm run lint
 
-      - name: Build CLI dist
-        run: npm -w @zkpip/cli run build
+      - run: npm -w @zkpip/cli run build
 
       - name: Test (workspaces + root)
         run: |
