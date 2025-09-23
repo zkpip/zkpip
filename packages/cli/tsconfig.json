@@ -1,13 +1,14 @@
 {
-  "extends": "../../tsconfig.base.json",
+  "extends": "../../tsconfig.paths.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "lib": [
-      "ES2022"
-    ],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "baseUrl": ".",
+    "types": ["node", "vitest/globals"],
+    "resolvePackageJsonImports": true,
+    "skipLibCheck": true,
+    "rootDir": ".",
+    "noEmit": true,
     "paths": {
       "@zkpip/core": [
         "../core/dist/index.d.ts",
@@ -16,9 +17,9 @@
       "@zkpip/core/*": [
         "../core/dist/*",
         "../core/src/*"
-      ]
-    },
-    "rootDir": "src",
+      ],
+      "#fs-compat": ["./src/utils/fs-compat.ts"]
+    },    
     "outDir": "dist",
     "declaration": true,
     "declarationMap": true,
@@ -30,32 +31,21 @@
     "exactOptionalPropertyTypes": true,
     "noUncheckedIndexedAccess": true,
     "noEmitOnError": true,
-    "types": [
-      "node",
-      "vitest"
-    ],
-    "skipLibCheck": true,
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    "noEmit": false,
     "emitDeclarationOnly": false    
   },
   "engines": { 
     "node": ">=20" 
   },
   "include": [
-    "src/**/*",
+    "src",
     "src/**/*.ts",
-    "schemas/**/*"
+    "scripts/**/*.ts",
+    "../../types/**/*.d.ts" 
   ],
-  "exclude": [
-    "scripts/**",
-    "e2e-artifacts/**",
-    "**/__tests__/**",
-    "**/*.test.ts",
-    "**/*.expect.json"
-  ],
+  "exclude": ["node_modules", "dist"],
   "references": [
     {
       "path": "../core"

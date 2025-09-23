@@ -9,6 +9,7 @@ import * as fs from 'node:fs';
 import { promises as fsp } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { writeFile } from '#fs-compat';
 
 // ---------- JSON types (immutable) ----------
 type JSONPrimitive = string | number | boolean | null;
@@ -190,7 +191,7 @@ async function main(): Promise<void> {
 
   // Write artifacts
   const nd = rows.map((r) => JSON.stringify(r)).join('\n') + '\n';
-  await fsp.writeFile(path.join(runDir, 'verify.ndjson'), nd, 'utf8');
+  await writeFile(path.join(runDir, 'verify.ndjson'), nd, 'utf8');
 
   // Build summary (bundle-only counts by set, and expect coverage)
   const bundlesTotal = rows.length;
@@ -227,7 +228,7 @@ async function main(): Promise<void> {
     lines.push(`- ${a}: valid=${v}, invalid=${iv} | exit0=${ok0}, exit1=${ok1}, other=${o}`);
   }
   lines.push('');
-  await fsp.writeFile(path.join(runDir, 'stage1-summary.md'), lines.join('\n'), 'utf8');
+  await writeFile(path.join(runDir, 'stage1-summary.md'), lines.join('\n'), 'utf8');
 
   process.stdout.write(`Stage 1 results → ${path.join(runDir, 'verify.ndjson')}\n`);
 }

@@ -34,7 +34,6 @@ describe('CIR — VALID vectors', () => {
 
       const res = validateAgainstResult(ajv, SCHEMA_CIR, data);
       if (!res.ok) {
-        // eslint-disable-next-line no-console
         console.error(`[CIR] ${f} failed:\n${stringifyFail(res as Record<string, unknown> & { ok: boolean })}`);
       }
       expect(res.ok, `CIR vector failed: ${f}`).toBe(true);

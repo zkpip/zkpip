@@ -1,5 +1,5 @@
 {
-  "extends": "../../tsconfig.base.json",
+  "extends": ["../../tsconfig.paths.json"],
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
@@ -7,7 +7,7 @@
       "types": "./dist/index.d.ts"
     },
     "./schemas/*": "./dist/schemas/*"
-  },
+  },  
   "compilerOptions": {
     "target": "ES2022",
     "lib": [
@@ -15,8 +15,9 @@
     ],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "rootDir": "src",
+    "rootDir": ".",
     "outDir": "dist",
+    "noEmit": true,
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
@@ -28,19 +29,25 @@
     "noUncheckedIndexedAccess": true,
     "noEmitOnError": true,
     "resolveJsonModule": true,
+    "baseUrl": ".",
     "skipLibCheck": true,
-    "types": [
-      "node"
-    ]
+    "types": ["node", "vitest/globals"],
+    "resolvePackageJsonImports": true,
+    "paths": {
+      "#fs-compat": ["../cli/src/utils/fs-compat.ts"]    
+    }
   },
   "include": [
-    "src/**/*.ts"
+    "src",
+    "src/**/*.ts",
+    "src/__tests__/**/*.ts",
+    "tools/**/*.ts",
+    "scripts/**/*.ts",
+    "types/**/*.d.ts",
+    "../../types/**/*.d.ts"
   ],
   "exclude": [
-    "dist",
-    "scripts/**",
-    "schemas/**",
-    "**/*.test.ts",
-    "**/__tests__/**"
+    "node_modules",
+    "dist"
   ]
 }

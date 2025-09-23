@@ -4,7 +4,8 @@
  * Usage: npm -w @zkpip/cli run trust:init -- <keyId>
  */
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdirSync, existsSync } from 'node:fs';
+import { writeFileSync } from '#fs-compat';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 

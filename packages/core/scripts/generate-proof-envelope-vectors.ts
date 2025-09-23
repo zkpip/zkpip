@@ -1,7 +1,8 @@
 // packages/core/scripts/generate-proof-envelope-vectors.ts
 // Run: npx tsx packages/core/scripts/generate-proof-envelope-vectors.ts
 
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { mkdirSync } from 'node:fs';
+import { writeFileSync } from '#fs-compat';
 import { join, resolve } from 'node:path';
 
 const FIX_DIR   = resolve('fixtures/snarkjs-groth16/valid');

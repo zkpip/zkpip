@@ -1,4 +1,3 @@
-// packages/core/src/__tests__/proofEnvelope.valid.test.ts
 import { describe, it, expect } from 'vitest';
 import { createAjv } from '../validation/createAjv.js';
 import { addCoreSchemas } from '../validation/addCoreSchemas.js';
@@ -38,7 +37,6 @@ describe('ProofEnvelope schema — minimal valid envelope (result branch)', () =
 
     const ok = validate(validEnvelope);
     if (!ok) {
-      // eslint-disable-next-line no-console
       console.error('Validation errors:', validate.errors);
     }
     expect(ok).toBe(true);

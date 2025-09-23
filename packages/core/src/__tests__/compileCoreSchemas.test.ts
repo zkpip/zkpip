@@ -22,7 +22,6 @@ describe('Core schemas compile', () => {
     for (const id of CANONICAL_IDS_LIST) {
       const maybe = ajv.getSchema(id);
       if (!maybe) {
-        // eslint-disable-next-line no-console
         console.error(`Schema not registered: ${id}`);
       }
       expect(maybe, `missing AJV schema for ${id}`).toBeTruthy();

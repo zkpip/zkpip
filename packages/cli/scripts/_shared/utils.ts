@@ -1,6 +1,7 @@
 // Small shared helpers for E2E (no `any`; English comments)
 import { createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
+import { writeFile } from '#fs-compat';
 
 export async function sha256File(fp: string): Promise<string> {
   const h = createHash('sha256');
@@ -22,5 +23,5 @@ export async function readJsonSafe<T>(fp: string): Promise<ReadJsonOk<T> | ReadJ
 }
 
 export async function writeJson(fp: string, data: unknown): Promise<void> {
-  await fs.writeFile(fp, JSON.stringify(data, null, 2));
+  await writeFile(fp, JSON.stringify(data, null, 2));
 }

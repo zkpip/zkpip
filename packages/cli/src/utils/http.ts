@@ -4,6 +4,7 @@ import { basename, resolve, sep } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { pipeline } from 'node:stream/promises';
 import { Readable, Transform } from 'node:stream';
+import { writeFile } from '#fs-compat';
 
 export interface PullOptions {
   url: string;
@@ -40,7 +41,7 @@ export async function fetchToDisk(opts: PullOptions): Promise<string> {
       const buf = Buffer.from(base64, 'base64');
       if (buf.byteLength > maxBytes) throw new Error('Payload exceeds size limit');
       const out = resolve(outDir, `data-${Date.now()}.json`);
-      await fs.writeFile(out, buf);
+      await writeFile(out, buf);
       return out;
     }
 

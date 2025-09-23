@@ -73,10 +73,10 @@ export async function dumpNormalized(
     : (phaseOrPayload as DumpPayload | undefined);
 
   const root = payload?.dirOverride?.trim() || process.env.ZKPIP_DUMP_NORMALIZED?.trim();
+  if (!root) return;
 
-  if (!root) return; // dumping disabled
-
-  const dir = resolve(root, adapterId);
+  const absRoot = resolve(root); // normalize to absolute
+  const dir = join(absRoot, adapterId);
   mkdirSync(dir, { recursive: true });
 
   // Always write/update meta.json

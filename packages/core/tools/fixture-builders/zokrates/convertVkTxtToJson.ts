@@ -1,6 +1,7 @@
 // ESM, strict TS, no "any".
 // ZoKrates verification.key -> snarkjs-compatible verification_key.json
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
+import { writeFile } from '#fs-compat';
 
 // ---- Types -----------------------------------------------------------------
 type Fq = string; // decimal or 0x-hex
@@ -206,7 +207,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const inFile = args.get('in');
   const outFile = args.get('out');
   if (!inFile || !outFile) {
-    // eslint-disable-next-line no-console
     console.error(
       'Usage: tsx convertVkTxtToJson.ts --in <verification.key> --out <verification_key.json>',
     );

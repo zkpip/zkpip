@@ -1,5 +1,6 @@
 import type { CommandModule } from 'yargs';
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, mkdir } from 'node:fs/promises';
+import { writeFile } from '#fs-compat';
 import { resolve } from 'node:path';
 import { generateKeyPairSync, sign, verify, createPublicKey } from 'node:crypto';
 import { normalizeJsonStable, type CanonicalInput } from '../utils/envelope.js';

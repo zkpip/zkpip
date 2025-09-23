@@ -95,7 +95,6 @@ describe('sanity: no JSON key "bundleId" remains in the repo', () => {
         .slice(0, 20)
         .map((h) => ` - ${h.file}:${h.line} :: ${h.text.trim()}`)
         .join('\n');
-      // eslint-disable-next-line no-console
       console.error(`Found forbidden JSON key "bundleId" in:\n${preview}`);
     }
 

@@ -10,6 +10,9 @@
     },
     "./schemas/*": "./schemas/*"
   },
+  "imports": {
+    "#fs-compat": "../cli/dist/utils/fs-compat.js"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
@@ -24,10 +27,10 @@
   },
   "scripts": {
     "clean": "rimraf dist",
-    "build": "tsc -b tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json",
     "build:watch": "tsc -b -w tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "eslint .",
+    "lint": "eslint -c ../../eslint.config.js .",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -39,7 +42,7 @@
     "@types/json-schema": "^7.0.15",
     "@types/node": "^24.3.0",
     "@vitest/coverage-v8": "^3.2.4",
-    "eslint": "^9.0.0",
+    "eslint": "^9.36.0",
     "prettier": "^3.0.0",
     "rimraf": "^5.0.0",
     "tsx": "^4.20.5",

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/explicit-module-boundary-types */
 import { readFile } from 'node:fs/promises';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';

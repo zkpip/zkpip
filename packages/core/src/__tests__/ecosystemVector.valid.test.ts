@@ -27,7 +27,6 @@ describe('Vector: ecosystem/aztec.json', () => {
 
     const res = validateAgainstResult(ajv, SCHEMA_ECOSYSTEM, data);
     if (!res.ok) {
-      // eslint-disable-next-line no-console
       console.error('Validation failed:', stringifyFail(res));
     }
     expect(res.ok).toBe(true);

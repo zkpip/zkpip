@@ -114,7 +114,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const source = args.get('source');
 
   if (!proofPath || !vkeyJsonPath || !outFile) {
-    // eslint-disable-next-line no-console
     console.error(
       'Usage: tsx makeVerificationJson.ts --proof <proof.json> --vk <verification_key.json> --out <verification.json> [--source <dir>]',
     );
@@ -125,6 +124,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     proofPath,
     vkeyJsonPath,
     outFile,
-    sourceDir: source,
+    ...(source ? { sourceDir: source } : {}), 
   });
 }

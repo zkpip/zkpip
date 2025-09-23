@@ -27,7 +27,7 @@ describe('Vector: issue/public-input-order.json', () => {
 
     const res = validateAgainstResult(ajv, SCHEMA_ISSUE, data);
     if (!res.ok) {
-      // eslint-disable-next-line no-console
+      // test
       console.error('Validation failed:', stringifyFail(res));
     }
     expect(res.ok).toBe(true);

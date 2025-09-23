@@ -2,7 +2,8 @@
 // Integration tests for validate.ts using filename-based routing via pickSchemaId.
 // Exercises: createAjv + addCoreSchemas + pickSchemaId + AJV validate.
 
-import { existsSync, writeFileSync, mkdtempSync, readdirSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync } from 'node:fs';
+import { writeFileSync } from '#fs-compat';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { describe, it, expect } from 'vitest';

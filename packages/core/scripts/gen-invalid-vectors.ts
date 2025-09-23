@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { writeFile } from '#fs-compat';
 
 // ---------- Immutable JSON types (for reading) ----------
 type JSONPrimitive = string | number | boolean | null;
@@ -34,7 +35,7 @@ async function readJson<T>(fp: string): Promise<T> {
 }
 async function writeJson(fp: string, data: unknown): Promise<void> {
   await fs.mkdir(path.dirname(fp), { recursive: true });
-  await fs.writeFile(fp, JSON.stringify(data, null, 2));
+  await writeFile(fp, JSON.stringify(data, null, 2));
 }
 async function fileExists(fp: string): Promise<boolean> {
   try {

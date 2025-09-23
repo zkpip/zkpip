@@ -15,22 +15,9 @@ import { dumpNormalized } from '../utils/dumpNormalized.js';
 import { isProofEnvelope } from '../verify/verificationLoader.js';
 import { existsSync } from 'node:fs';
 import { join, isAbsolute, dirname as pathDirname, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const __THIS_FILE__ = fileURLToPath(import.meta.url);
-
-function findRepoRootFrom(filePath: string): string | undefined {
-  let dir = pathDirname(filePath);
-  for (let i = 0; i < 8; i++) {
-    if (existsSync(join(dir, 'packages'))) return dir;
-    const next = pathDirname(dir);
-    if (next === dir) break;
-    dir = next;
-  }
-  return undefined;
-}
-
-const REPO_ROOT_GUESS = findRepoRootFrom(__THIS_FILE__);
+import { resolveDumpRoot } from '../utils/dumpRoot.js';
+import { getDumpNormalizedArg, prettyVerificationPath } from './_internals/verify-argv.js';
+import { repoJoin } from '../utils/paths.js';
 
 function toAdapterId(s: string): AdapterId {
   if (isAdapterId(s)) return s;
@@ -95,12 +82,21 @@ async function readVkeyFromArtifacts(
         return JSON.parse(text) as Json;
       }
       // 2b) relative to verification file directory (if known)
-      if (verificationFilePath && verificationFilePath.includes('/')) {
-        const baseDir = verificationFilePath.slice(0, verificationFilePath.lastIndexOf('/'));
-        const cand = join(baseDir, p);
-        if (existsSync(cand)) {
-          const text = await readFile(cand, 'utf8');
-          return JSON.parse(text) as Json;
+      {
+        const baseDir: string | undefined = verificationFilePath
+          ? pathDirname(
+              isAbsolute(verificationFilePath)
+                ? verificationFilePath
+                : pathResolve(process.cwd(), verificationFilePath)
+            )
+          : undefined;
+
+        if (baseDir) {
+          const cand = join(baseDir, p);
+          if (existsSync(cand)) {
+            const text = await readFile(cand, 'utf8');
+            return JSON.parse(text) as Json;
+          }
         }
       }
       // 2c) relative to CWD
@@ -111,14 +107,12 @@ async function readVkeyFromArtifacts(
           return JSON.parse(text) as Json;
         }
       }
-      // 2d) monorepo root + 'packages/...'
-      if (p.startsWith(`packages${sep}`) || p.startsWith('packages/')) {
-        if (REPO_ROOT_GUESS) {
-          const cand = join(REPO_ROOT_GUESS, p);
-          if (existsSync(cand)) {
-            const text = await readFile(cand, 'utf8');
-            return JSON.parse(text) as Json;
-          }
+      // 2d) relative to repo root if starts with "packages/"
+      if (typeof p === 'string' && (p.startsWith('packages/') || p.startsWith(`packages${sep}`))) {
+        const cand = repoJoin(p);
+        if (cand && existsSync(cand)) {
+          const text = await readFile(cand, 'utf8');
+          return JSON.parse(text) as Json;
         }
       }
     }
@@ -132,13 +126,22 @@ async function readVkeyFromArtifacts(
       const text = await readFile(verifPath, 'utf8');
       return JSON.parse(text) as Json;
     }
-    // 3b) relative to verification file directory
-    if (verificationFilePath && verificationFilePath.includes('/')) {
-      const baseDir = verificationFilePath.slice(0, verificationFilePath.lastIndexOf('/'));
-      const cand = join(baseDir, verifPath);
-      if (existsSync(cand)) {
-        const text = await readFile(cand, 'utf8');
-        return JSON.parse(text) as Json;
+    // 3b) relative to verification file directory (if known)
+    {
+      const baseDir: string | undefined = verificationFilePath
+        ? pathDirname(
+            isAbsolute(verificationFilePath)
+              ? verificationFilePath
+              : pathResolve(process.cwd(), verificationFilePath)
+          )
+        : undefined;
+
+      if (baseDir) {
+        const cand = join(baseDir, verifPath);
+        if (existsSync(cand)) {
+          const text = await readFile(cand, 'utf8');
+          return JSON.parse(text) as Json;
+        }
       }
     }
     // 3c) relative to CWD
@@ -149,14 +152,12 @@ async function readVkeyFromArtifacts(
         return JSON.parse(text) as Json;
       }
     }
-    // 3d) monorepo root + 'packages/...'
-    if (verifPath.startsWith(`packages${sep}`) || verifPath.startsWith('packages/')) {
-      if (REPO_ROOT_GUESS) {
-        const cand = join(REPO_ROOT_GUESS, verifPath);
-        if (existsSync(cand)) {
-          const text = await readFile(cand, 'utf8');
-          return JSON.parse(text) as Json;
-        }
+    // 3d) repo root + 'packages/...'
+    if (typeof verifPath === 'string' && (verifPath.startsWith('packages/') || verifPath.startsWith(`packages${sep}`))) {
+      const cand = repoJoin(verifPath);
+      if (cand && existsSync(cand)) {
+        const text = await readFile(cand, 'utf8');
+        return JSON.parse(text) as Json;
       }
     }
   }
@@ -217,13 +218,32 @@ export async function verifyCommand(argv: VerifyHandlerArgs): Promise<void> {
 
   const adapter = await getAdapterById(adapterId);
 
-  // 2) Raw verification input (path or inline JSON)
-  await dumpNormalized(adapterId, 'preExtract', {
-    meta: {
-      inputKind: 'verification-json',
-      verificationPath: getVerificationRaw(argv),
-    },
-  });
+  // Only enable dump if user asked OR env is set
+  const userDump = getDumpNormalizedArg(argv);
+  const envDump = (process.env.ZKPIP_DUMP_NORMALIZED ?? '').trim();
+  const dumpEnabled = Boolean(userDump || envDump);
+
+  const runRoot = dumpEnabled
+    ? resolveDumpRoot(userDump ?? envDump, `verify-${Date.now()}`)
+    : undefined;
+
+  if (dumpEnabled && runRoot) {
+    try {
+      await dumpNormalized(
+        adapterId,                
+        'preExtract',
+        {
+          dirOverride: runRoot,
+          meta: {
+            inputKind: 'verification-json',
+            verificationPath: prettyVerificationPath(argv),
+          },
+        }
+      );
+    } catch (e) {
+      console.error('[dumpNormalized:preExtract] skipped:', (e as Error).message);
+    }
+  }
 
   const raw = getVerificationRaw(argv);
   if (!raw) {
@@ -418,3 +438,9 @@ export async function handler(argv: VerifyHandlerArgs): Promise<void> {
     if (computeUseExit(argv)) process.exitCode = mapVerifyOutcomeToExitCode(out);
   }
 }
+function pathResolve(arg0: string, verificationFilePath: string): string {
+  void arg0;
+  void verificationFilePath;
+  throw new Error('Function not implemented.');
+}
+

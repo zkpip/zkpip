@@ -1,12 +1,15 @@
 /* eslint-disable no-undef */
+const path = require('node:path');
+const ROOT = __dirname;
+
 module.exports = {
   root: true,
   env: { es2022: true, node: true },
-  ignorePatterns: ['**/node_modules/**', '**/dist/**', '**/coverage/**'],
+  ignorePatterns: ['**/node_modules/**', '**/dist/**', '**/coverage/**', '.eslintrc.cjs'],
   plugins: ['@typescript-eslint', 'import'],
   extends: [
     'eslint:recommended',
-    'plugin:@typescript-eslint/recommended', // non-type-aware rules only
+    'plugin:@typescript-eslint/recommended',
     'plugin:import/recommended',
     'plugin:import/typescript',
     'prettier',
@@ -25,10 +28,22 @@ module.exports = {
       parserOptions: {
         ecmaVersion: 'latest',
         sourceType: 'module',
-        // ⚠️ No `project` here => non-type-aware (fast, robust)
       },
       rules: {
-        // Put TS-specific rules here if needed
+        'import/extensions': [
+          'error',
+          'always',
+          {
+            ignorePackages: true,
+            pattern: {
+              js: 'always',
+              mjs: 'always',
+              cjs: 'always',
+              ts: 'never',
+              tsx: 'never',
+            },
+          },
+        ],
       },
     },
     {
@@ -41,6 +56,7 @@ module.exports = {
       rules: {
         'import/no-commonjs': 'off',
         '@typescript-eslint/no-var-requires': 'off',
+        '@typescript-eslint/no-require-imports': 'off',
       },
     },
     {
@@ -50,23 +66,39 @@ module.exports = {
       ],
       rules: { 'import/no-unresolved': 'off' },
     },
-  ],
-  settings: {
-    'import/resolver': {
-      // Simpler TS resolver; doesn't require pointing at tsconfig projects
-      typescript: {
-        project: [
-          './tsconfig.paths.json', 
-          './tsconfig.json',
-          './packages/*/tsconfig.json',
-          './packages/*/*/tsconfig.json',
-        ],
-        alwaysTryTypes: true,
-        noWarnOnMultipleProjects: true,
-      },
-      node: {
-        extensions: ['.ts', '.tsx', '.js', '.mjs', '.cjs', '.d.ts'],
+    {
+      files: ['packages/**/scripts/**/*.mjs', '**/scripts/**/*.mjs'],
+      rules: {
+        'import/extensions': ['error', 'always', { ignorePackages: true }],
       },
     },
+  ],
+  settings: {
+    'import/core-modules': ['#fs-compat', '#paths'],
+    'import/resolver': {
+      typescript: {
+        project: [
+          './tsconfig.paths.json',
+          './packages/cli/tsconfig.json',
+          './packages/core/tsconfig.json',
+          './packages/adapters/snarkjs-groth16/tsconfig.json',
+          './packages/adapters/snarkjs-plonk/tsconfig.json',
+        ],
+        alwaysTryTypes: true,
+      },
+      node: {
+        extensions: ['.js', '.mjs', '.cjs', '.ts', '.tsx'],
+      },
+      alias: {
+        map: [
+          ['#fs-compat', path.resolve(ROOT, 'packages/cli/src/utils/fs-compat.ts')],
+          ['#paths',     path.resolve(ROOT, 'packages/cli/src/utils/paths.ts')],
+        ],
+        extensions: ['.ts', '.js', '.mjs'],
+      },    
+    },
+  },
+  rules: {
+    'import/extensions': ['error', 'always', { ignorePackages: true }],
   },
 };
