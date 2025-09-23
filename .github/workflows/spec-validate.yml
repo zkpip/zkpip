@@ -1,29 +1,43 @@
 name: spec-validate
 on:
-  pull_request:
-    branches:
-      - main
   push:
-    branches:
-      - main
-      - feat/**
-      - fix/**
-      - chore/**
-      - ci/**
-      - dev/**
-  workflow_dispatch: {}
+    paths:
+      - 'docs/spec/**'
+      - 'scripts/spec/**'
+      - '.github/workflows/spec-validate.yml'
+  workflow_dispatch:
 
 jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: 18.20.4
-          cache: 'npm'
+          cache: npm
 
-      - run: npm ci
+      - name: Install
+        run: |
+          set -euxo pipefail
+          npm ci
 
       - name: Debug versions
+        run: |
+          set -euxo pipefail
+          node -v
+          node -e "console.log('ajv version =', require('ajv/package.json').version)"
+          npm run
+
+      - name: Validate specs (JWKS)
+        run: |
+          set -euxo pipefail
+          npm run spec:validate -- --jwks docs/spec/keys.jwks
+
+      - name: Validate manifests (remote)
+        run: |
+          set -euxo pipefail
+          npm run spec:manifests:check -- --base https://zkpip.org

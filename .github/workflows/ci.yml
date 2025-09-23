@@ -1,97 +1,64 @@
-name: CI
-
+name: ci
 on:
   push:
-    branches: [main, develop, feat/**]
   pull_request:
-    branches: [main, develop, feat/**]
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
-  build-test-cli:
-    name: Build & Test (core + CLI)
+  build_lint_test_validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      CI: 'true'
-      # Light for debugging
-      ZKPIP_DUMP_NORMALIZED: ${{ github.workspace }}/.tmp/normalized
-      # E2E - hard exit
-      ZKPIP_HARD_EXIT: '0'
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js (22.x) + npm cache
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 18.20.4
           cache: npm
 
-      - name: Install deps (monorepo)
-        run: npm ci
+      - name: Debug environment
+        run: |
+          set -euxo pipefail
+          node -v
+          npm -v
 
-      # --- Build order: core → cli ---
-      - name: Build @zkpip/core
-        run: npm -w @zkpip/core run build
+      - name: Install
+        run: |
+          set -euxo pipefail
+          npm ci
 
-      - name: Build @zkpip/cli
-        run: npm -w @zkpip/cli run build
+      - name: List scripts
+        run: npm run
 
-      # --- Quality checks (root scripts, no workspaces)
+      - name: Build
+        run: |
+          set -euxo pipefail
+          npm run build
+
       - name: Lint
-        run: npm run lint --if-present
-
-      - name: Typecheck
-        run: npm run typecheck --if-present
-
-      # --- Targeted sanity/validator steps ---
-      - name: Sanity — no bundleId (core)
-      - name: Test @zkpip/core (unit)
-        run: npm -w @zkpip/core test -- --reporter=dot
-
-      - name: Test @zkpip/cli (unit)
-        run: npm -w @zkpip/cli test -- --reporter=dot
-
-      # --- E2E / invalid vectors (Linux) ---
-      - name: E2E — invalid vectors must fail verify (CLI)
-        env:
-          ZKPIP_HARD_EXIT: '1'
         run: |
-          npm -w @zkpip/cli test -- src/__tests__/invalid.vectors.e2e.test.ts --reporter=verbose
+          set -euxo pipefail
+          npm run lint
 
-      # --- Smoke runs
-      - name: Smoke — groth16/plonk (optional)
-        if: ${{ always() }}
-        env:
-          ZKPIP_HARD_EXIT: '1'
+      - name: Test (workspaces + root)
         run: |
-          npm -w @zkpip/cli run smoke:groth16 || echo "smoke:groth16 missing or failed"
-          npm -w @zkpip/cli run smoke:plonk   || echo "smoke:plonk missing or failed"
+          set -euxo pipefail
+          npm run test
 
-      # --- Artefacts on error: fix and temp outputs ---
-      - name: Upload fixtures and dumps on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: fixtures-and-dumps
-          path: |
-            fixtures/**
-            .tmp/normalized/**
-            packages/cli/.tmp/**
-          if-no-files-found: ignore
+      - name: Debug AJV version
+        run: |
+          set -euxo pipefail
+          node -e "console.log('ajv version =', require('ajv/package.json').version)"
 
-      # --- dist + README available ---
-      - name: Upload dist + README (optional)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: zkpip-build-artifacts
-          path: |
-            packages/**/dist/**
-            packages/**/README.md
-          if-no-files-found: ignore
+      - name: Validate specs (JWKS)
+        run: |
+          set -euxo pipefail
+          npm run spec:validate -- --jwks docs/spec/keys.jwks
+
+      - name: Validate manifests (remote)
+        run: |
+          set -euxo pipefail
+          npm run spec:manifests:check -- --base https://zkpip.org
+
+      - name: Done
+        run: echo "✅ CI finished successfully"
