@@ -13,7 +13,10 @@
     "lint": "eslint . --max-warnings=0",
     "test": "npm --workspaces --if-present run test && vitest run",
     "test:ws": "npm --workspaces run test",
-    "build:clean": "rimraf packages/*/dist packages/*/*.tsbuildinfo && tsc -b"
+    "build:clean": "rimraf packages/*/dist packages/*/*.tsbuildinfo && tsc -b",
+    "spec:manifests:make": "tsx scripts/spec/make-manifests.ts",
+    "spec:manifests:sign": "tsx scripts/spec/sign-manifests.ts",
+    "spec:manifests:check": "tsx scripts/spec/validate-specs.ts"
   },
   "devDependencies": {
     "@types/node": "^24.5.2",
