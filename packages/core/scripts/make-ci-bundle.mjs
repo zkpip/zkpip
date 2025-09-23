@@ -3,9 +3,10 @@
 //   node packages/core/scripts/make-ci-bundle.mjs <input-bundle.json> [<output.json>]
 // Creates an *inline* bundle (verificationKey + result.proof + result.publicSignals), no artifacts.
 
-import { readFile, writeFile, stat } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { writeFile } from '#fs-compat';
 
 // ---------- tiny utils ----------
 

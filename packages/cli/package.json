@@ -9,6 +9,9 @@
   "exports": {
     ".": "./dist/index.js"
   },
+  "imports": {
+    "#fs-compat": "./dist/utils/fs-compat.js"
+  },  
   "files": [
     "dist/**", "schemas/**"
   ],
@@ -22,7 +25,7 @@
     "format": "prettier -w \"src/**/*.{ts,js,mjs,cjs,md,json,yml,yaml}\"",
     "format:check": "prettier -c \"src/**/*.{ts,js,mjs,cjs,md,json,yml,yaml}\"",
     "clean": "rimraf dist tsconfig.tsbuildinfo ./.tmp/normalized/*",
-    "build": "tsc -b",
+    "build": "tsc -p tsconfig.build.json",
     "build:watch": "tsc -b -w",
     "postbuild": "node ./scripts/make-executable.mjs",
     "test": "vitest run",

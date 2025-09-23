@@ -2,6 +2,8 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
+      "#fs-compat": ["packages/cli/src/utils/fs-compat.ts"],
+      "#paths": ["packages/cli/src/utils/paths.ts"],
       "@zkpip/adapters-core": ["packages/adapters/core/src/index.ts"],
       "@zkpip/core": ["packages/core/src/index.ts"],
       "@zkpip/cli": ["packages/cli/src/index.ts"],

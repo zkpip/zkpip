@@ -9,6 +9,7 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { pathToFileURL } from 'node:url';
+import { writeFile, mkdir } from '#fs-compat';
 
 // ---------- helpers ----------
 function parseArgs(argv) {
@@ -72,8 +73,8 @@ function artifactMeta(absPath, mediaType = 'application/octet-stream') {
   };
 }
 async function writeJsonPretty(absPath, obj) {
-  await fsp.mkdir(path.dirname(absPath), { recursive: true });
-  await fsp.writeFile(absPath, JSON.stringify(obj, null, 2) + '\n', 'utf8');
+  await mkdir(path.dirname(absPath), { recursive: true });
+  await writeFile(absPath, JSON.stringify(obj, null, 2) + '\n', 'utf8');
 }
 
 // Biztos „meghamisítás”: keresünk az objektumban egy szám-stringet és +1

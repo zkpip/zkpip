@@ -4,10 +4,11 @@
  * CWD-independent: resolves paths from script location.
  */
 
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { dirname, resolve, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
+import { writeFileSync } from '#fs-compat';
 
 function b64uToBuf(s) {
   // convert base64url -> base64

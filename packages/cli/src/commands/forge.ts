@@ -1,6 +1,6 @@
 // packages/cli/src/commands/forge.ts
 import type { CommandModule, Argv, CommandBuilder } from 'yargs';
-import { writeFile } from 'node:fs/promises';
+import { writeFile } from '#fs-compat';
 import { resolve } from 'node:path';
 import { makeEnvelopeId, normalizeJsonStable, asHexSeed } from '../utils/envelope.js';
 

@@ -46,7 +46,6 @@ describe('ProofEnvelope v1 vectors — snarkjs-groth16', () => {
       const data = loadJson(fp);
       const ok = validate(data);
       if (!ok) {
-        // eslint-disable-next-line no-console
         console.error(`[ProofEnvelope valid] ${f} failed:`, validate.errors);
       }
       expect(ok).toBe(true);
@@ -65,7 +64,6 @@ describe('ProofEnvelope v1 vectors — snarkjs-groth16', () => {
       const data = loadJson(fp);
       const ok = validate(data);
       if (ok) {
-        // eslint-disable-next-line no-console
         console.error(`[ProofEnvelope invalid] ${f} unexpectedly passed`);
       }
       expect(ok).toBe(false);

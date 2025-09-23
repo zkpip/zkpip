@@ -44,7 +44,6 @@ function sortKeysDeep(value: unknown): unknown {
     const sortedKeys = Object.keys(value).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
     const out: Record<string, unknown> = {};
     for (const k of sortedKeys) {
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       out[k] = sortKeysDeep((value as Record<string, unknown>)[k]!);
     }
     return out;

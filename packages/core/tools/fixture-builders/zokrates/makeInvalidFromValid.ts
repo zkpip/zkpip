@@ -1,6 +1,7 @@
 // ESM-only; no "any"; English comments
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { writeFile } from '#fs-compat';
 
 type Json = string | number | boolean | null | Json[] | { [k: string]: Json };
 
@@ -64,7 +65,7 @@ async function main(): Promise<void> {
   };
 
   await fs.mkdir(path.dirname(outPath), { recursive: true });
-  await fs.writeFile(outPath, JSON.stringify(invalid, null, 2), 'utf8');
+  await writeFile(outPath, JSON.stringify(invalid, null, 2), 'utf8');
 }
 
 await main();

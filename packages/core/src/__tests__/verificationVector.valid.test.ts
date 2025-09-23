@@ -28,7 +28,6 @@ describe('Vector: verification/groth16-evm.valid.json', () => {
         ('errors' in res && Array.isArray((res as unknown as { errors: unknown[] }).errors))
           ? JSON.stringify((res as { errors: unknown[] }).errors)
           : String((res as { text?: string }).text ?? '');
-      // eslint-disable-next-line no-console
       console.error('Validation failed:', msg);
     }
     expect(res.ok).toBe(true);

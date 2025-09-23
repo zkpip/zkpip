@@ -10,9 +10,9 @@
     "clean:srcjs": "bash -lc 'find packages -path \"*/src/*\" -type f \\( -name \"*.js\" -o -name \"*.js.map\" \\) -delete'",
     "build": "npm run clean:srcjs && tsc -b",
     "test": "npm run clean:srcjs && npm run -ws build && vitest run",
-    "lint": "eslint . --ext .ts,.tsx,.js,.mjs,.cjs --max-warnings=0",
-    "lint:fix": "eslint . --ext .ts,.tsx,.js,.mjs,.cjs --fix",
-    "lint:fresh": "eslint . --ext .ts,.tsx --max-warnings=0 --no-cache",
+    "lint": "eslint .",
+    "lint:fix": "eslint . .ts,.tsx,.js,.mjs,.cjs --fix",
+    "lint:fresh": "eslint . .ts,.tsx --max-warnings=0 --no-cache",
     "clean": "rimraf dist",
     "cli:build": "npm --prefix packages/cli run build",
     "cli:test": "npm --prefix packages/cli run test",
@@ -67,6 +67,8 @@
     ]
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.1",
+    "@eslint/js": "^9.36.0",
     "@noble/ed25519": "^3.0.0",
     "@noble/hashes": "^2.0.0",
     "@types/node": "^20.19.17",
@@ -80,6 +82,7 @@
     "dotenv-cli": "^10.0.0",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^10.1.8",
+    "eslint-import-resolver-alias": "^1.1.2",
     "eslint-import-resolver-typescript": "^4.4.4",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-unused-imports": "^4.2.0",
@@ -102,5 +105,8 @@
   "engines": {
     "node": ">=18"
   },
-  "type": "module"
+  "type": "module",
+  "imports": {
+    "#fs-compat": "./packages/cli/dist/utils/fs-compat.js"
+  }
 }
