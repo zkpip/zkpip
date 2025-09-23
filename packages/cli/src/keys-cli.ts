@@ -1,4 +1,5 @@
 import yargs, { type Argv } from 'yargs';
+
 import { keysGenerateCmd } from './commands/keys/generate.js';
 import { keysListCmd } from './commands/keys/list.js';
 import { keysShowCmd } from './commands/keys/show.js';

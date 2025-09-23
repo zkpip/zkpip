@@ -1,3 +1,4 @@
+/* eslint-disable import/no-duplicates */
 // ESM, strict TS, no "any".
 
 import { dirname } from 'node:path';

@@ -1,42 +1,44 @@
-import type { CommandModule } from 'yargs';
+import type { Argv, Arguments, CommandModule } from 'yargs';
 import { readFile } from 'node:fs/promises';
 import { writeFile } from '#fs-compat';
 import { resolve } from 'node:path';
 import { deriveCanonicalHash, normalizeJsonStable, type CanonicalInput } from '../utils/envelope.js';
+
+type InOutArgs = { 'in': string; out: string };
 
 type BaseArgs = { in: string; out: string };
 
 export const convertCanonicalCmd: CommandModule<unknown, BaseArgs> = {
   command: 'convert canonical',
   describe: 'Produce canonical JSON with stable order',
-  builder: (y) => y.option('in', { type: 'string', demandOption: true }).option('out', { type: 'string', demandOption: true }),
-  handler: async (argv) => {
-    const raw = await readFile(resolve(argv.in), 'utf8');
+  builder: (y: Argv<InOutArgs>) => y.option('in', { type: 'string', demandOption: true }).option('out', { type: 'string', demandOption: true }),
+  handler: async (argv: Arguments<InOutArgs>) => {
+    const raw = await readFile(resolve(String(argv.in)), 'utf8');
     const obj = JSON.parse(raw) as CanonicalInput;
     const body = normalizeJsonStable(obj) + '\n';
-    await writeFile(resolve(argv.out), body, 'utf8');
+    await writeFile(resolve(String(argv.out)), body, 'utf8');
   },
 };
 
 export const convertHexCmd: CommandModule<unknown, BaseArgs> = {
   command: 'convert hex',
   describe: 'Convert canonical JSON → hex payload',
-  builder: (y) => y.option('in', { type: 'string', demandOption: true }).option('out', { type: 'string', demandOption: true }),
-  handler: async (argv) => {
-    const raw = await readFile(resolve(argv.in), 'utf8');
+  builder: (y: Argv<InOutArgs>) => y.option('in', { type: 'string', demandOption: true }).option('out', { type: 'string', demandOption: true }),
+  handler: async (argv: Arguments<InOutArgs>) => {
+    const raw = await readFile(resolve(String(argv.in)), 'utf8');
     const hex = Buffer.from(raw, 'utf8').toString('hex');
-    await writeFile(resolve(argv.out), `0x${hex}\n`, 'utf8');
+    await writeFile(resolve(String(argv.out)), `0x${hex}\n`, 'utf8');
   },
 };
 
 export const convertBase64Cmd: CommandModule<unknown, BaseArgs> = {
   command: 'convert base64',
   describe: 'Convert canonical JSON → base64 payload',
-  builder: (y) => y.option('in', { type: 'string', demandOption: true }).option('out', { type: 'string', demandOption: true }),
-  handler: async (argv) => {
-    const raw = await readFile(resolve(argv.in), 'utf8');
+  builder: (y: Argv<InOutArgs>) => y.option('in', { type: 'string', demandOption: true }).option('out', { type: 'string', demandOption: true }),
+  handler: async (argv: Arguments<InOutArgs>) => {
+    const raw = await readFile(resolve(String(argv.in)), 'utf8');
     const b64 = Buffer.from(raw, 'utf8').toString('base64');
-    await writeFile(resolve(argv.out), `${b64}\n`, 'utf8');
+    await writeFile(resolve(String(argv.out)), `${b64}\n`, 'utf8');
   },
 };
 

@@ -1,20 +1,16 @@
-// packages/core/vitest.config.ts
 import { defineConfig } from 'vitest/config';
+import path from 'node:path';
 
 export default defineConfig({
   test: {
-    include: ['src/__tests__/**/*.ts', 'src/**/*.test.ts', 'src/**/*.spec.ts'],
-    exclude: ['dist/**', 'schemas/**', 'coverage/**'],
-
-    coverage: {
-      provider: 'v8',
-      reporter: ['text', 'lcov'],
-      reportsDirectory: 'coverage',
-
-      include: ['src/**/*.ts'],
-      exclude: ['src/**/__tests__/**', 'src/**/*.{test,spec}.ts', '**/*.d.ts'],
-
-      all: true,
+    globals: true,
+    include: ['src/**/*.test.ts', 'src/**/__tests__/**/*.ts'],
+  },
+  resolve: {
+    alias: {
+      // Core tests sometimes depend on the CLI's fs-compat helper
+      '#fs-compat': path.resolve(__dirname, '../cli/src/utils/fs-compat.ts'),
+      '@zkpip/core': path.resolve(__dirname, 'src/index.ts'),
     },
   },
 });

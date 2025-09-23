@@ -2,77 +2,29 @@
   "name": "@zkpip/cli",
   "version": "0.1.0",
   "type": "module",
-  "private": false,
   "bin": {
     "zkpip": "./dist/index.js"
   },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./dist/index.js"
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
   },
-  "imports": {
-    "#fs-compat": "./dist/utils/fs-compat.js"
-  },  
   "files": [
-    "dist/**", "schemas/**"
+    "dist"
   ],
-  "sideEffects": false,
-  "engines": {
-    "node": ">=20.10"
-  },
   "scripts": {
-    "pretest": "npm run build",
-    "lint": "eslint .",
-    "format": "prettier -w \"src/**/*.{ts,js,mjs,cjs,md,json,yml,yaml}\"",
-    "format:check": "prettier -c \"src/**/*.{ts,js,mjs,cjs,md,json,yml,yaml}\"",
-    "clean": "rimraf dist tsconfig.tsbuildinfo ./.tmp/normalized/*",
     "build": "tsc -p tsconfig.build.json",
-    "build:watch": "tsc -b -w",
-    "postbuild": "node ./scripts/make-executable.mjs",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:cov": "vitest run --coverage",
-    "vectors:plonk:gen": "bash ./scripts/run-plonk-vectors.sh",
-    "vectors:zokrates:gen": "bash ./scripts/run-zokrates-vectors.sh",
-    "vectors:all:gen": "npm run vectors:plonk:gen && npm run vectors:zokrates:gen",
-    "smoke:groth16": "bash ./scripts/smoke-groth16-cli.sh",
-    "smoke:plonk": "bash ./scripts/smoke-plonk-cli.sh",
-    "smoke:zokrates": "bash ./scripts/smoke-zokrates-cli.sh",
-    "smoke:all": "npm run smoke:groth16 && npm run smoke:plonk && npm run smoke:zokrates",
-    "dump:clear": "rimraf ./.tmp/normalized/*",
-    "dump:check": "bash ./scripts/check-dumps.sh ./.tmp/normalized",
-    "verify:groth16:valid:dump": "npm run dump:clear && node dist/index.js verify --adapter snarkjs-groth16 --verification ../core/schemas/tests/vectors/mvs/verification/snarkjs-groth16/valid --json --use-exit-codes --dump-normalized ./.tmp/normalized",
-    "verify:groth16:invalid:dump": "npm run dump:clear && node dist/index.js verify --adapter snarkjs-groth16 --verification ../core/schemas/tests/vectors/mvs/verification/snarkjs-groth16/invalid --json --use-exit-codes --dump-normalized ./.tmp/normalized",
-    "verify:plonk:valid:dump": "npm run dump:clear && node dist/index.js verify --adapter snarkjs-plonk --verification ../core/schemas/tests/vectors/mvs/verification/snarkjs-plonk/valid --json --use-exit-codes --dump-normalized ./.tmp/normalized",
-    "verify:plonk:invalid:dump": "npm run dump:clear && node dist/index.js verify --adapter snarkjs-plonk --verification ../core/schemas/tests/vectors/mvs/verification/snarkjs-plonk/invalid --json --use-exit-codes --dump-normalized ./.tmp/normalized",
-    "verify:zokrates:valid:dump": "npm run dump:clear && node dist/index.js verify --adapter zokrates-groth16 --verification ../core/schemas/tests/vectors/mvs/verification/zokrates-groth16/valid --json --use-exit-codes --dump-normalized ./.tmp/normalized",
-    "verify:zokrates:invalid:dump": "npm run dump:clear && node dist/index.js verify --adapter zokrates-groth16 --verification ../core/schemas/tests/vectors/mvs/verification/zokrates-groth16/invalid --json --use-exit-codes --dump-normalized ./.tmp/normalized",
-    "selftest:groth16": "node ./scripts/groth16-adapter-selftest.mjs /tmp/ci-inline.valid.json /tmp/ci-inline.invalid.json",
-    "selftest:plonk": "node ./scripts/plonk-adapter-selftest.mjs /tmp/ci-inline.plonk.valid.json /tmp/ci-inline.plonk.invalid.json",
-    "e2e": "tsx ./scripts/e2e.ts",
-    "e2e:snarkjs": "E2E_ADAPTER=snarkjs-groth16 tsx ./scripts/e2e.ts",
-    "e2e:discover": "tsx ./scripts/e2e-discover.ts",
-    "can:gen": "node ./scripts/gen-can-vectors.mjs --in samples/demo.manifest.json --key keys/ci.key --pub keys/ci.pub",
-    "can:verify": "node ./scripts/verify-can-vectors.mjs --pub keys/ci.pub",
-    "trust:init": "node ./scripts/trust-init.mjs",
-    "docs:examples:validate": "tsx ./scripts/validate-proof-envelope.ts ../../docs/spec/examples/proof-envelope.result.json ../../docs/spec/examples/proof-envelope.artifacts.json",
-    "validate:proof-envelope": "tsx ./scripts/validate-proof-envelope.ts",
-    "forge:e2e": "vitest run src/__tests__/forge.e2e.test.ts",
-    "pull:poc": "vitest run src/__tests__/vectors-pull.poc.test.ts",
-    "test:invalid": "vitest run src/__tests__/invalid.vectors.e2e.test.ts --reporter=verbose"
-  },
-  "dependencies": {
-    "@zkpip/core": "0.1.0",
-    "rimraf": "^6.0.0",
-    "snarkjs": "^0.7.5",
-    "tsx": "^4.19.0"
+    "test": "vitest run"
   },
   "devDependencies": {
-    "@types/node": "^22.18.1",
-    "@types/yargs": "^17.0.33",
-    "@vitest/coverage-v8": "^3.2.4",
-    "execa": "^8.0.1",
-    "pretty-format": "^29.7.0",
-    "vitest": "^3.2.4",
-    "yargs": "^18.0.0"
+    "execa": "8.0.1",
+    "@types/yargs": "^17.0.32"
+  },
+  "dependencies": {
+    "yargs": "^17.7.2"
   }
 }

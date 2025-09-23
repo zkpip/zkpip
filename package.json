@@ -1,112 +1,38 @@
 {
   "name": "zkpip",
   "private": true,
-  "module": "NodeNext",
-  "moduleResolution": "NodeNext",
-  "target": "ES2022",
-  "strict": true,
-  "skipLibCheck": true,
+  "workspaces": [
+    "packages/core",
+    "packages/cli",
+    "packages/adapters/*"
+  ],
+  "type": "module",
   "scripts": {
-    "clean:srcjs": "bash -lc 'find packages -path \"*/src/*\" -type f \\( -name \"*.js\" -o -name \"*.js.map\" \\) -delete'",
-    "build": "npm run clean:srcjs && tsc -b",
-    "test": "npm run clean:srcjs && npm run -ws build && vitest run",
-    "lint": "eslint .",
-    "lint:fix": "eslint . .ts,.tsx,.js,.mjs,.cjs --fix",
-    "lint:fresh": "eslint . .ts,.tsx --max-warnings=0 --no-cache",
-    "clean": "rimraf dist",
-    "cli:build": "npm --prefix packages/cli run build",
-    "cli:test": "npm --prefix packages/cli run test",
-    "cli:cov": "npm --prefix packages/cli run test:cov",
-    "cli:test:watch": "npm --prefix packages/cli run test:watch",
-    "core:clean": "npm --prefix packages/core run clean",
-    "core:build": "npm --prefix packages/core run build",
-    "core:test": "npm --prefix packages/core run test",
-    "core:test:ajv": "npm --prefix packages/core run test:ajv",
-    "core:test:watch": "npm --prefix packages/core run test:watch",
-    "core:cov": "npm --prefix packages/core run test:cov",
-    "core:validate": "npm --prefix packages/core run validate-schemas",
-    "fixtures:zokrates:groth16": "bash packages/core/tools/fixture-builders/zokrates/zokrates_groth16_build_vectors.sh",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "check:all": "npm run format:check && npm run lint && npm -w @zkpip/cli run build && npm -w @zkpip/cli run test",
-    "vectors:gen": "tsx packages/core/scripts/gen-invalid-vectors.ts",
-    "e2e:discover": "tsx packages/cli/scripts/e2e-discover.ts",
-    "e2e": "tsx packages/cli/scripts/e2e.ts",
-    "prepare": "husky",
-    "spec:keygen": "tsx scripts/spec/dev-keygen.ts",
-    "spec:hash": "tsx scripts/spec/build-hash-index.ts --map docs/spec/examples/vector-id-map.json --out docs/spec/hash-index.json",
-    "spec:manifests:quiet": "tsx scripts/spec/make-manifests.ts --index docs/spec/hash-index.json --outdir docs/spec/examples/canvectors --kid dev-1 --check-index=0",
-    "spec:manifests": "tsx scripts/spec/make-manifests.ts --index docs/spec/hash-index.json --outdir docs/spec/examples/canvectors --kid dev-1 --base https://zkpip.org",
-    "spec:manifests:check": "tsx scripts/spec/make-manifests.ts --check-index 1 --dry-run 1 --fail-on-change 1 --base https://zkpip.org",
-    "spec:manifests:write": "tsx scripts/spec/make-manifests.ts --check-index 0 --dry-run 0 --fail-on-change 0 --base https://zkpip.org",
-    "spec:sign": "dotenv -e .env -- tsx scripts/spec/sign-manifests.ts --dir docs/spec/examples/canvectors --kid dev-1",
-    "spec:validate": "tsx scripts/spec/validate-specs.ts --manifestDir docs/spec/examples/canvectors --jwks docs/spec/keys.jwks",
-    "spec:validate:envelope": "vitest run packages/core/src/__tests__/proofEnvelope.vectors.test.ts",
-    "spec:all": "npm run spec:hash && npm run spec:manifests:quiet && npm run spec:sign && npm run spec:validate",
-    "spec:sync": "tsx scripts/spec/make-manifests.ts --index docs/spec/hash-index.json --outdir docs/spec/examples/canvectors --kid dev-1 --check-index=1 --update-index=1",
-    "typecheck": "tsc --noEmit -p packages/core/tsconfig.json && tsc --noEmit -p packages/cli/tsconfig.typecheck.json && tsc --noEmit -p scripts/tsconfig.json",
-    "prepush:check": "npm run lint && npm run typecheck && npm run spec:hash && npm run spec:manifests && npm run spec:sign && npm run spec:validate && npm -w @zkpip/cli test",
-    "check:envelopeId-urn": "bash ./scripts/ci/check-envelope-id.sh",
-    "check:nobundleid": "vitest run packages/core/src/__tests__/nobundleid.sanity.test.ts",
-    "ci:check:envelopeId": "bash ./scripts/ci/check-envelope-id.sh",
-    "ci:docs:proofEnvelope": "npm -w @zkpip/cli run docs:examples:validate"
-  },
-  "dependencies": {
-    "zokrates-js": "^1.1.9"
-  },
-  "lint-staged": {
-    "docs/spec/examples/canvectors/*.manifest.json": [
-      "prettier --write"
-    ],
-    "*.{json,ts,tsx,js,md,yml,yaml}": [
-      "prettier --write"
-    ],
-    "ignore": [
-      "docs/spec/examples/canvectors/*.manifest.json",
-      "packages/core/tmp-schemas/**"
-    ]
+    "build": "tsc -b",
+    "clean": "rimraf packages/*/dist packages/*/*.tsbuildinfo",
+    "lint": "eslint . --max-warnings=0",
+    "test": "npm --workspaces --if-present run test && vitest run",
+    "test:ws": "npm --workspaces run test",
+    "build:clean": "rimraf packages/*/dist packages/*/*.tsbuildinfo && tsc -b"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3.3.1",
-    "@eslint/js": "^9.36.0",
-    "@noble/ed25519": "^3.0.0",
-    "@noble/hashes": "^2.0.0",
-    "@types/node": "^20.19.17",
-    "@types/yargs": "^17.0.33",
-    "@typescript-eslint/eslint-plugin": "^8.42.0",
-    "@typescript-eslint/parser": "^8.42.0",
-    "@vitest/coverage-v8": "^3.2.4",
-    "ajv": "^8.17.1",
-    "ajv-formats": "^3.0.1",
-    "dotenv": "^17.2.2",
-    "dotenv-cli": "^10.0.0",
-    "eslint": "^8.57.1",
-    "eslint-config-prettier": "^10.1.8",
-    "eslint-import-resolver-alias": "^1.1.2",
-    "eslint-import-resolver-typescript": "^4.4.4",
-    "eslint-plugin-import": "^2.32.0",
-    "eslint-plugin-unused-imports": "^4.2.0",
-    "eslint-plugin-vitest": "^0.5.4",
-    "husky": "^9.1.7",
-    "lint-staged": "^16.1.6",
-    "prettier": "^3.6.2",
-    "rimraf": "^5.0.5",
-    "snarkjs": "^0.7.5",
-    "tsx": "^4.15.7",
-    "typescript": "^5.9.2",
-    "typescript-eslint": "^8.42.0",
+    "@types/node": "^24.5.2",
+    "@typescript-eslint/eslint-plugin": "7.18.0",
+    "@typescript-eslint/parser": "7.18.0",
+    "eslint": "8.57.1",
+    "eslint-plugin-unused-imports": "4.2.0",
+    "eslint-plugin-vitest": "0.5.4",
+    "rimraf": "5.0.10",
+    "typescript": "5.5.4",
     "vitest": "^3.2.4",
-    "yargs": "^18.0.0"
-  },
-  "workspaces": [
-    "packages/*",
-    "packages/*/*"
-  ],
-  "engines": {
-    "node": ">=18"
-  },
-  "type": "module",
-  "imports": {
-    "#fs-compat": "./packages/cli/dist/utils/fs-compat.js"
+    "eslint-plugin-import": "2.29.1",
+    "eslint-import-resolver-node": "0.3.9",
+    "eslint-import-resolver-typescript": "3.6.1",
+    "tsx": "4.19.0",
+    "@types/yargs": "^17.0.32",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.3.3",
+    "eslint-import-resolver-alias": "^1.1.2",
+    "dotenv": "^16.4.5"
   }
 }

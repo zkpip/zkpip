@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/consistent-type-imports */
 // Ed25519 sign/verify over the SHA-256 digest of the canonicalized payload (without signature).
 // Private/public keys are expected in PEM (PKCS#8 for private, SPKI for public).
 

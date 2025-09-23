@@ -1,10 +1,12 @@
-import type { CommandModule } from 'yargs';
+import type { Argv, Arguments, CommandModule } from 'yargs';
 import { readFile, mkdir } from 'node:fs/promises';
 import { writeFile } from '#fs-compat';
 import { resolve } from 'node:path';
 import { generateKeyPairSync, sign, verify, createPublicKey } from 'node:crypto';
 import { normalizeJsonStable, type CanonicalInput } from '../utils/envelope.js';
 import { vectorUrnFromCanonical } from './convert.js';
+
+type InOutArgs = { 'in': string; out: string };
 
 type SealArgs = { in: string; out: string };
 type VerifyArgs = { in: string };
@@ -27,9 +29,9 @@ async function ensureKey(): Promise<Buffer> {
 export const vectorsSignCmd: CommandModule<unknown, SealArgs> = {
   command: 'vectors sign',
   describe: 'Dev Seal: sign a canonical vector with local ed25519 key',
-  builder: (y) => y.option('in', { type: 'string', demandOption: true }).option('out', { type: 'string', demandOption: true }),
-  handler: async (argv) => {
-    const raw = await readFile(resolve(argv.in), 'utf8');
+  builder: (y: Argv<InOutArgs>) => y.option('in', { type: 'string', demandOption: true }).option('out', { type: 'string', demandOption: true }),
+  handler: async (argv: Arguments<InOutArgs>) => {
+    const raw = await readFile(resolve(String(argv.in)), 'utf8');
     const canonical = JSON.parse(raw) as CanonicalInput;
     const id = vectorUrnFromCanonical(canonical);
     const stable = normalizeJsonStable(canonical);
@@ -49,16 +51,16 @@ export const vectorsSignCmd: CommandModule<unknown, SealArgs> = {
         signatureBase64: sig.toString('base64')
       }
     };
-    await writeFile(resolve(argv.out), normalizeJsonStable(out) + '\n', 'utf8');
+    await writeFile(resolve(String(argv.out)), normalizeJsonStable(out) + '\n', 'utf8');
   },
 };
 
 export const vectorsVerifySealCmd: CommandModule<unknown, VerifyArgs> = {
   command: 'vectors verify-seal',
   describe: 'Verify a dev-seal (ed25519)',
-  builder: (y) => y.option('in', { type: 'string', demandOption: true }),
-  handler: async (argv) => {
-    const raw = await readFile(resolve(argv.in), 'utf8');
+  builder: (y: Argv<InOutArgs>) => y.option('in', { type: 'string', demandOption: true }),
+  handler: async (argv: Arguments<InOutArgs>) => {
+    const raw = await readFile(resolve(String(argv.in)), 'utf8');
     const obj = JSON.parse(raw) as {
       id: string; canonical: CanonicalInput; seal: { publicKey: string; signatureBase64: string };
     };

@@ -8,13 +8,34 @@
       ],
       "@zkpip/cli": [
         "packages/cli/src/index.ts"
+      ],
+      "@zkpip/adapters-core": [
+        "packages/adapters/core/src/index.ts"
       ]
     }
   },
   "include": [
-    "packages/*/src/**/*.ts",
+    "packages/**/scripts/**/*.ts",
+    "packages/**/src/**/*.ts",
+    "packages/**/tools/**/*.ts",
+    "packages/**/types/**/*.d.ts",
+    "packages/**/vitest.config.ts",
     "packages/*/scripts/**/*.ts",
+    "packages/*/src/**/*.ts",
+    "packages/*/tools/**/*.ts",
+    "packages/*/types/**/*.d.ts",
+    "packages/*/vitest.config.ts",
+    "scripts/**/*.d.ts",
     "scripts/**/*.ts",
-    "scripts/**/*.d.ts"
+    "types/**/*.d.ts",
+    "vitest.config.ts"
+  ],
+  "exclude": [
+    "coverage",
+    "dist",
+    "eslint.config.js",
+    "fixtures/**",
+    "node_modules",
+    "scripts/**/*.mjs"
   ]
 }

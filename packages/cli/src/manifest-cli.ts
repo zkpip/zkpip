@@ -2,6 +2,7 @@
 // Local yargs subtree for `zkpip manifest ...`
 
 import yargs, { type Argv } from 'yargs';
+
 import { manifestSignCmd } from './commands/manifest/sign.js';
 import { manifestVerifyCmd } from './commands/manifest/verify.js';
 

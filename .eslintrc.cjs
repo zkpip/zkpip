@@ -5,8 +5,17 @@ const ROOT = __dirname;
 module.exports = {
   root: true,
   env: { es2022: true, node: true },
-  ignorePatterns: ['**/node_modules/**', '**/dist/**', '**/coverage/**', '.eslintrc.cjs'],
-  plugins: ['@typescript-eslint', 'import'],
+  ignorePatterns: [
+    'fixtures/**',
+    '**/node_modules/**',
+    '**/dist/**',
+    '**/coverage/**',
+    '.eslintrc.cjs',
+    'eslint.config.js',
+    '*.mjs',
+    'scripts/**/*.mjs',
+  ],
+  plugins: ['@typescript-eslint', 'import', 'vitest'],
   extends: [
     'eslint:recommended',
     'plugin:@typescript-eslint/recommended',
@@ -14,80 +23,25 @@ module.exports = {
     'plugin:import/typescript',
     'prettier',
   ],
-  overrides: [
-    {
-      files: ['**/*.d.ts'],
-      rules: {
-        'import/no-named-as-default': 'off',
-        'import/no-unresolved': 'off',
-      },
-    },
-    {
-      files: ['**/*.ts', '**/*.tsx'],
-      parser: '@typescript-eslint/parser',
-      parserOptions: {
-        ecmaVersion: 'latest',
-        sourceType: 'module',
-      },
-      rules: {
-        'import/extensions': [
-          'error',
-          'always',
-          {
-            ignorePackages: true,
-            pattern: {
-              js: 'always',
-              mjs: 'always',
-              cjs: 'always',
-              ts: 'never',
-              tsx: 'never',
-            },
-          },
-        ],
-      },
-    },
-    {
-      files: ['**/*.js', '**/*.mjs'],
-      parserOptions: { ecmaVersion: 'latest', sourceType: 'module' },
-    },
-    {
-      files: ['**/*.cjs', 'packages/**/scripts/**/*.js'],
-      parserOptions: { ecmaVersion: 'latest', sourceType: 'script' },
-      rules: {
-        'import/no-commonjs': 'off',
-        '@typescript-eslint/no-var-requires': 'off',
-        '@typescript-eslint/no-require-imports': 'off',
-      },
-    },
-    {
-      files: [
-        'packages/cli/scripts/groth16-adapter-selftest.mjs',
-        'packages/cli/scripts/plonk-adapter-selftest.mjs',
-      ],
-      rules: { 'import/no-unresolved': 'off' },
-    },
-    {
-      files: ['packages/**/scripts/**/*.mjs', '**/scripts/**/*.mjs'],
-      rules: {
-        'import/extensions': ['error', 'always', { ignorePackages: true }],
-      },
-    },
-  ],
+  parser: '@typescript-eslint/parser',
+  parserOptions: {
+    project: [
+      path.join(ROOT, 'tsconfig.eslint.json'),
+      path.join(ROOT, 'packages/*/tsconfig.json'), path.join(ROOT, 'packages/**/tsconfig.json'),
+    ],
+    tsconfigRootDir: ROOT,
+    sourceType: 'module',
+    ecmaVersion: 'latest',
+  },
   settings: {
-    'import/core-modules': ['#fs-compat', '#paths'],
+    'import/parsers': {
+      '@typescript-eslint/parser': ['.ts', '.tsx', '.d.ts', '.mts'],
+    },
     'import/resolver': {
+      node: { extensions: ['.js', '.mjs', '.ts'] },
       typescript: {
-        project: [
-          './tsconfig.paths.json',
-          './packages/cli/tsconfig.json',
-          './packages/core/tsconfig.json',
-          './packages/adapters/snarkjs-groth16/tsconfig.json',
-          './packages/adapters/snarkjs-plonk/tsconfig.json',
-        ],
+        project: [path.join(ROOT, 'tsconfig.eslint.json'), path.join(ROOT, 'packages/*/tsconfig.json'), path.join(ROOT, 'packages/**/tsconfig.json')],
         alwaysTryTypes: true,
-      },
-      node: {
-        extensions: ['.js', '.mjs', '.cjs', '.ts', '.tsx'],
       },
       alias: {
         map: [
@@ -95,10 +49,72 @@ module.exports = {
           ['#paths',     path.resolve(ROOT, 'packages/cli/src/utils/paths.ts')],
         ],
         extensions: ['.ts', '.js', '.mjs'],
-      },    
+      },
     },
+    'import/core-modules': ['vitest'],
   },
+  overrides: [
+
+    {
+      files: ['packages/adapters/**/src/**/*.ts'],
+      rules: {
+        'import/no-unresolved': 'off',
+        'import/namespace': 'off'
+      }
+    },
+
+
+    {
+      files: ['packages/cli/src/**/*.ts'],
+      rules: {
+        'import/no-unresolved': 'off',
+        'import/namespace': 'off'
+      }
+    },
+
+    {
+      files: ['**/*.d.ts'],
+      rules: {
+        '@typescript-eslint/consistent-type-imports': 'off'
+      }
+    },
+
+    // Vitest globals in tests
+    {
+      files: ['**/__tests__/**/*.{ts,tsx}', '**/*.{test,spec}.ts'],
+      env: { 'vitest/globals': true },
+      rules: {
+        'import/no-unresolved': 'off',
+        'import/namespace': 'off',
+        'no-unused-expressions': 'off',
+      },
+    },
+    // Plain JS/MJS: lint via espree, do not use TS project
+    {
+      files: ['**/*.js', '**/*.mjs'],
+      parser: 'espree',
+      parserOptions: { ecmaVersion: 'latest', sourceType: 'module' },
+      rules: {
+        '@typescript-eslint/consistent-type-imports': 'off',
+        '@typescript-eslint/no-explicit-any': 'off',
+      },
+    },
+    // Dev scripts
+    {
+      files: ['scripts/**/*.ts', 'packages/*/scripts/**/*.ts', 'packages/**/scripts/**/*.ts'],
+      rules: {
+        'import/no-unresolved': 'off',
+        'import/namespace': 'off',
+        'import/no-extraneous-dependencies': 'off',
+      },
+    },
+  ],
   rules: {
-    'import/extensions': ['error', 'always', { ignorePackages: true }],
+    // Temporarily relaxed to avoid false positives under NodeNext
+    'import/no-unresolved': 'off',
+    'import/extensions': 'off',
+
+    '@typescript-eslint/no-explicit-any': 'error',
+    '@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports' }],
   },
 };

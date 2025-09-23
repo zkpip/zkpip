@@ -38,7 +38,7 @@ type IndexRow = Readonly<{
   parseOk: boolean;
   meta?: EntryMeta;
   error?: string; // parse error only
-  kind;
+  kind: string;
 }>;
 
 type RunInfo = Readonly<{

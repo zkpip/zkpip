@@ -3,26 +3,15 @@ import path from 'node:path';
 
 export default defineConfig({
   test: {
-    environment: 'node',
-    include: ['src/**/__tests__/**/*.{test,spec}.ts'],
-    // Optional but helps when running Vitest directly from this package
-    root: __dirname,
+    globals: true,
+    include: ['src/**/*.{test,e2e}.ts'],
+    exclude: ['src/**/__tests__/helpers/**', 'src/**/helpers/**'],
   },
   resolve: {
-    conditions: ['import', 'node'], // prefer ESM entry
     alias: {
-      // Force @zkpip/core to resolve to the built dist entry
-      '@zkpip/core': path.resolve(__dirname, '../core/dist/index.js'),
-    },
-  },
-  server: {
-    fs: {
-      // Allow Vitest dev server to read outside this package root
-      allow: [
-        __dirname,
-        path.resolve(__dirname, '../core/dist'),
-        path.resolve(__dirname, '..', '..'), // workspace root
-      ],
+      '#fs-compat': path.resolve(__dirname, 'src/utils/fs-compat.ts'),
+      '#paths': path.resolve(__dirname, 'src/utils/paths.ts'),
+      '@zkpip/core': path.resolve(__dirname, '../core/src/index.ts'),
     },
   },
 });

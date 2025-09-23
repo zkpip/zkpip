@@ -1,20 +1,19 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022"],
+    "lib": [
+      "ES2022"
+    ],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-
-    "resolveJsonModule": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-
+    "moduleDetection": "force",
     "strict": true,
+    "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
-    "noEmit": false,
-
-    "baseUrl": "."
-    // "paths": { "@zkpip/core": ["packages/core/src"] }
+    "resolvePackageJsonImports": true,
+    "verbatimModuleSyntax": true,
+    "types": [
+      "node"
+    ]
   }
 }
