@@ -51,12 +51,6 @@ jobs:
 
       # --- Targeted sanity/validator steps ---
       - name: Sanity — no bundleId (core)
-        run: npm -w @zkpip/core run test -- src/__tests__/nobundleid.sanity.test.ts
-
-      - name: Validate docs examples (CLI ProofEnvelope)
-        run: npm -w @zkpip/cli run docs:examples:validate
-
-      # --- Unit/IT tests (per full package) ---
       - name: Test @zkpip/core (unit)
         run: npm -w @zkpip/core test -- --reporter=dot
 

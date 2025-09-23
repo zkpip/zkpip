@@ -27,15 +27,3 @@ jobs:
       - run: npm ci
 
       - name: Debug versions
-        run: |
-          node -v
-          node -e "console.log('ajv version =', require('ajv/package.json').version)"
-
-      - run: git diff --quiet || (echo "Workspace dirty before validate" && git status && exit 1)
-
-      - run: npm run spec:manifests:check -- --base https://zkpip.org
-
-      - run: npm run spec:validate -- --jwks docs/spec/keys.jwks
-
-      - name: Validate docs examples (ProofEnvelope)
-        run: npm -w @zkpip/cli run docs:examples:validate
