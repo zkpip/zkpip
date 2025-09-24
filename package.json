@@ -7,8 +7,8 @@
   "strict": true,
   "skipLibCheck": true,
   "scripts": {
+    "build": "npm run clean:srcjs && tsc -b packages/core/tsconfig.build.json packages/cli/tsconfig.build.json",
     "clean:srcjs": "bash -lc 'find packages -path \"*/src/*\" -type f \\( -name \"*.js\" -o -name \"*.js.map\" \\) -delete'",
-    "build": "npm run clean:srcjs && tsc -b",
     "test": "npm run clean:srcjs && npm run -ws build && vitest run",
     "lint": "eslint .",
     "lint:fix": "eslint . .ts,.tsx,.js,.mjs,.cjs --fix",
@@ -92,7 +92,7 @@
     "prettier": "^3.6.2",
     "rimraf": "^5.0.5",
     "snarkjs": "^0.7.5",
-    "tsx": "^4.15.7",
+    "tsx": "^4.20.5",
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.42.0",
     "vitest": "^3.2.4",

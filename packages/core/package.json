@@ -11,7 +11,10 @@
     "./schemas/*": "./schemas/*"
   },
   "imports": {
-    "#fs-compat": "../cli/dist/utils/fs-compat.js"
+    "#fs-compat": {
+      "types": "./src/utils/fs-compat.ts",
+      "default": "./dist/utils/fs-compat.js"
+    }
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

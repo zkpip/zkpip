@@ -17,6 +17,11 @@ jobs:
       - name: Install
         run: npm ci
 
+      - name: Typecheck (core & cli)
+        run: |
+          npx -w @zkpip/core tsc -p tsconfig.json --noEmit
+          npx -w @zkpip/cli  tsc -p tsconfig.json --noEmit        
+
       - name: Build
         run: |
           npm -w @zkpip/core run build

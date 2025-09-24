@@ -26,6 +26,11 @@ jobs:
 
       - run: npm ci
 
+      - name: Typecheck (core & cli)
+        run: |
+          npx -w @zkpip/core tsc -p tsconfig.json --noEmit
+          npx -w @zkpip/cli  tsc -p tsconfig.json --noEmit      
+
       - run: git diff --quiet || (echo "Workspace dirty before validate" && git status && exit 1)
 
       - run: npm run spec:manifests:check -- --base https://zkpip.org

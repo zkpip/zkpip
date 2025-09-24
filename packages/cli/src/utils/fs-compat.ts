@@ -1,10 +1,9 @@
 // ESM, strict TS, no "any".
 
 import { dirname } from 'node:path';
-import { existsSync, mkdirSync as _mkdirSync, writeFileSync as _writeFileSync, type WriteFileOptions } from 'node:fs';
+import { MakeDirectoryOptions, existsSync, mkdirSync as _mkdirSync, writeFileSync as _writeFileSync, type WriteFileOptions } from 'node:fs';
 import { writeFile as _writeFile, mkdir as _mkdir } from 'node:fs/promises';
 import { logFs } from './debug-fs.js';
-import type { MakeDirectoryOptions } from 'node:fs';
 import { ensureDirExists } from './paths.js';
 
 // Overloads make TS pick the right fs/promises signature

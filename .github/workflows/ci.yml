@@ -35,6 +35,11 @@ jobs:
       - name: Install deps (monorepo)
         run: npm ci
 
+      - name: Typecheck (core & cli)
+        run: |
+          npx -w @zkpip/core tsc -p tsconfig.json --noEmit
+          npx -w @zkpip/cli  tsc -p tsconfig.json --noEmit        
+
       # --- Build order: core → cli ---
       - name: Build @zkpip/core
         run: npm -w @zkpip/core run build

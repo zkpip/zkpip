@@ -5,6 +5,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { pipeline } from 'node:stream/promises';
 import { Readable, Transform } from 'node:stream';
 import { writeFile } from '#fs-compat';
+import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
 
 export interface PullOptions {
   url: string;
@@ -67,8 +68,9 @@ export async function fetchToDisk(opts: PullOptions): Promise<string> {
     const out = resolve(outDir, basename(new URL(url).pathname) || `remote-${Date.now()}.json`);
     const fileStream = createWriteStream(out, { flags: 'w' });
 
-    // Convert WHATWG ReadableStream -> Node.js Readable
-    const nodeReadable = Readable.fromWeb(res.body as unknown as ReadableStream);
+    const nodeReadable = Readable.fromWeb(
+      res.body as unknown as NodeReadableStream<Uint8Array>
+    );
 
     // Byte-counting Transform to enforce size limit
     let read = 0;

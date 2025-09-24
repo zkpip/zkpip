@@ -44,14 +44,19 @@ async function main(): Promise<void> {
   const valid = JSON.parse(raw) as Verification;
 
   const publics = [...valid.publics];
-  if (publics.length > 0) {
-    publics[0] = bumpDecString(publics[0]);
+  if (publics.length === 0) {
+    throw new Error('expected at least one public signal');
   }
+  publics[0] = bumpDecString(publics[0]!);
 
-  // Keep inputs in sync if present
-  const inputs = valid.inputs ? [...valid.inputs] : undefined;
-  if (inputs && inputs.length > 0) {
-    inputs[0] = bumpDecString(inputs[0]);
+  // Keep inputs in sync if present (optional)
+  const inputs: string[] | undefined = valid.inputs ? [...valid.inputs] : undefined;
+
+  if (inputs) {
+    if (inputs.length === 0) {
+      throw new Error('expected at least one input');
+    }
+    inputs[0] = bumpDecString(inputs[0]!);
   }
 
   const invalid: Verification = {

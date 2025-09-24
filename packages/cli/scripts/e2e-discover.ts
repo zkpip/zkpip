@@ -38,7 +38,7 @@ type IndexRow = Readonly<{
   parseOk: boolean;
   meta?: EntryMeta;
   error?: string; // parse error only
-  kind;
+  kind: 'bundle' | 'expect';
 }>;
 
 type RunInfo = Readonly<{
@@ -170,12 +170,18 @@ function extractMeta(data: unknown): EntryMeta {
       ? String(publicSignals[0] as JSONPrimitive)
       : undefined;
 
+  const base: EntryMeta = {
+    publicSignals: pubFirst !== undefined
+      ? { length: pubLen, first: pubFirst }
+      : { length: pubLen },
+  };
+
   return {
-    schemaVersion,
-    envelopeId,
-    proofSystem,
-    curve,
-    publicSignals: { length: pubLen, first: pubFirst },
+    ...base,
+    ...(schemaVersion !== undefined ? { schemaVersion } : {}),
+    ...(envelopeId   !== undefined ? { envelopeId }   : {}),
+    ...(proofSystem  !== undefined ? { proofSystem }  : {}),
+    ...(curve        !== undefined ? { curve }        : {}),
   };
 }
 
@@ -195,6 +201,10 @@ async function main(): Promise<void> {
   const OUT_DIR = path.join(ENV_OUT, runId);
   await ensureDir(OUT_DIR);
 
+  const gitHead = tryGit('git rev-parse HEAD');
+  const gitBranch = tryGit('git rev-parse --abbrev-ref HEAD');
+  const gitStatusClean = tryGit('git status --porcelain') === '' ? true : false;
+
   // Run info
   const run: RunInfo = {
     startedAt: isoNow(),
@@ -204,17 +214,17 @@ async function main(): Promise<void> {
     arch: os.arch(),
     release: os.release(),
     e2e: {
-      adapter: ENV_ADAPTER,
       profile: ENV_PROFILE,
-      limit: ENV_LIMIT,
       outDir: OUT_DIR,
       vectorsRoot: VECTORS_ROOT,
       adapters: chosenAdapters,
+      ...(ENV_ADAPTER !== undefined ? { adapter: ENV_ADAPTER } : {}),
+      ...(ENV_LIMIT !== undefined ? { limit: ENV_LIMIT } : {}),
     },
     git: {
-      head: tryGit('git rev-parse HEAD'),
-      branch: tryGit('git rev-parse --abbrev-ref HEAD'),
-      statusClean: tryGit('git status --porcelain') === '' ? true : false,
+      ...(gitHead !== undefined ? { head: gitHead } : {}),
+      ...(gitBranch !== undefined ? { branch: gitBranch } : {}),
+      statusClean: gitStatusClean,
     },
   };
 
@@ -263,8 +273,8 @@ async function main(): Promise<void> {
           size,
           sha256,
           parseOk,
-          meta,
-          error: errMsg,
+          ...(meta !== undefined ? { meta } : {}),
+          ...(errMsg !== undefined ? { error: errMsg } : {}),
           kind,
         });
       }

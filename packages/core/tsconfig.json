@@ -34,7 +34,7 @@
     "types": ["node", "vitest/globals"],
     "resolvePackageJsonImports": true,
     "paths": {
-      "#fs-compat": ["../cli/src/utils/fs-compat.ts"]    
+      "#fs-compat": ["./src/utils/fs-compat.ts"]    
     }
   },
   "include": [

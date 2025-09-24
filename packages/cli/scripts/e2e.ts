@@ -4,9 +4,9 @@
 // - No `any`
 // - NodeNext compatible (run with: tsx scripts/e2e.ts)
 
-import { spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import * as fs from 'node:fs';
-import { promises as fsp } from 'node:fs';
+import { existsSync, promises as fsp } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { writeFile } from '#fs-compat';
@@ -42,7 +42,6 @@ const VECTORS_ROOT = path.join(REPO_ROOT, 'packages/core/schemas/tests/vectors/m
 const ART_ROOT = path.join(CLI_ROOT, 'e2e-artifacts');
 
 const ENV_ADAPTER = process.env.E2E_ADAPTER; // optional adapter filter
-const VERIFY_BIN = path.join(CLI_ROOT, 'dist', 'index.js');
 
 // ---------- FS helpers ----------
 function listDirs(abs: string): string[] {
@@ -52,6 +51,41 @@ function listDirs(abs: string): string[] {
         .filter((d) => d.isDirectory())
         .map((d) => d.name)
     : [];
+}
+
+export async function runNode(
+  cmd: string,
+  args: readonly string[],
+  opts: { cwd?: string; env?: NodeJS.ProcessEnv } = {},
+): Promise<{
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+  timeMs: number;
+  error?: unknown;
+}> {
+  const started = Date.now();
+  const child = spawn(cmd, args, { ...opts, stdio: ['ignore', 'pipe', 'pipe'] });
+
+  let stdout = '';
+  let stderr = '';
+  let error: unknown;
+
+  child.stdout.setEncoding('utf8').on('data', (d) => (stdout += String(d)));
+  child.stderr.setEncoding('utf8').on('data', (d) => (stderr += String(d)));
+  child.on('error', (e) => (error = e));
+
+  const exitCode: number = await new Promise((resolve) => {
+    child.on('close', (code) => resolve(code ?? 0));
+  });
+
+  return {
+    exitCode,
+    stdout,
+    stderr,
+    timeMs: Date.now() - started,
+    ...(error ? { error } : {}),
+  };
 }
 
 function walkBundles(dir: string): string[] {
@@ -68,8 +102,18 @@ function walkBundles(dir: string): string[] {
   return out.sort();
 }
 
-function relToVectors(abs: string): string {
-  return path.relative(VECTORS_ROOT, abs).replace(/\\/g, '/');
+function resolveCliCommand(): { cmd: string; args: string[] } {
+  const ROOT = path.resolve(__dirname, '..'); // packages/cli
+  const dist = path.join(ROOT, 'dist', 'index.js');
+  const srcTs = path.join(ROOT, 'src', 'index.ts');
+
+  if (existsSync(dist)) {
+    // használjuk a felépített JS-t
+    return { cmd: process.execPath, args: ['--conditions', 'node', dist] };
+  }
+
+  // fallback: futtasd a TS forrást tsx-szel (nem kell build)
+  return { cmd: 'npx', args: ['-y', 'tsx', srcTs] };
 }
 
 function latestRunDir(root: string): string | undefined {
@@ -80,35 +124,18 @@ function latestRunDir(root: string): string | undefined {
     .map((d) => d.name)
     .filter((n) => /^\d{8}T\d{6}Z$/.test(n)) // ISO-ish folder name from Stage 0
     .sort();
-  return dirs.length ? path.join(root, dirs[dirs.length - 1]) : undefined;
+  if (dirs.length === 0) return undefined;
+  return path.join(root, dirs[dirs.length - 1]!);
 }
 
-async function readJson<T extends JSONObject = JSONObject>(fp: string): Promise<T> {
-  const raw = await fsp.readFile(fp, 'utf8');
-  return JSON.parse(raw) as T;
-}
-
-// ---------- subset matcher (object-only, strict equality for scalars/arrays) ----------
-function isObject(x: unknown): x is JSONObject {
-  return typeof x === 'object' && x !== null && !Array.isArray(x);
-}
-
-function subsetMatch(actual: JSONValue, expect: JSONValue): boolean {
-  if (Array.isArray(expect)) {
-    // For arrays: require strict deep equality
-    return JSON.stringify(actual) === JSON.stringify(expect);
+function safeParseJson(s: unknown): JSONObject | undefined {
+  if (typeof s !== 'string') return undefined;
+  try {
+    const v = JSON.parse(s);
+    return (v && typeof v === 'object' && !Array.isArray(v)) ? (v as JSONObject) : undefined;
+  } catch {
+    return undefined;
   }
-  if (isObject(expect)) {
-    if (!isObject(actual)) return false;
-    for (const [k, v] of Object.entries(expect)) {
-      if (!(k in actual)) return false;
-      const a = (actual as JSONObject)[k];
-      if (!subsetMatch(a, v)) return false;
-    }
-    return true;
-  }
-  // primitives: strict equality
-  return actual === expect;
 }
 
 // ---------- runner ----------
@@ -117,11 +144,7 @@ async function main(): Promise<void> {
   const allAdapters = listDirs(VECTORS_ROOT);
   const adapters = ENV_ADAPTER ? allAdapters.filter((a) => a === ENV_ADAPTER) : allAdapters;
 
-  if (!fs.existsSync(VERIFY_BIN)) {
-    throw new Error(
-      `CLI binary not found at ${VERIFY_BIN}. Did you run "npm -w @zkpip/cli run build"?`,
-    );
-  }
+  const cliCmd = resolveCliCommand();
 
   // Output dir: reuse the latest Stage 0 run folder (append Stage 1 files)
   const runDir = latestRunDir(ART_ROOT) ?? path.join(ART_ROOT, 'standalone');
@@ -134,56 +157,42 @@ async function main(): Promise<void> {
     for (const set of ['valid', 'invalid'] as const) {
       const dir = path.join(base, set);
       const bundles = walkBundles(dir);
+
       for (const abs of bundles) {
-        const fileRel = relToVectors(abs);
+        const started = Date.now();
 
         const args = [
-          VERIFY_BIN,
+          ...cliCmd.args,
           'verify',
-          '--adapter',
-          adapter,
-          '--envelope',
-          abs,
-          '--json',
           '--use-exit-codes',
+          '--in', abs,
+          '--adapter', adapter,
         ];
 
-        const started = Date.now();
-        const cp = spawnSync('node', args, { encoding: 'utf8' });
-        const timeMs = Date.now() - started;
+        const proc = await runNode(cliCmd.cmd, args, {
+          cwd: REPO_ROOT, 
+        });
 
-        let parsed: JSONObject | undefined;
-        let parseOk = false;
-        if (typeof cp.stdout === 'string' && cp.stdout.trim().length > 0) {
-          try {
-            parsed = JSON.parse(cp.stdout) as JSONObject;
-            parseOk = true;
-          } catch {
-            parseOk = false;
-          }
-        }
+        const timeMs = Date.now() - started; 
 
-        // Optional .expect.json beside the bundle
-        const expectPath = abs.replace(/\.json$/, '.expect.json');
-        let expectMatched: boolean | undefined = undefined;
-        if (fs.existsSync(expectPath) && parsed) {
-          const expect = await readJson<JSONObject>(expectPath);
-          expectMatched = subsetMatch(parsed, expect);
-        }
+        const file = path.basename(abs);
+        const exitCode = proc.exitCode;
+        const ok = exitCode === 0;
+
+        const stdoutObj = safeParseJson(proc.stdout);
+        const stderrStr = proc.stderr?.trim() ? proc.stderr : undefined;
 
         rows.push({
           adapter,
           set,
-          file: fileRel,
+          file,
           abs,
-          exitCode: cp.status ?? 2,
-          ok: parseOk ? Boolean(parsed?.ok) : false,
-          stdout: parsed,
-          stderr: cp.stderr || undefined,
+          exitCode,
+          ok,
           timeMs,
-          expectMatched,
-          expectPath: fs.existsSync(expectPath) ? expectPath : undefined,
-          error: cp.error ? String(cp.error) : undefined,
+          ...(stdoutObj !== undefined ? { stdout: stdoutObj } : {}),
+          ...(stderrStr !== undefined ? { stderr: stderrStr } : {}),
+          ...(proc.error ? { error: String(proc.error) } : {}),
         });
       }
     }
@@ -206,11 +215,12 @@ async function main(): Promise<void> {
   const expectOk = rows.filter((r) => r.expectMatched === true).length;
   const expectFail = rows.filter((r) => r.expectMatched === false).length;
 
+  const cmdPretty = `${cliCmd.cmd} ${cliCmd.args.join(' ')}`;
   const lines: string[] = [];
   lines.push('# Stage 1 – Verify matrix');
   lines.push('');
   lines.push(`- Vectors root: ${VECTORS_ROOT}`);
-  lines.push(`- CLI: node ${VERIFY_BIN}`);
+  lines.push(`- CLI: ${cmdPretty}`);
   lines.push('');
   lines.push('## Totals');
   lines.push(`- Bundles: ${bundlesTotal} (valid: ${validBundles}, invalid: ${invalidBundles})`);

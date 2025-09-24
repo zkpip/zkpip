@@ -18,7 +18,8 @@
         "../core/dist/*",
         "../core/src/*"
       ],
-      "#fs-compat": ["./src/utils/fs-compat.ts"]
+      "#fs-compat": ["./src/utils/fs-compat.ts"],
+      "#paths": ["./src/utils/paths.ts"]
     },    
     "outDir": "dist",
     "declaration": true,
@@ -48,7 +49,7 @@
   "exclude": ["node_modules", "dist"],
   "references": [
     {
-      "path": "../core"
+      "path": "../core/tsconfig.build.json"
     }
   ]
 }
