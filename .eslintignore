@@ -5,3 +5,4 @@ coverage/
 packages/**/dist/
 packages/**/.tmp/
 fixtures/
+packages/cli/scripts/**

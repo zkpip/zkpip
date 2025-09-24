@@ -14,6 +14,7 @@ module.exports = {
     'eslint.config.js',
     '*.mjs',
     'scripts/**/*.mjs',
+    "packages/cli/scripts/**"
   ],
   plugins: ['@typescript-eslint', 'import', 'vitest'],
   extends: [
