@@ -8,7 +8,7 @@ import { mkdirSync, readFileSync } from 'node:fs';
 import { dirname, resolve, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { writeFileSync } from '#fs-compat';
+import { writeFileSync } from '../dist/utils/fs-compat.js';
 
 function b64uToBuf(s) {
   // convert base64url -> base64
