@@ -2,7 +2,7 @@
 // IMPORTANT: no relative imports inside ambient modules!
 
 declare module '#fs-compat' {
-  import type { WriteFileOptions as NodeWriteFileOptions, MakeDirectoryOptions } from 'node:fs';
+  import type { WriteFileOptions as NodeWriteFileOptions, MakeDirectoryOptions, mkdirSync } from 'node:fs';
 
   // Overloaded signatures (match fs-compat)
   export function mkdir(path: string, options?: MakeDirectoryOptions): Promise<void>;

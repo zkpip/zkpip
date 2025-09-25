@@ -3,7 +3,7 @@
 // Exercises: createAjv + addCoreSchemas + pickSchemaId + AJV validate.
 
 import { existsSync, mkdtempSync, readdirSync } from 'node:fs';
-import { writeFileSync } from '#fs-compat';
+import { writeFileSync } from '../../src/utils/fs-compat.js';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { describe, it, expect } from 'vitest';

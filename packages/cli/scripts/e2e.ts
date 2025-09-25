@@ -9,7 +9,7 @@ import * as fs from 'node:fs';
 import { existsSync, promises as fsp } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { writeFile } from '#fs-compat';
+import { writeFile } from '../src/utils/fs-compat.js';
 
 // ---------- JSON types (immutable) ----------
 type JSONPrimitive = string | number | boolean | null;

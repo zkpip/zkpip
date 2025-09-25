@@ -1,7 +1,7 @@
 // ESM-only; no "any"; English comments
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { writeFile } from '#fs-compat';
+import { writeFile } from '../../../src/utils/fs-compat.js';
 
 type Json = string | number | boolean | null | Json[] | { [k: string]: Json };
 

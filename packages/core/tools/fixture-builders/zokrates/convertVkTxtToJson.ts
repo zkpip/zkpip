@@ -1,8 +1,7 @@
 // ESM, strict TS, no "any".
 // ZoKrates verification.key -> snarkjs-compatible verification_key.json
 import { readFile } from 'node:fs/promises';
-import { writeFile } from '#fs-compat';
-
+import { writeFile } from '../../../src/utils/fs-compat.js';
 // ---- Types -----------------------------------------------------------------
 type Fq = string; // decimal or 0x-hex
 type Fq2 = readonly [Fq, Fq];
