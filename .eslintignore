@@ -1,7 +1,0 @@
-node_modules/
-dist/
-coverage/
-.tmp/
-packages/**/dist/
-packages/**/.tmp/
-fixtures/

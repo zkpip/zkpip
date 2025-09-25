@@ -2,6 +2,12 @@
   "name": "@zkpip/cli",
   "version": "0.1.0",
   "type": "module",
+  "imports": {
+    "#fs-compat": {
+      "types": "../core/src/utils/fs-compat.ts",
+      "default": "../core/dist/utils/fs-compat.js"
+    }
+  },
   "private": false,
   "bin": {
     "zkpip": "./dist/index.js"
@@ -9,9 +15,6 @@
   "exports": {
     ".": "./dist/index.js"
   },
-  "imports": {
-    "#fs-compat": "./dist/utils/fs-compat.js"
-  },  
   "files": [
     "dist/**", "schemas/**"
   ],
@@ -20,8 +23,9 @@
     "node": ">=20.10"
   },
   "scripts": {
+    "lint": "node ../../node_modules/eslint/bin/eslint.js -c ../../eslint.config.mjs \"src/**/*.ts\"",
+    "lint:fix": "node ../../node_modules/eslint/bin/eslint.js -c ../../eslint.config.mjs \"src/**/*.ts\" --fix",
     "pretest": "npm run build",
-    "lint": "eslint .",
     "format": "prettier -w \"src/**/*.{ts,js,mjs,cjs,md,json,yml,yaml}\"",
     "format:check": "prettier -c \"src/**/*.{ts,js,mjs,cjs,md,json,yml,yaml}\"",
     "clean": "rimraf dist tsconfig.tsbuildinfo ./.tmp/normalized/*",

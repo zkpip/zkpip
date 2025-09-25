@@ -7,17 +7,9 @@
     "types": ["node", "vitest/globals"],
     "resolvePackageJsonImports": true,
     "skipLibCheck": true,
-    "rootDir": ".",
+    "rootDir": "./src",
     "noEmit": true,
     "paths": {
-      "@zkpip/core": [
-        "../core/dist/index.d.ts",
-        "../core/src/index.ts"
-      ],
-      "@zkpip/core/*": [
-        "../core/dist/*",
-        "../core/src/*"
-      ],
       "#fs-compat": ["./src/utils/fs-compat.ts"],
       "#paths": ["./src/utils/paths.ts"]
     },    
@@ -40,16 +32,6 @@
   "engines": { 
     "node": ">=20" 
   },
-  "include": [
-    "src",
-    "src/**/*.ts",
-    "scripts/**/*.ts",
-    "../../types/**/*.d.ts" 
-  ],
-  "exclude": ["node_modules", "dist"],
-  "references": [
-    {
-      "path": "../core/tsconfig.build.json"
-    }
-  ]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "scripts/**", "**/__tests__/**"]
 }

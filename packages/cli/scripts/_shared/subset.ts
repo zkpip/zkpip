@@ -1,5 +1,9 @@
 // JSON subset matcher compatible with the VerifyJson contract (no `any`)
-import type { JSONValue, JSONObject } from '../../src/contracts/e2e.js';
+// Local JSON types (keep in sync with src/contracts if needed)
+export type JSONPrimitive = string | number | boolean | null;
+export type JSONValue = JSONPrimitive | JSONObject | JSONArray;
+export type JSONArray = ReadonlyArray<JSONValue>;
+export interface JSONObject { readonly [k: string]: JSONValue }
 
 export function isSubset(expected: JSONValue, actual: JSONValue): boolean {
   if (expected === actual) return true;
