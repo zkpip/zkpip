@@ -6,7 +6,7 @@
 import { readFile, stat } from 'node:fs/promises';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { writeFile } from '#fs-compat';
+import { writeFile } from '../../src/utils/fs-compat.js';
 
 // ---------- tiny utils ----------
 

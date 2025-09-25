@@ -1,26 +1,22 @@
 {
-  "extends": "./tsconfig.json",
   "compilerOptions": {
-    "composite": false,
     "noEmit": true,
-    "rootDir": "../",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "skipLibCheck": true,
+
     "baseUrl": ".",
+    "rootDir": "../..",
+
     "paths": {
-      "@zkpip/core": [
-        "../core/src/index.ts"
-      ],
-      "@zkpip/core/*": [
-        "../core/src/*"
-      ]
-    }
+      "@zkpip/core": ["../core/src/index.ts"],
+      "#fs-compat": ["../core/src/utils/fs-compat.ts"]
+    },
+
+    "types": ["node"]
   },
-  "references": [],
-  "include": [
-    "src/**/*.ts",
-    "../core/src/**/*.ts"
-  ],
-  "exclude": [
-    "dist",
-    "node_modules"
-  ]
+  "include": ["src/**/*.ts", "../core/src/**/*.ts"],
+  "exclude": ["**/__tests__/**", "dist", "node_modules"],
+  "references": []
 }

@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { loadSchemaJson } from '../schemaUtils.js';
 import * as path from 'node:path';
-import { writeFile, mkdir } from '#fs-compat';
+import { writeFile, mkdir } from '../../src/utils/fs-compat.js';
 
 describe('schemaUtils.loadSchemaJson', () => {
   const tmpRoot = path.resolve('tmp-schemas');

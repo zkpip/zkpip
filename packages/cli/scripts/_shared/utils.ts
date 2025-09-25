@@ -1,7 +1,7 @@
 // Small shared helpers for E2E (no `any`; English comments)
 import { createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
-import { writeFile } from '#fs-compat';
+import { writeFile } from '../../src/utils/fs-compat.js';
 
 export async function sha256File(fp: string): Promise<string> {
   const h = createHash('sha256');

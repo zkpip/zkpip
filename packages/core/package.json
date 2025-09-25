@@ -1,23 +1,24 @@
 {
   "name": "@zkpip/core",
-  "version": "0.1.0",
-  "private": false,
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
     },
-    "./schemas/*": "./schemas/*"
+    "./schemas/*": "./dist/schemas/*",
+    "./utils/fs-compat.js": "./dist/utils/fs-compat.js"
   },
+  "version": "0.1.0",
+  "private": false,
   "imports": {
     "#fs-compat": {
       "types": "./src/utils/fs-compat.ts",
       "default": "./dist/utils/fs-compat.js"
     }
   },
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
   "files": [
     "dist",
     "schemas",
@@ -33,7 +34,8 @@
     "build": "tsc -p tsconfig.build.json",
     "build:watch": "tsc -b -w tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "eslint -c ../../eslint.config.js .",
+    "lint": "node ../../node_modules/eslint/bin/eslint.js -c ../../eslint.config.mjs \"src/**/*.ts\"",
+    "lint:fix": "node ../../node_modules/eslint/bin/eslint.js -c ../../eslint.config.mjs \"src/**/*.ts\" --fix",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -43,7 +45,6 @@
   },
   "devDependencies": {
     "@types/json-schema": "^7.0.15",
-    "@types/node": "^24.3.0",
     "@vitest/coverage-v8": "^3.2.4",
     "eslint": "^9.36.0",
     "prettier": "^3.0.0",

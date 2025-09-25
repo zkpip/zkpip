@@ -9,7 +9,7 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { pathToFileURL } from 'node:url';
-import { writeFile, mkdir } from '#fs-compat';
+import { writeFile, mkdir } from '../../src/utils/fs-compat.js';
 
 // ---------- helpers ----------
 function parseArgs(argv) {

@@ -17,15 +17,11 @@ jobs:
       - name: Install
         run: npm ci
 
-      - name: Typecheck (core & cli)
-        run: |
-          npx -w @zkpip/core tsc -p tsconfig.json --noEmit
-          npx -w @zkpip/cli  tsc -p tsconfig.json --noEmit        
+      - name: Typecheck
+        run: npm run typecheck
 
-      - name: Build
-        run: |
-          npm -w @zkpip/core run build
-          npm -w @zkpip/cli run build
+      - name: Build (core & cli)
+        run: npm run build
 
       - name: Generate ephemeral Ed25519 keys
         run: |
