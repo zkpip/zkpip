@@ -35,24 +35,15 @@ jobs:
       - name: Install deps (monorepo)
         run: npm ci
 
-      - name: Typecheck (core & cli)
-        run: |
-          npx -w @zkpip/core tsc -p tsconfig.json --noEmit
-          npx -w @zkpip/cli  tsc -p tsconfig.json --noEmit        
+      - name: Typecheck
+        run: npm run typecheck
 
-      # --- Build order: core → cli ---
-      - name: Build @zkpip/core
-        run: npm -w @zkpip/core run build
-
-      - name: Build @zkpip/cli
-        run: npm -w @zkpip/cli run build
+      - name: Build (core & cli)
+        run: npm run build
 
       # --- Quality checks (root scripts, no workspaces)
       - name: Lint
         run: npm run lint --if-present
-
-      - name: Typecheck
-        run: npm run typecheck --if-present
 
       # --- Targeted sanity/validator steps ---
       - name: Sanity — no bundleId (core)
