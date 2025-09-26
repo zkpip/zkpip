@@ -8,9 +8,10 @@
     "declaration": true,
     "declarationMap": false,
     "emitDeclarationOnly": false,
-    "sourceMap": true
+    "sourceMap": true,
+    "tsBuildInfoFile": "./dist/.tsbuildinfo"
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*", "src/**/*.ts"],
   "exclude": [
     "src/**/__tests__/**",
     "**/*.test.ts",

@@ -979,7 +979,6 @@ export function materializeInput(input: unknown): unknown {
 /** ---------- Minimal debug (stderr, safe for --json) ---------- */
 export function debug(...args: ReadonlyArray<unknown>): void {
   if (process.env.ZKPIP_DEBUG === '1') {
-    // eslint-disable-next-line no-console
     console.error('[zkpip]', ...args);
   }
 }

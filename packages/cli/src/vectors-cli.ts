@@ -1,120 +1,245 @@
-// ESM, strict TS. Minimal argv parser for `zkpip vectors <subcmd>` (currently: pull)
-import { vectorsSign } from './commands/vectors-sign.js';
-import { vectorsVerifySeal } from './commands/vectors-verify-seal.js';
-import { runVectorsPull } from './utils/runVectorsPull.js';
-import { vectorsPush } from './commands/vectors-push.js';
+// packages/cli/src/vectors-cli.ts
+// Subcommand dispatcher for `zkpip vectors ...`
+// - Keeps existing POC: `verify-seal`
+// - Adds: `seal` (sign vector → sealed.json)
+//   English comments, strict TS, Node 22+, ESM. No `any`.
 
-export interface VectorsPullArgs {
-  id?: string;
-  url?: string;
-  out: string;
-}
+import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import path from 'node:path';
 
-function parsePullArgv(argv: string[]): VectorsPullArgs {
-  let id: string | undefined;
-  let url: string | undefined;
-  let out: string | undefined;
+import type { SealedVectorPOC, VerifySealResult } from './commands/verifySeal.js';
+import { verifySealedVectorPOC } from './commands/verifySeal.js';
 
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
-    if (a === '--id')  { id = argv[++i]; continue; }
-    if (a === '--url') { url = argv[++i]; continue; }
-    if (a === '--out') { out = argv[++i]; continue; }
-  }
+import { signVector } from './lib/signVector.js';
+import { defaultStoreRoot } from './utils/keystore.js';
+import { resolvePrivateKeyPath } from './utils/keystore-resolve.js';
 
-  if (!out) throw new Error('Missing required --out <file>');
-  if (!id && !url) throw new Error('Either --id or --url is required');
+// --------- tiny argv parser (posix-ish, no short flags packing) ---------
+type Flags = Readonly<Record<string, string | boolean>>;
 
-  // Only include optional keys when defined (no undefined on present keys)
-  const args: VectorsPullArgs = {
-    out,
-    ...(id ? { id } : {}),
-    ...(url ? { url } : {}),
-  };
+export async function runVectorsCli(argv: ReadonlyArray<string>): Promise<void> {
+  const { sub, rest, flags } = splitArgs(argv);
 
-  return args;
-}
-
-export async function runVectorsCli(argv: string[]): Promise<void> {
-  const [sub, ...rest] = argv
-  if (!sub || sub === 'help' || sub === '--help' || sub === '-h') {
-    console.log(`Usage:
-  zkpip vectors pull --id <urn>|--url <http> --out <file>
-`);
+  if (!sub || flags['help'] || flags['h']) {
+    printVectorsHelp();
     process.exitCode = 0;
     return;
   }
 
-  if (sub === 'sign') {
-    const inIdx = rest.indexOf('--in');
-    const outIdx = rest.indexOf('--out');
-    const keyIdx = rest.indexOf('--key-dir');
-
-    const inPath  = inIdx >= 0 ? rest[inIdx + 1] : undefined;
-    const outPath = outIdx >= 0 ? rest[outIdx + 1] : undefined;
-    const keyDirArg = keyIdx >= 0 ? rest[keyIdx + 1] : undefined;
-
-    if (!inPath || !outPath) {
-      const err = new Error('Usage: zkpip vectors sign --in <file.json> --out <sealed.json> [--key-dir <dir>]');
-      (err as Error & { code: string }).code = 'ZK_CLI_ERR_USAGE';
-      throw err;
-    }
-
-    await vectorsSign({ 
-      inPath, 
-      outPath, 
-      ...(keyDirArg ? { keyDir: keyDirArg } : {}),
-    }); 
-    return;
-  }  
-
-  if (sub === 'push') {
-    const idIdx = rest.indexOf('--id');
-    const inIdx = rest.indexOf('--in');
-    const baseIdx = rest.indexOf('--base-dir'); // local disk root
-    const id = idIdx >= 0 ? rest[idIdx + 1] : undefined;
-    const inPath = inIdx >= 0 ? rest[inIdx + 1] : undefined;
-    const baseDir = baseIdx >= 0 ? rest[baseIdx + 1] : '.zkpip-vectors';
-    const effectiveBaseDir = baseDir ?? '.zkpip-vectors';
-
-    if (!id || !inPath) {
-      const err = new Error('Usage: zkpip vectors push --id <urn> --in <file> [--base-dir <dir>]');
-      (err as Error & { code: string }).code = 'ZK_CLI_ERR_USAGE';
-      throw err;
-    }
-
-    await vectorsPush({ id, inPath, baseDir: effectiveBaseDir });
-    return;
-  }
-
   if (sub === 'verify-seal') {
-    const inIdx = rest.indexOf('--in');
-    const keyIdx = rest.indexOf('--key-dir');
-    const inPath = inIdx >= 0 ? rest[inIdx + 1] : undefined;
-    const keyDir = keyIdx >= 0 ? rest[keyIdx + 1] : undefined;
-    if (!inPath) {
-      const err = new Error('Usage: zkpip vectors verify-seal --in <vector+seal.json> [--key-dir <dir>]');
-      (err as Error & { code: string }).code = 'ZK_CLI_ERR_USAGE';
-      throw err;
-    }
-    await vectorsVerifySeal({ inPath, ...(keyDir ? { keyDir } : {}) });
+    await runVerifySeal(rest, flags);
     return;
-  }  
+  }
 
-  if (sub === 'pull') {
-    try {
-      const args = parsePullArgv(argv.slice(1));
-      const code = await runVectorsPull(args);
-      process.exitCode = code;
-      return;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      console.error(JSON.stringify({ ok: false, code: 'VECTORS_PULL_ERROR', message }));
-      process.exitCode = 1;
-      return;
+  if (sub === 'seal') {
+    await runSeal(rest, flags);
+    return;
+  }
+
+  // Unknown vectors subcommand
+  console.error(JSON.stringify({ ok: false, code: 'UNKNOWN_VECTORS_SUBCOMMAND', message: `Unknown vectors subcommand: ${sub}` }));
+  process.exitCode = 1;
+}
+
+function splitArgs(argv: ReadonlyArray<string>): {
+  sub: string | undefined;
+  rest: ReadonlyArray<string>;
+  flags: Flags;
+} {
+  const sub = argv[0];
+  const tail = argv.slice(1);
+  const flags: Record<string, string | boolean> = {};
+
+  let endOfOptions = false;
+  for (let i = 0; i < tail.length; i++) {
+    const tok = tail[i]!;
+    if (!endOfOptions && tok === '--') {
+      endOfOptions = true;
+      continue;
+    }
+
+    if (!endOfOptions && tok.startsWith('--')) {
+      const eq = tok.indexOf('=');
+      if (eq !== -1) {
+        const key = tok.slice(2, eq);
+        const val = tok.slice(eq + 1);
+        flags[key] = val;
+        continue;
+      }
+      const key = tok.slice(2);
+      const next = tail[i + 1];
+      if (next !== undefined && !next.startsWith('-')) {
+        flags[key] = next;
+        i++;
+      } else {
+        flags[key] = true;
+      }
+      continue;
+    }
+
+    if (!endOfOptions && tok.startsWith('-') && tok.length > 1) {
+      flags[tok.slice(1)] = true;
+      continue;
     }
   }
 
-  console.error(JSON.stringify({ ok: false, code: 'UNKNOWN_SUBCOMMAND', message: `Unknown vectors subcommand: ${sub}` }));
-  process.exitCode = 1;
+  return { sub, rest: tail, flags };
+}
+
+function printVectorsHelp(): void {
+  const msg =
+    `zkpip vectors\n\n` +
+    `Usage:\n` +
+    `  zkpip vectors verify-seal --in <sealed.json> [--key-dir <dir>] [--json] [--use-exit-codes]\n` +
+    `  zkpip vectors seal --in <vector.json> --out <sealed.json> --keyId <id> [--store <dir>] [--meta <file>] [--json] [--use-exit-codes]\n` +
+    `\nOptions (verify-seal):\n` +
+    `  --in <file>        Input sealed JSON file { vector, seal }\n` +
+    `  --key-dir <dir>    Directory for public keys (default: ~/.zkpip/key)\n` +
+    `  --json             Force JSON output (errors are always JSON)\n` +
+    `  --use-exit-codes   Use non-zero exit codes on error (default true)\n` +
+    `\nOptions (seal):\n` +
+    `  --in <file>        Input vector JSON\n` +
+    `  --out <file>       Output sealed JSON path\n` +
+    `  --keyId <id>       Logical key identifier (same as used in "keys generate")\n` +
+    `  --store <dir>      Keystore root directory (default: ~/.zkpip/key)\n` +
+    `  --meta <file>      Optional JSON file with extra metadata (object with primitive values)\n` +
+    `  --json             Force JSON output (errors are always JSON)\n` +
+    `  --use-exit-codes   Use non-zero exit codes on error (default true)\n`;
+  console.log(msg);
+}
+
+function emitVerify(result: VerifySealResult, forceJson: boolean): void {
+  const asJson = forceJson || !result.ok;
+  if (asJson) {
+    console.log(JSON.stringify(result));
+  } else {
+    console.log(result.message);
+  }
+}
+
+function mapExitCode(ok: boolean, code: number, useExitCodes: boolean): number {
+  return useExitCodes ? (ok ? 0 : code) : 0;
+}
+
+// ---------------- verify-seal (POC) ----------------
+
+async function runVerifySeal(_rest: ReadonlyArray<string>, flags: Flags): Promise<void> {
+  const inPath = typeof flags['in'] === 'string' ? String(flags['in']) : '';
+  const keyDir = typeof flags['key-dir'] === 'string' ? String(flags['key-dir']) : undefined;
+  const forceJson = Boolean(flags['json']);
+  const useExitCodes = flags['use-exit-codes'] === false ? false : true; // default true
+
+  if (!inPath) {
+    console.error(JSON.stringify({ ok: false, code: 2, stage: 'io', error: 'MISSING_INPUT', message: 'Missing --in <file>' }));
+    process.exitCode = mapExitCode(false, 2, useExitCodes);
+    return;
+  }
+
+  try {
+    const raw = await readFile(inPath, 'utf8');
+    const json = JSON.parse(raw) as SealedVectorPOC;
+    const opts: Readonly<{ keyDir?: string }> = { ...(keyDir ? { keyDir } : {}) };
+    const res = verifySealedVectorPOC(json, opts);
+    emitVerify(res, forceJson);
+    process.exitCode = mapExitCode(res.ok, res.code, useExitCodes);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    const err = { ok: false as const, code: 2 as const, stage: 'io' as const, error: 'READ_FAILED', message: msg };
+    emitVerify(err, true);
+    process.exitCode = mapExitCode(false, err.code, useExitCodes);
+  }
+}
+
+// ---------------- seal (new) ----------------
+
+type Meta = Record<string, string | number | boolean>;
+
+async function runSeal(_rest: ReadonlyArray<string>, flags: Flags): Promise<void> {
+  const inPath = typeof flags['in'] === 'string' ? String(flags['in']) : '';
+  const outPath = typeof flags['out'] === 'string' ? String(flags['out']) : '';
+  const keyId = typeof flags['keyId'] === 'string' ? String(flags['keyId']) : '';
+  const store = typeof flags['store'] === 'string' ? String(flags['store']) : defaultStoreRoot();
+  const metaPath = typeof flags['meta'] === 'string' ? String(flags['meta']) : undefined;
+  const forceJson = Boolean(flags['json']);
+  const useExitCodes = flags['use-exit-codes'] === false ? false : true; // default true
+
+  // Basic arg validation
+  if (!inPath || !outPath || !keyId) {
+    const errMsg = !inPath ? 'Missing --in <file>'
+      : !outPath ? 'Missing --out <file>'
+      : 'Missing --keyId <id>';
+    const payload = { ok: false as const, code: 1 as const, stage: 'args' as const, error: 'MISSING_ARG', message: errMsg };
+    console.error(JSON.stringify(payload));
+    process.exitCode = mapExitCode(false, payload.code, useExitCodes);
+    return;
+  }
+
+  try {
+    // 1) Load vector JSON
+    const raw = await readFile(path.resolve(inPath), 'utf8');
+    const vector: unknown = JSON.parse(raw);
+
+    // 2) Optional meta
+    let meta: Meta | undefined;
+    if (metaPath) {
+      const metaRaw = await readFile(path.resolve(metaPath), 'utf8');
+      const parsed = JSON.parse(metaRaw) as unknown;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        meta = parsed as Meta;
+      } else {
+        const payload = { ok: false as const, code: 1 as const, stage: 'args' as const, error: 'META_INVALID', message: 'Meta must be a JSON object (primitive values only)' };
+        console.error(JSON.stringify(payload));
+        process.exitCode = mapExitCode(false, payload.code, useExitCodes);
+        return;
+      }
+    }
+
+    // 3) Resolve and read private key
+    const keyRoot = path.resolve(store);
+    const privatePemPath = await resolvePrivateKeyPath(keyRoot, keyId);
+    if (!privatePemPath) {
+      const payload = { ok: false as const, code: 2 as const, stage: 'keystore' as const, error: 'KEY_NOT_FOUND', message: `Private key not found for keyId="${keyId}" under "${keyRoot}"` };
+      console.error(JSON.stringify(payload));
+      process.exitCode = mapExitCode(false, payload.code, useExitCodes);
+      return;
+    }
+    const privatePem = await readFile(privatePemPath, 'utf8');
+
+    // 4) Sign
+    const sealed = signVector({
+      vector,
+      privateKeyPem: privatePem,
+      kid: keyId,
+      ...(meta !== undefined ? { meta } : {}),
+    });
+
+    // 5) Write output
+    const absOut = path.resolve(outPath);
+    await mkdir(path.dirname(absOut), { recursive: true });
+    await writeFile(absOut, JSON.stringify(sealed, null, 2) + '\n', { encoding: 'utf8' });
+
+    const okPayload = {
+      ok: true as const,
+      code: 0 as const,
+      out: absOut,
+      vectorUrn: sealed.vectorUrn,
+      envelopeId: sealed.envelopeId,
+      keyId,
+    };
+
+    if (forceJson) {
+      console.log(JSON.stringify(okPayload));
+    } else {
+      console.log(`✅ Sealed vector → ${absOut}`);
+      console.log(`   URN: ${sealed.vectorUrn}`);
+      console.log(`   Env: ${sealed.envelopeId}`);
+      console.log(`   Key: ${keyId}`);
+    }
+    process.exitCode = mapExitCode(true, 0, useExitCodes);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    const payload = { ok: false as const, code: 4 as const, stage: 'io' as const, error: 'SEAL_FAILED', message: msg };
+    console.error(JSON.stringify(payload));
+    process.exitCode = mapExitCode(false, payload.code, useExitCodes);
+  }
 }

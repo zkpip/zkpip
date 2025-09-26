@@ -20,12 +20,9 @@ function validateFile(p: string): boolean {
 
   const ok = validate(data);
   if (!ok) {
-    // eslint-disable-next-line no-console
     console.error(`✖ Validation failed for ${p}`);
-    // eslint-disable-next-line no-console
     console.error(validate.errors);
   } else {
-    // eslint-disable-next-line no-console
     console.log(`✔ ${p} is valid`);
   }
   return !!ok;

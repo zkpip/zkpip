@@ -1,8 +1,0 @@
-#!/bin/sh
-set -eu
-[ "${ZKPIP_SKIP_HOOKS:-}" = "1" ] && exit 0
-
-cd -P "$(git rev-parse --show-toplevel)"
-# csak gyors formázás/lint (ha kell):
-# npx lint-staged
-exit 0
