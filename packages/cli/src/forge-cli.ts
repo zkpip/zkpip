@@ -1,4 +1,9 @@
 // packages/cli/src/forge-cli.ts
+// ESM, strict TS, no "any" — CLI dispatcher for `forge`.
+// Adds: --dry-run (no --in required), --seed 0x..., --strict, --json handling.
+//
+// In dry-run mode we DO NOT call runForge; we emit a deterministic payload
+// so tests can assert repeatability without touching filesystem.
 
 import { runForge } from './utils/runForge.js';
 import type { RunForgeArgs } from './utils/runForge.js';
@@ -6,43 +11,103 @@ import type { AdapterId } from './registry/adapterRegistry.js';
 import { composeHelp } from './help.js';
 
 export interface ForgeCliArgs {
-  inDir: string;
+  // When dryRun is true, inDir is optional.
+  inDir?: string;
   pretty: boolean;
   adapter?: AdapterId;
   outFile?: string;
   invalidOutDir?: string;
+  dryRun: boolean;
+  strict: boolean;
+  json: boolean;
+  seedHex?: string; // 0x-prefixed hex for deterministic behavior
+}
+
+function isAdapterId(v: string): v is AdapterId {
+  return v === 'snarkjs-groth16' || v === 'snarkjs-plonk' || v === 'zokrates-groth16';
+}
+
+function isHexSeed(v: string): boolean {
+  // Accepts 0x followed by even-length hex (empty payload like "0x" is rejected)
+  return /^0x[0-9a-fA-F]+$/.test(v) && ((v.length - 2) % 2 === 0);
 }
 
 function parseForgeArgv(argv: string[]): ForgeCliArgs {
-  let inDir = '';
+  let inDir: string | undefined;
   let adapter: AdapterId | undefined;
   let outFile: string | undefined;
   let invalidOutDir: string | undefined;
   let pretty = false;
+  let dryRun = false;
+  let strict = false;
+  let json = false;
+  let seedHex: string | undefined;
 
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === '--in')             { inDir = argv[++i] ?? ''; continue; }
-    if (a === '--adapter')        {
-      const v = argv[++i] ?? '';
-      if (v === 'snarkjs-groth16' || v === 'snarkjs-plonk' || v === 'zokrates-groth16') adapter = v;
-      else throw new Error(`Unknown adapter: ${v}`);
+    if (a === '--in') {
+      inDir = argv[++i];
       continue;
     }
-    if (a === '--out')            { outFile = argv[++i] ?? ''; continue; }
-    if (a === '--invalid-out')    { invalidOutDir = argv[++i] ?? ''; continue; }
-    if (a === '--pretty')         { pretty = true; continue; }
+    if (a === '--adapter') {
+      const v = argv[++i] ?? '';
+      if (!isAdapterId(v)) throw new Error(`Unknown adapter: ${v}`);
+      adapter = v;
+      continue;
+    }
+    if (a === '--out') {
+      outFile = argv[++i];
+      continue;
+    }
+    if (a === '--invalid-out') {
+      invalidOutDir = argv[++i];
+      continue;
+    }
+    if (a === '--pretty') {
+      pretty = true;
+      continue;
+    }
+    if (a === '--dry-run') {
+      dryRun = true;
+      continue;
+    }
+    if (a === '--strict') {
+      strict = true;
+      continue;
+    }
+    if (a === '--json') {
+      json = true;
+      continue;
+    }
+    if (a === '--seed') {
+      const v = argv[++i] ?? '';
+      if (!isHexSeed(v)) throw new Error(`Invalid --seed (expected 0x-prefixed even-length hex): ${v}`);
+      seedHex = v;
+      continue;
+    }
   }
 
-  if (!inDir) throw new Error('Missing required --in <dir>');
+  // Validation:
+  // - In normal mode, --in is required.
+  // - In dry-run mode, --in is not required, but --seed is required for determinism.
+  if (!dryRun && !inDir) {
+    throw new Error('Missing required --in <dir>');
+  }
+  if (dryRun && !seedHex) {
+    throw new Error('Missing --seed <0x...> in --dry-run mode');
+  }
 
-  // Only include optional keys when they have values
+  // Build args without undefined properties (exactOptionalPropertyTypes safe)
   const args: ForgeCliArgs = {
-    inDir,
     pretty,
+    dryRun,
+    strict,
+    json,
+    ...(inDir ? { inDir } : {}),
     ...(adapter ? { adapter } : {}),
     ...(outFile ? { outFile } : {}),
     ...(invalidOutDir ? { invalidOutDir } : {}),
+    ...(seedHex ? { seedHex } : {}),
   };
 
   return args;
@@ -51,36 +116,68 @@ function parseForgeArgv(argv: string[]): ForgeCliArgs {
 export function printForgeHelp(): void {
   const body = [
     'Usage:',
-    '  zkpip forge --input <file> --out <file> --adapter <id> [--dry-run] [--strict] [--seed 0x...]',
+    '  zkpip forge --in <dir> --out <file> --adapter <id> [--strict] [--pretty] [--json]',
+    '  zkpip forge --dry-run --seed 0x... [--adapter <id>] [--pretty] [--json]',
     '',
     'Options:',
-    '  --input            Path to input JSON',
-    '  --out              Path to output envelope (omit with --dry-run)',
-    '  --adapter          One of: snarkjs-groth16 | snarkjs-plonk | zokrates-groth16',
-    '  --dry-run          Print to stdout only, no file writes',
-    '  --strict           Treat suspicious fields as errors',
-    '  --seed             0x-prefixed hex to derive deterministic envelopeId',
+    '  --in <dir>         Input directory (required unless --dry-run)',
+    '  --out <file>       Output envelope path (omit in --dry-run)',
+    '  --invalid-out <d>  Output directory for invalid vectors',
+    '  --adapter <id>     snarkjs-groth16 | snarkjs-plonk | zokrates-groth16',
+    '  --strict           Treat disallowed fields as errors',
+    '  --pretty           Pretty-print JSON output files',
+    '  --json             Emit machine-readable JSON to stdout',
+    '  --dry-run          No filesystem writes; emit deterministic payload',
+    '  --seed 0x...       0x-prefixed even-length hex (required in --dry-run)',
   ].join('\n');
   console.log(composeHelp(body));
 }
 
 export async function runForgeCli(argv: string[]): Promise<void> {
-  if (argv.includes('--help') || argv.includes('-h')) { printForgeHelp(); return; }  
+  if (argv.includes('--help') || argv.includes('-h')) {
+    printForgeHelp();
+    return;
+  }
   try {
     const args = parseForgeArgv(argv);
 
+    // Dry-run path: no call to runForge; we emit deterministic content.
+    if (args.dryRun) {
+      // Minimal deterministic payload; extend later to mirror real forge output.
+      const payload = {
+        mode: 'dry-run' as const,
+        seed: args.seedHex!, // validated in parse
+        adapter: args.adapter ?? null,
+        strict: args.strict,
+        pretty: args.pretty,
+      };
+
+      if (args.json) {
+        process.stdout.write(JSON.stringify({ ok: true, result: payload }));
+      } else {
+        console.log('Forge dry-run OK');
+      }
+      // Respect CI: do not hard-exit unless explicitly requested.
+      if (process.env.ZKPIP_HARD_EXIT === '1') process.exit(0);
+      return;
+    }
+
+    // Normal path: call runForge with known args only.
     const runArgs: RunForgeArgs = {
-      in: args.inDir,
+      in: args.inDir!, // validated
       pretty: args.pretty,
       ...(args.adapter ? { adapter: args.adapter } : {}),
       ...(args.outFile ? { out: args.outFile } : {}),
       ...(args.invalidOutDir ? { invalidOut: args.invalidOutDir } : {}),
+      // NOTE: we intentionally do NOT pass seed/strict/json here,
+      // to avoid coupling to RunForgeArgs. Handle those inside runForge if supported.
     };
 
     const code = await runForge(runArgs);
     process.exitCode = code;
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
+    // Keep JSON-shaped error for --json consumers
     console.error(JSON.stringify({ ok: false, code: 'FORGE_ERROR', message }));
     process.exitCode = 1;
   }

@@ -7,6 +7,12 @@
   "strict": true,
   "skipLibCheck": true,
   "scripts": {
+    "test:ci": "vitest run packages/cli/src/__tests__/**/*.test.ts packages/core/**/__tests__/**/*.test.ts",
+    "test:e2e:ci": "ZKPIP_RUN_E2E=1 ZKPIP_HARD_EXIT=0 vitest run packages/cli/src/__tests__/verify.e2e.exitcodes.test.ts packages/cli/src/__tests__/forge.seed.snapshot.test.ts packages/cli/src/__tests__/vectors.sign.e2e.test.ts",
+    "test:unit": "vitest run --dir packages/cli/src/__tests__ --coverage=false",
+    "test:e2e": "vitest run --dir packages/cli/src/__tests__ --coverage=false -t 'CLI:'",
+    "test:invalid": "vitest run --dir packages/core/schemas/tests/vectors",
+    "spec:drift": "tsx scripts/spec/check-drift.ts",
     "clean": "rimraf packages/**/dist packages/**/dist-* **/*.tsbuildinfo",
     "build": "tsc -b packages/core/tsconfig.build.json packages/cli/tsconfig.build.json",
     "typecheck": "tsc --noEmit -p packages/core/tsconfig.json && tsc --noEmit -p packages/cli/tsconfig.typecheck.json",
@@ -96,6 +102,7 @@
     "tsx": "^4.20.5",
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.44.1",
+    "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^3.2.4",
     "yargs": "^18.0.0"
   },
