@@ -44,3 +44,18 @@ export function composeHelp(body: string): string {
 export function shouldShowHelp(argv: readonly string[]): boolean {
   return argv.includes('--help') || argv.includes('-h') || argv[0] === 'help';
 }
+
+export function renderHelpEpilogue(): string {
+  return [
+    '',
+    'Error codes:',
+    '  ZK_CLI_ERR_STRICT_FIELDS  Disallowed fields in --strict mode',
+    '  ZK_CLI_ERR_MAX_MB         Download exceeds size limit',
+    '  ZK_CLI_ERR_TIMEOUT        Pull timed out or failed',
+    '  ZK_CLI_ERR_PROTOCOL       Unsupported source protocol',
+    '  ZK_CLI_ERR_FILE_HOST      file:// must not include a host',
+    '  ZK_CLI_ERR_FILE_RELATIVE  file:// must use an absolute path',
+    '  ZK_CLI_ERR_PATH_TRAVERSAL Path traversal is not allowed',
+    '  ZK_CLI_ERR_HTTP_DISABLED  HTTP is disabled'
+  ].join('\n');
+}

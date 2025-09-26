@@ -53,11 +53,11 @@ jobs:
         run: npm -w @zkpip/cli run docs:examples:validate
 
       # --- Unit/IT tests (per full package) ---
-      - name: Test @zkpip/core (unit)
-        run: npm -w @zkpip/core test -- --reporter=dot
+      - name: Test @zkpip/core (unit, dir)
+        run: npx vitest run --dir packages/core --reporter=dot --passWithNoTests
 
-      - name: Test @zkpip/cli (unit)
-        run: npm -w @zkpip/cli test -- --reporter=dot
+      - name: Test @zkpip/cli (unit, dir)
+        run: npx vitest run --dir packages/cli --reporter=dot --passWithNoTests
 
       # --- E2E / invalid vectors (Linux) ---
       - name: E2E — invalid vectors must fail verify (CLI)

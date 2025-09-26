@@ -259,18 +259,23 @@ Each key folder contains a `metadata.json` written on generation:
 
 ---
 
-## Error codes (stable, machine‑readable)
+### Guard error codes (as shown in CLI help epilogue)
 
-| code                  | meaning                                             |
-|-----------------------|-----------------------------------------------------|
-| `adapter_not_found`   | Selected adapter is not registered                  |
-| `schema_invalid`      | JSON does not conform to pinned schema              |
-| `io_error`            | Failed to read/write a file or network stream       |
-| `size_limit_exceeded` | `vectors pull` payload too large                    |
-| `http_blocked`        | `http://` blocked without `--allow-http`            |
-| `timeout`             | Read timeout exceeded                               |
-| `strict_violation`    | `--strict` forbids the given fields                 |
-| `UNKNOWN_COMMAND`     | Unknown top‑level command                           |
+These are low-level guard errors surfaced by `vectors pull` and path/transport validation.  
+They may map to the machine-readable error field shown above.
+
+| CLI epilogue code         | Meaning                                  | Maps to `error` (if emitted)     |
+|---------------------------|------------------------------------------|----------------------------------|
+| `ZK_CLI_ERR_FILE_HOST`    | `file://` must not include a host        | `http_blocked` (context-dependent) |
+| `ZK_CLI_ERR_FILE_RELATIVE`| `file://` must use an absolute path      | `io_error` (path misuse)         |
+| `ZK_CLI_ERR_PATH_TRAVERSAL`| Dot-segment traversal is not allowed     | `io_error`                        |
+| `ZK_CLI_ERR_HTTP_DISABLED`| `http://` blocked without `--allow-http` | `http_blocked`                   |
+| `ZK_CLI_ERR_MAX_MB`       | Download exceeds size limit              | `size_limit_exceeded`            |
+| `ZK_CLI_ERR_TIMEOUT`      | Read timeout exceeded                    | `timeout`                        |
+| `ZK_CLI_ERR_STRICT_FIELDS`| Disallowed fields in `--strict` mode     | `strict_violation`               |
+| `ZK_CLI_ERR_PROTOCOL`     | Unsupported source protocol              | `io_error`                       |
+
+> Note: the CLI always prints the **machine-readable** `error`/`stage` in JSON mode for `verify` (e.g. `io_error`, `schema_invalid`, `verify_error`). Guard codes above appear in the help epilogue and stderr logs to aid debugging.
 
 **Environment**
 
