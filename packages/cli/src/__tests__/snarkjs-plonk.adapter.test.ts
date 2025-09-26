@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/consistent-type-imports */
-
 // Unit tests for snarkjs-plonk adapter (refactored contract).
 // Focus: extraction (bundle/artifacts.path), normalization, protocol guard, injected verify stub.
 

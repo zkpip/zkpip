@@ -15,7 +15,6 @@ export function exitNow(code: number): never {
     void 0;
   }
 
-  // eslint-disable-next-line no-process-exit
   process.exit(code);
 
   // In case `process.exit` is mocked in tests, keep the `never` contract.

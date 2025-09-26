@@ -1,5 +1,7 @@
 import type { CommandModule, Argv, ArgumentsCamelCase } from 'yargs';
 import { defaultStoreRoot, saveKeypairForKeyId } from '../../utils/keystore.js';
+import path from 'node:path';
+import { writeKeyMeta, upsertKeyIndex } from '../../utils/keystore-index.js';
 
 interface Args {
   alg: 'ed25519';
@@ -27,6 +29,26 @@ export const keysGenerateCmd: CommandModule<unknown, Args> = {
       if (argv.alg !== 'ed25519') throw new Error('Only ed25519 is supported in this version.');
       const store: string | undefined = typeof argv.store === 'string' ? argv.store : undefined;
       const rec = saveKeypairForKeyId(argv.keyId, store, argv.overwrite === true);
+
+      const keyDir = path.dirname(rec.privatePemPath);
+      const createdAt = new Date().toISOString();
+      void writeKeyMeta(keyDir, {
+        kid: argv.keyId,
+        alg: 'ed25519',
+        createdAt,
+      }).catch((e) => {
+        console.error(`⚠️ Failed writing key.meta.json: ${e instanceof Error ? e.message : String(e)}`);
+      });
+
+      void upsertKeyIndex(store ?? defaultStoreRoot(), {
+        keyId: argv.keyId,
+        dir: keyDir,
+        alg: 'ed25519',
+        createdAt,
+      }).catch((e) => {
+        console.error(`⚠️ Failed updating keys.index.json: ${e instanceof Error ? e.message : String(e)}`);
+      });
+
       if (argv.json) {
         process.stdout.write(JSON.stringify({
           ok: true,
@@ -36,7 +58,6 @@ export const keysGenerateCmd: CommandModule<unknown, Args> = {
           store: store ?? defaultStoreRoot(),
         }) + '\n');
       } else {
-        // eslint-disable-next-line no-console
         console.log(`✅ Generated ed25519 key: keyId=${argv.keyId}
   private: ${rec.privatePemPath}
    public: ${rec.publicPemPath}`);

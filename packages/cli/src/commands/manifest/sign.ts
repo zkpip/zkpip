@@ -94,7 +94,7 @@ export const manifestSignCmd: CommandModule<unknown, Args> = {
           JSON.stringify({ ok: true, alg: signature.alg, keyId: signature.keyId, out: outPath }) + '\n',
         );
       } else {
-        // eslint-disable-next-line no-console
+        //
         console.log(`✅ Signed manifest → ${outPath}  [alg=${signature.alg}, keyId=${signature.keyId}]`);
       }
     } catch (err) {
@@ -107,7 +107,6 @@ export const manifestSignCmd: CommandModule<unknown, Args> = {
       if (argv.json) {
         process.stderr.write(JSON.stringify({ ok: false, message, ...errorBody }) + '\n');
       } else {
-        // eslint-disable-next-line no-console
         console.error(`❌ ${message}`);
       }
       process.exitCode = 1;

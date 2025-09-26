@@ -40,7 +40,6 @@ describe('zkpip forge e2e', () => {
         { reject: false },
       );
       if (v.exitCode === 0) {
-        // eslint-disable-next-line no-console
         console.log('Invalid sample unexpectedly accepted:', p);
       }
       expect(v.exitCode).not.toBe(0);
