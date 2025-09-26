@@ -1,31 +1,43 @@
 // packages/cli/src/commands/vectors-pull.ts
-// ESM, strict TS. Minimal "pull by URL or fileUrl from catalog" MVP.
-import { runVectorsPull } from '../utils/runVectorsPull.js'
-import type { Argv, CommandModule } from 'yargs';
+// POC pull: data: URL → fájlba. (Később jöhet HTTP is.)
+// ESM, strict TS, no `any`.
+
+import { writeFile } from 'node:fs/promises';
 
 export interface VectorsPullArgs {
-  id?: string;          // e.g. urn:zkpip:vector:sha256:<HEX>  (future use with registry)
-  url?: string;         // direct URL to proof-envelope.json (POC)
-  out: string;          // output path
+  id?: string;   // future: registry lookup by URN
+  url?: string;  // direct content (POC: data: URL)
+  out: string;   // output file path
 }
 
-export const vectorsPullCmd: CommandModule<unknown, VectorsPullArgs> = {
-  command: 'vectors pull',
-  describe: 'Download a canonical vector (ProofEnvelope) by id or URL',
-  builder: (yy: Argv<unknown>): Argv<VectorsPullArgs> => {
-    const built = yy
-      .option('id',  { type: 'string', describe: 'VectorId (urn:zkpip:vector:sha256:...)' })
-      .option('url', { type: 'string', describe: 'Direct file URL to proof-envelope.json' })
-      .option('out', { type: 'string', demandOption: true, describe: 'Output file path' })
-      .check((argv) => {
-        if (!argv.id && !argv.url) throw new Error('Either --id or --url is required');
-        return true;
-      });
-    return built as unknown as Argv<VectorsPullArgs>;
-  },
-  handler: async (args) => {
-    const code = await runVectorsPull(args);
-    process.exitCode = code;
-  },
-};
-export default vectorsPullCmd;
+export async function runVectorsPull(args: VectorsPullArgs): Promise<number> {
+  const { id, url, out } = args;
+
+  if ((!id && !url) || !out) {
+    console.error(JSON.stringify({ ok: false, code: 'MISSING_ARGS', message: 'Need --url (or --id) and --out' }));
+    return 1;
+  }
+
+  // POC: handle only data: URLs
+  if (!url || !url.startsWith('data:')) {
+    console.error(JSON.stringify({ ok: false, code: 'UNSUPPORTED_URL', message: 'Only data: URLs supported in POC' }));
+    return 1;
+  }
+
+  const comma = url.indexOf(',');
+  if (comma < 0) {
+    console.error(JSON.stringify({ ok: false, code: 'BAD_DATA_URL', message: 'Invalid data: URL' }));
+    return 1;
+  }
+
+  const meta = url.slice(5, comma);   // "data:<meta>"
+  const payload = url.slice(comma + 1);
+  const isBase64 = /;base64/i.test(meta);
+
+  const buf = isBase64 ? Buffer.from(payload, 'base64')
+                       : Buffer.from(decodeURIComponent(payload), 'utf8');
+
+  await writeFile(out, buf);
+  console.log(JSON.stringify({ ok: true, out }));
+  return 0;
+}

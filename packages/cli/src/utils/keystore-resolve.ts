@@ -77,8 +77,6 @@ export async function resolvePrivateKeyPath(storeRoot: string, keyId: string): P
   const byDir = dirs.find((d) => path.basename(d.dir) === keyId);
   if (byDir) return byDir.privatePemPath;
 
-  if (dirs.length === 1) return dirs[0]!.privatePemPath;
-
   return null;
 }
 
@@ -102,8 +100,6 @@ export async function resolvePublicKeyPath(storeRoot: string, keyId: string): Pr
 
   const byDir = dirs.find((d) => path.basename(d.dir) === keyId && d.publicPemPath);
   if (byDir?.publicPemPath) return byDir.publicPemPath;
-
-  if (dirs.length === 1 && dirs[0]!.publicPemPath) return dirs[0]!.publicPemPath;
 
   return null;
 }

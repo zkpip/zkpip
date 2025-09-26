@@ -20,31 +20,24 @@ export type Options = Readonly<{ keyDir?: string }>;
 export type VerifyStage = 'schema' | 'keystore' | 'verify' | 'io';
 
 export type VerifySealResult =
-  | Readonly<{ ok: true; code: 0; stage: VerifyStage; message: string }>
+  | Readonly<{ ok: true; code: 0; stage: VerifyStage; message: string; urn: string; }>
   | Readonly<{ ok: false; code: number; stage: VerifyStage; error: string; message: string }>;
 
-function ok(stage: VerifyStage, message = 'OK'): VerifySealResult {
-  return { ok: true as const, code: 0 as const, stage, message };
-}
 function fail(stage: VerifyStage, code: number, error: string, message: string): VerifySealResult {
   return { ok: false as const, code, stage, error, message };
 }
 
 // ---------- POC input types (legacy-kompat) ----------
 export type SealPOC = Readonly<{
-  // accept modern + legacy names
-  alg?: 'ed25519';        // modern
-  algo?: 'ed25519';       // legacy
-  algorithm?: 'ed25519';  // legacy alt
-
-  kid?: string;           // modern
-  keyId?: string;         // legacy/newer alt
-  id?: string;            // some older payloads used this for key id
-
-  signature?: string;     // modern
-  sig?: string;           // legacy
-
-  vectorUrn: string;
+  algo?: 'ed25519';
+  algorithm?: 'ed25519';
+  id?: string;
+  keyId?: string;
+  signature?: string;
+  sig?: string;
+  vectorUrn?: string;
+  urn?: string;
+  signer?: string;
   envelopeId?: string;
   createdAt?: string;
 }>;
@@ -69,15 +62,13 @@ function _c14n(v: unknown): string {
 
 // ---------- Field readers ----------
 function readAlg(seal: SealPOC): 'ed25519' | null {
-  const a = seal.alg ?? seal.algo ?? seal.algorithm ?? null;
+  const a = seal.algo ?? seal.algo ?? seal.algorithm ?? null;
   return a === 'ed25519' ? 'ed25519' : null;
 }
 
 // Prefer explicit logical ids: keyId → kid → id
 function readKid(seal: SealPOC): string | null {
   if (typeof seal.keyId === 'string' && seal.keyId.length > 0) return seal.keyId;
-  if (typeof seal.kid === 'string' && seal.kid.length > 0) return seal.kid;
-  if (typeof seal.id === 'string' && seal.id.length > 0) return seal.id;
   return null;
 }
 
@@ -87,10 +78,9 @@ function readSignature(seal: SealPOC): string | null {
   return null;
 }
 
-// ---------- Public key loading (legacy + modern layout) ----------
-function defaultKeyDir(): string {
-  // modern default: ~/.zkpip/keys (a defaultStoreRoot ezt adja)
-  return defaultStoreRoot();
+function readUrn(seal: SealPOC): string | null {
+  const u = seal.vectorUrn ?? seal.urn ?? null;
+  return typeof u === 'string' && u.length > 0 ? u : null;
 }
 
 /** Load a public key PEM resolving both legacy and modern layouts.
@@ -98,96 +88,89 @@ function defaultKeyDir(): string {
  * - Else try legacy "<keyDir>/<keyId>.pub.pem"
  * - Else treat keyDir/default as store root: try common patterns, then scan+meta match
  */
-function loadPublicKeyPem(maybeDir: string | undefined, keyId: string): string {
-  const base = maybeDir ? path.resolve(maybeDir) : defaultKeyDir();
+function loadPublicKeyPem(keyDir: string | undefined, keyId: string): string {
+  const base = keyDir ? path.resolve(keyDir) : defaultStoreRoot();
 
-  // 1) Direct candidates (key dir or legacy flat pub file)
-  for (const p of [path.join(base, 'public.pem'), path.join(base, `${keyId}.pub.pem`)]) {
-    if (fs.existsSync(p)) return fs.readFileSync(p, 'utf8');
-  }
-
-  // 2) Common store-root patterns
-  for (const p of [
+  const candidates: string[] = [
+    path.join(base, 'public.pem'),
+    path.join(base, `${keyId}.pub.pem`),
     path.join(base, 'ed25519', keyId, 'public.pem'),
     path.join(base, keyId, 'public.pem'),
     path.join(base, 'ed25519', `${keyId}.pub.pem`),
-  ]) {
+  ];
+
+  for (const p of candidates) {
     if (fs.existsSync(p)) return fs.readFileSync(p, 'utf8');
   }
 
-  // 3) Scan subdirs and match meta (kid/keyId/label)
   if (fs.existsSync(base)) {
-    const dirs = fs.readdirSync(base, { withFileTypes: true }).filter((ent) => ent.isDirectory());
-    for (const ent of dirs) {
-      const dir = path.join(base, ent.name);
-      const pub = path.join(dir, 'public.pem');
-      if (!fs.existsSync(pub)) continue;
-
-      const metaPath = ['key.meta.json', 'meta.json', 'key.json']
-        .map((f) => path.join(dir, f))
-        .find((p) => fs.existsSync(p));
-
-      if (metaPath) {
-        try {
-          const m = JSON.parse(fs.readFileSync(metaPath, 'utf8')) as unknown;
-          if (m && typeof m === 'object' && !Array.isArray(m)) {
-            const mkid =
-              (m as { keyId?: unknown }).keyId && typeof (m as { keyId?: unknown }).keyId === 'string'
-                ? (m as { keyId: string }).keyId
-                : (m as { kid?: unknown }).kid && typeof (m as { kid?: unknown }).kid === 'string'
-                  ? (m as { kid: string }).kid
-                  : (m as { label?: unknown }).label && typeof (m as { label?: unknown }).label === 'string'
-                    ? (m as { label: string }).label
-                    : null;
-
-            if (mkid === keyId) return fs.readFileSync(pub, 'utf8');
-          }
-        } catch { /* ignore and continue */ }
-      }
+    const entries = fs.readdirSync(base, { withFileTypes: true });
+    for (const e of entries) {
+      if (!e.isDirectory()) continue;
+      const pub = path.join(base, e.name, 'public.pem');
+      if (fs.existsSync(pub)) return fs.readFileSync(pub, 'utf8');
     }
   }
 
-  throw new Error(`PUBLIC_KEY_NOT_FOUND for keyId="${keyId}" under "${base}"`);
+  throw new Error(`PUBLIC_KEY_NOT_FOUND under "${base}" for keyId="${keyId}"`);
 }
 
 // ---------- Verify ----------
 export function verifySealedVectorPOC(input: SealedVectorPOC, opts: Options = {}): VerifySealResult {
-  // 1) Schema checks
-  if (readAlg(input.seal) !== 'ed25519') {
+  // 1) Algo
+  const alg = readAlg(input.seal);
+  if (alg !== 'ed25519') {
     return fail('schema', 3, 'UNSUPPORTED_ALGO', 'Only ed25519 is supported in this POC');
   }
+
+  // 2) Required: keyId + signature
   const kid = readKid(input.seal);
-  if (!kid) return fail('schema', 3, 'MISSING_KEYID', 'Missing keyId/id in seal');
+  if (!kid) return fail('schema', 3, 'MISSING_KEYID', 'Missing keyId in seal');
 
   const sigB64 = readSignature(input.seal);
   if (!sigB64) return fail('schema', 3, 'MISSING_SIGNATURE', 'Missing signature/sig in seal');
 
-  if (typeof input.seal.vectorUrn !== 'string' || input.seal.vectorUrn.length === 0) {
-    return fail('schema', 3, 'MISSING_VECTOR_URN', 'Missing vectorUrn in seal');
+  // 3) Base64 validation (schema → code=3)
+  let sigBuf: Buffer;
+  try {
+    sigBuf = Buffer.from(sigB64, 'base64');
+    if (sigBuf.length === 0 || sigBuf.toString('base64') !== sigB64.replace(/\s+/g, '')) {
+      return fail('schema', 3, 'SIGNATURE_BASE64_ERROR', 'Invalid base64 in signature');
+    }
+  } catch {
+    return fail('schema', 3, 'SIGNATURE_BASE64_ERROR', 'Invalid base64 in signature');
   }
 
-  // 2) Canonicalize + hash → URN match
   const canon = canonicalize(input.vector);
-  const digest = createHash('sha256').update(canon, 'utf8').digest('hex');
-  const expectedUrn = `urn:zkpip:vector:sha256:${digest}`;
-  if (expectedUrn !== input.seal.vectorUrn) {
-    return fail('verify', 4, 'URN_MISMATCH', 'vectorUrn does not match canonical hash');
+  const idHex = createHash('sha256').update(canon, 'utf8').digest('hex');
+
+  if (typeof input.seal.id === 'string' && input.seal.id.length > 0 && input.seal.id !== idHex) {
+    return fail('verify', 1, 'ID_MISMATCH', 'id does not match sha256(canonical(vector))');
   }
 
-  // 3) Public key
+  const providedUrn = readUrn(input.seal);
+  if (providedUrn) {
+    const expected = `urn:zkpip:vector:sha256:${idHex}`;
+    if (providedUrn !== expected) {
+      return fail('verify', 4, 'URN_MISMATCH', 'vectorUrn/urn does not match canonical hash');
+    }
+  }
+
   let publicPem: string;
   try {
-    publicPem = loadPublicKeyPem(opts.keyDir, kid);
+    publicPem = loadPublicKeyPem(opts.keyDir, kid); 
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    return fail('keystore', 2, 'PUBLIC_KEY_NOT_FOUND', msg);
+    return fail('io', 2, 'PUBLIC_KEY_NOT_FOUND', msg);
   }
 
-  // 4) Signature verify (Ed25519)
-  const okSig = nodeVerify(null, Buffer.from(canon, 'utf8'), publicPem, Buffer.from(sigB64, 'base64'));
-  if (!okSig) return fail('verify', 4, 'SIGNATURE_INVALID', 'Ed25519 signature verification failed');
+  // 6) Signature verify
+  const okVerify = nodeVerify(null, Buffer.from(canon, 'utf8'), publicPem, sigBuf);
+  if (!okVerify) return fail('verify', 4, 'SIGNATURE_INVALID', 'Ed25519 signature verification failed');
 
-  return ok('verify');
+  const expected = `urn:zkpip:vector:sha256:${idHex}`;
+
+  return { ok: true, code: 0, stage: 'verify', message: 'OK', urn: expected };
 }
 
 export default verifySealedVectorPOC;

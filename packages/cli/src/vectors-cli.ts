@@ -4,8 +4,9 @@
 // - Adds: `seal` (sign vector → sealed.json)
 //   English comments, strict TS, Node 22+, ESM. No `any`.
 
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
+import { readFile as fspReadFile, writeFile as fspWriteFile, mkdir as fspMkdir, writeFile, mkdir, readFile } from 'node:fs/promises';
+import { dirname, join, resolve as resolvePath } from 'node:path';
 
 import type { SealedVectorPOC, VerifySealResult } from './commands/verifySeal.js';
 import { verifySealedVectorPOC } from './commands/verifySeal.js';
@@ -13,6 +14,9 @@ import { verifySealedVectorPOC } from './commands/verifySeal.js';
 import { signVector } from './lib/signVector.js';
 import { defaultStoreRoot } from './utils/keystore.js';
 import { resolvePrivateKeyPath } from './utils/keystore-resolve.js';
+import { VectorsPullArgs } from './commands/vectors-pull.js';
+import { runVectorsSign, VectorsSignOptions } from './commands/vectors-sign.js';
+import { runVectorsPull } from './utils/runVectorsPull.js';
 
 // --------- tiny argv parser (posix-ish, no short flags packing) ---------
 type Flags = Readonly<Record<string, string | boolean>>;
@@ -36,9 +40,82 @@ export async function runVectorsCli(argv: ReadonlyArray<string>): Promise<void> 
     return;
   }
 
+  if (sub === 'pull') {
+    const args: VectorsPullArgs = {
+      ...(typeof flags['id'] === 'string'  ? { id:  String(flags['id']) }   : {}),
+      ...(typeof flags['url'] === 'string' ? { url: String(flags['url']) }  : {}),
+      out: typeof flags['out'] === 'string' ? String(flags['out']) : '',
+    };
+    if (!args.out || (!('id' in args) && !('url' in args))) {
+      console.error(JSON.stringify({ ok:false, code:'MISSING_ARGS', message:'Need --url (or --id) and --out' }));
+      process.exitCode = 1;
+      return;
+    }
+    process.exitCode = await runVectorsPull(args);
+    return;
+  }
+
+  if (sub === 'sign') {
+    const options: VectorsSignOptions = {
+      inPath:  typeof flags['in']  === 'string' ? String(flags['in'])  : '',
+      outPath: typeof flags['out'] === 'string' ? String(flags['out']) : '',
+      ...(typeof flags['key-dir'] === 'string' ? { keyDir: String(flags['key-dir']) } : {}),
+    };
+    if (!options.inPath || !options.outPath) {
+      console.error(JSON.stringify({ ok:false, code:'MISSING_ARGS', message:'Need --in and --out (and optionally --key-dir)' }));
+      process.exitCode = 1;
+      return;
+    }
+    process.exitCode = await runVectorsSign(options);
+    return;
+  }
+
+  if (sub === 'push') {
+    // Accept many aliases to match old tests/helpers
+    const id     = pickString(flags, ['id', 'vector-id', 'urn']);
+    const store  = pickString(flags, ['store', 'out-dir', 'dir', 'base', 'base-dir', 'root']);
+    const dataArg= pickString(flags, ['data', 'body', 'payload', 'content']);
+    const inFile = pickString(flags, ['in', 'input', 'file', 'from']);
+
+    if (!id || !store || (!dataArg && !inFile)) {
+      console.error(JSON.stringify({ ok:false, code:'MISSING_ARGS', message:'Need --id --store and (--data or --in)' }));
+      process.exitCode = 1;
+      return;
+    }
+
+    try {
+      const root = resolvePath(store);
+      await fspMkdir(root, { recursive: true });
+
+      const body = dataArg || await fspReadFile(resolvePath(inFile), 'utf8');
+
+      const safe = id.replace(/[^a-zA-Z0-9:._-]/g, '_');
+      const outPath = join(root, `${safe}.json`);
+      await fspMkdir(dirname(outPath), { recursive: true });
+      await fspWriteFile(outPath, body, 'utf8');
+
+      console.log(`stored:${id}`);
+      process.exitCode = 0;
+      return;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(JSON.stringify({ ok:false, code:'PUSH_FAILED', message: msg }));
+      process.exitCode = 1;
+      return;
+    }
+  }
+
   // Unknown vectors subcommand
   console.error(JSON.stringify({ ok: false, code: 'UNKNOWN_VECTORS_SUBCOMMAND', message: `Unknown vectors subcommand: ${sub}` }));
   process.exitCode = 1;
+}
+
+function pickString(flags: Flags, keys: ReadonlyArray<string>): string {
+  for (const k of keys) {
+    const v = flags[k];
+    if (typeof v === 'string' && v.length > 0) return v;
+  }
+  return '';
 }
 
 function splitArgs(argv: ReadonlyArray<string>): {
