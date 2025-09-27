@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zkpip.dev/schemas/mvs/seal.schema.json",
+  "title": "ZKPIP Seal v1",
+  "description": "Generic, future-proof seal container with body-based hashing/URN and signature.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["body", "seal"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "const": "1",
+      "description": "Schema version tag. Always '1' for v1."
+    },
+    "kind": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,63}$",
+      "description": "Optional subject discriminator, e.g. 'vector', 'circuit', 'image'."
+    },
+    "meta": {
+      "type": "object",
+      "description": "Optional, free-form metadata (not part of the signature subject).",
+      "additionalProperties": true
+    },
+    "body": {
+      "description": "Arbitrary JSON value to be canonicalized (C14N) and hashed. Must be JSON (no undefined/functions/symbols).",
+      "oneOf": [
+        { "type": "object" },
+        { "type": "array" },
+        { "type": "string" },
+        { "type": "number" },
+        { "type": "boolean" },
+        { "type": "null" }
+      ]
+    },
+    "seal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algo", "keyId", "signature", "urn"],
+      "properties": {
+        "algo": {
+          "type": "string",
+          "enum": ["ed25519"],
+          "description": "Signing algorithm. v1 supports 'ed25519'."
+        },
+        "keyId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Logical key identifier (directory name, pubkey hash, etc.)."
+        },
+        "signature": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9+/]+={0,2}$",
+          "description": "Base64-encoded signature over the canonicalized 'body'."
+        },
+        "urn": {
+          "type": "string",
+          "pattern": "^urn:zkpip:[a-z0-9-]+:sha256:[0-9a-f]{64}$",
+          "description": "URN embedding subject + hash algo + hex digest of C14N(body). Example: urn:zkpip:vector:sha256:<64-hex>"
+        },
+        "signer": {
+          "type": "string",
+          "description": "Optional signer tag or tool version, e.g. 'codeseal/1'."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp when the seal was produced (UTC recommended)."
+        }
+      }
+    }
+  }
+}

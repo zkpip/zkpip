@@ -10,13 +10,16 @@ import * as fs from 'node:fs';
 import path from 'node:path';
 import { generateKeyPairSync, sign as nodeSign } from 'node:crypto';
 import { readdir, mkdir as fspMkdir, writeFile as fspWriteFile, readFile, writeFile } from 'node:fs/promises';
-import { canonicalize, sha256Hex, toVectorUrn, type JsonValue } from '@zkpip/core/json/c14n';
+import { prepareBodyDigest, type SealV1 } from '@zkpip/core/seal/v1';
+import { JsonValue } from '@zkpip/core/json/c14n';
 
 export type VectorsSignOptions = Readonly<{
   inPath: string;
   outPath: string;
   /** Directory that directly contains private.pem (or a subdir that does). Defaults to ~/.zkpip/key (legacy POC). */
   keyDir?: string | undefined;
+  /** Optional URN subject discriminator. Defaults to "vector". */
+  kind?: string | undefined;  
 }>;
 
 /** Legacy default for POC tests: ~/.zkpip/key */
@@ -68,38 +71,36 @@ export async function runVectorsSign(opts: VectorsSignOptions): Promise<number> 
   const { privPath, pubPath } = await resolveKeyPaths(keyDir);
   await ensureKeypair(privPath, pubPath);
 
-  // 1) Load and parse as JsonValue
-  const vector = JSON.parse(await readFile(inPath, 'utf8')) as JsonValue;
+  // 1) Load and parse as JsonValue → this is v1 `body`
+  const body = JSON.parse(await readFile(inPath, 'utf8')) as JsonValue;
 
-  // 2) Canonicalize via centralized C14N
-  const canon = canonicalize(vector);
-
-  // 3) Hash → URN
-  const idHex = sha256Hex(canon);
-  const urn = toVectorUrn(idHex);
+  // 2–3) Canon + sha256 + URN (subject from kind, default "vector")
+  const { canon, expectedUrn } = prepareBodyDigest({ body, kind: opts.kind });
 
   // 4) Sign canon
   const privPem = await readFile(privPath, 'utf8');
   const signatureB64 = signCanonEd25519(canon, privPem);
 
-  // 5) Compose sealed artifact (POC-compatible)
+  // 5) Compose Seal v1
   const keyId = path.basename(path.dirname(privPath)) === path.basename(keyDir)
     ? path.basename(keyDir)
     : path.basename(path.dirname(privPath));
 
-  const sealed = {
-    vector, // original JSON value (not yet renamed to `body` for POC compatibility)
+  const sealed: SealV1 = {
+    version: '1',
+    kind: opts.kind ?? 'vector',
+    body,
     seal: {
-      signer: 'codeseal/0' as const, // POC tag
-      algo: 'ed25519' as const,
-      id: idHex,
-      urn,
+      algo: 'ed25519',
       keyId,
       signature: signatureB64,
+      urn: expectedUrn,
+      signer: 'codeseal/1',
+      createdAt: new Date().toISOString(),
     },
-  } as const;
+  };
 
   await writeFile(outPath, JSON.stringify(sealed, null, 2) + '\n', 'utf8');
-  console.log(JSON.stringify({ ok: true, out: outPath }));
+  console.log(JSON.stringify({ ok: true, out: outPath, urn: expectedUrn }));
   return 0;
 }

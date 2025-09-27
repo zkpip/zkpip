@@ -8,8 +8,8 @@ import path from 'node:path';
 import { readFile as fspReadFile, writeFile as fspWriteFile, mkdir as fspMkdir, writeFile, mkdir, readFile } from 'node:fs/promises';
 import { dirname, join, resolve as resolvePath } from 'node:path';
 
-import type { SealedVectorPOC, VerifySealResult } from './commands/verifySeal.js';
-import { verifySealedVectorPOC } from './commands/verifySeal.js';
+import type { VerifySealResult } from './commands/verifySeal.js';
+import { verifySealV1 } from './commands/verifySeal.js';
 
 import { signVector } from './lib/signVector.js';
 import { defaultStoreRoot } from './utils/keystore.js';
@@ -17,6 +17,7 @@ import { resolvePrivateKeyPath } from './utils/keystore-resolve.js';
 import { VectorsPullArgs } from './commands/vectors-pull.js';
 import { runVectorsSign, VectorsSignOptions } from './commands/vectors-sign.js';
 import { runVectorsPull } from './utils/runVectorsPull.js';
+import { SealV1 } from '@zkpip/core/seal/v1';
 
 // --------- tiny argv parser (posix-ish, no short flags packing) ---------
 type Flags = Readonly<Record<string, string | boolean>>;
@@ -214,9 +215,9 @@ async function runVerifySeal(_rest: ReadonlyArray<string>, flags: Flags): Promis
 
   try {
     const raw = await readFile(inPath, 'utf8');
-    const json = JSON.parse(raw) as SealedVectorPOC;
+    const json = JSON.parse(raw) as SealV1;
     const opts: Readonly<{ keyDir?: string }> = { ...(keyDir ? { keyDir } : {}) };
-    const res = verifySealedVectorPOC(json, opts);
+    const res = verifySealV1(json, opts);
     emitVerify(res, forceJson);
     process.exitCode = mapExitCode(res.ok, res.code, useExitCodes);
   } catch (e) {
