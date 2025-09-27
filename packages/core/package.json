@@ -21,6 +21,10 @@
     "./json": {
       "types": "./dist/json/index.d.ts",
       "import": "./dist/json/index.js"
+    },
+    "./seal/v1": { 
+      "types": "./dist/seal/v1.d.ts", 
+      "import": "./dist/seal/v1.js" 
     }
   },
   "version": "0.1.0",

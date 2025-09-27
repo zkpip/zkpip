@@ -18,9 +18,9 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      // ELMÉLETI csomag-subpath → KONKRÉT dist fájlok
       '@zkpip/core/json/c14n': path.join(coreDist, 'json/c14n.js'),
       '@zkpip/core/json':      path.join(coreDist, 'json/index.js'),
+      '@zkpip/core/seal/v1':   path.join(coreDist, 'seal/v1.js'),
       '@zkpip/core':           path.join(coreDist, 'index.js'),
     },
   },
