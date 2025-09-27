@@ -12,6 +12,9 @@
     },
     {
       "path": "packages/adapters/snarkjs-groth16"
-    }
+    },
+    {
+      "paths": {"@zkpip/core/json/c14n": ["packages/core/src/json/c14n.ts"]}
+    }    
   ]
 }

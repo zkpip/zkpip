@@ -9,7 +9,19 @@
       "types": "./dist/index.d.ts"
     },
     "./schemas/*": "./dist/schemas/*",
-    "./utils/fs-compat.js": "./dist/utils/fs-compat.js"
+    "./utils/fs-compat.js": "./dist/utils/fs-compat.js",
+    "./json/c14n": {
+      "types": "./dist/json/c14n.d.ts",
+      "import": "./dist/json/c14n.js"
+    },
+    "./json/*": {
+      "types": "./dist/json/*.d.ts",
+      "import": "./dist/json/*.js"
+    },
+    "./json": {
+      "types": "./dist/json/index.d.ts",
+      "import": "./dist/json/index.js"
+    }
   },
   "version": "0.1.0",
   "private": false,
