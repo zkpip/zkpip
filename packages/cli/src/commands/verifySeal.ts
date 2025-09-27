@@ -1,33 +1,36 @@
-// packages/cli/src/commands/vectors/verify-seal.ts
-// ZKPIP CLI – `vectors verify-seal` (POC, legacy-kompat)
-// - ESM, strict TS, no `any`
+// ZKPIP CLI – `vectors verify-seal` (POC, legacy-compatible)
+// ESM, strict TS, no `any`
+// Refactored to use centralized C14N + hash + URN from @zkpip/core
 
-import { createHash, verify as nodeVerify } from 'node:crypto';
+import { verify as nodeVerify } from 'node:crypto';
 import * as fs from 'node:fs';
 import path from 'node:path';
 
-// Keystore util (helyes relatív út a vectors/ alól két szinttel fel)
+// Keystore util (correct relative path from vectors/)
 import { defaultStoreRoot } from '../utils/keystore.js';
 
-// ---------- Local JSON types ----------
+// Centralized Canonical JSON + helpers
+import { canonicalize, sha256Hex, toVectorUrn, type JsonValue } from '@zkpip/core/json/c14n';
+
+// ---------- Local JSON types (strict, aligned to core JsonValue where used) ----------
 type SVPrimitive = string | number | boolean | null;
-interface SVObject { readonly [k: string]: SVValue }
+export interface SVObject { readonly [k: string]: SVValue }
 type SVArray = ReadonlyArray<SVValue>;
 type SVValue = SVPrimitive | SVObject | SVArray;
 
 // ---------- Options & result ----------
-export type Options = Readonly<{ keyDir?: string }>;
+export type Options = Readonly<{ keyDir?: string | undefined }>;
 export type VerifyStage = 'schema' | 'keystore' | 'verify' | 'io';
 
 export type VerifySealResult =
-  | Readonly<{ ok: true; code: 0; stage: VerifyStage; message: string; urn: string; }>
-  | Readonly<{ ok: false; code: number; stage: VerifyStage; error: string; message: string }>;
+  | Readonly<{ ok: true; code: 0; stage: VerifyStage; message: string; urn: string }>
+  | Readonly<{ ok: false; code: number; stage: VerifyStage; error: string; message: string }>; // keep minimal schema
 
 function fail(stage: VerifyStage, code: number, error: string, message: string): VerifySealResult {
   return { ok: false as const, code, stage, error, message };
 }
 
-// ---------- POC input types (legacy-kompat) ----------
+// ---------- POC input types (legacy-compatible) ----------
 export type SealPOC = Readonly<{
   algo?: 'ed25519';
   algorithm?: 'ed25519';
@@ -38,35 +41,22 @@ export type SealPOC = Readonly<{
   vectorUrn?: string;
   urn?: string;
   signer?: string;
-  envelopeId?: string;
-  createdAt?: string;
+  envelopeId?: string; // tolerated
+  createdAt?: string;  // tolerated
 }>;
 
 export type SealedVectorPOC = Readonly<{
-  vector: SVObject;
+  vector: SVObject; // legacy field name retained
   seal: SealPOC;
 }>;
 
-// ---------- Canonical JSON (egyezik a seal-lel) ----------
-function canonicalize(value: unknown): string {
-  return _c14n(value);
-}
-function _c14n(v: unknown): string {
-  if (v === null || typeof v !== 'object') return JSON.stringify(v);
-  if (Array.isArray(v)) return `[${v.map((it) => _c14n(it)).join(',')}]`;
-  const obj = v as Record<string, unknown>;
-  const keys = Object.keys(obj).sort();
-  const body = keys.map((k) => `${JSON.stringify(k)}:${_c14n(obj[k])}`).join(',');
-  return `{${body}}`;
-}
-
 // ---------- Field readers ----------
 function readAlg(seal: SealPOC): 'ed25519' | null {
-  const a = seal.algo ?? seal.algo ?? seal.algorithm ?? null;
+  const a = seal.algo ?? seal.algorithm ?? null; // fix: remove duplicate `seal.algo`
   return a === 'ed25519' ? 'ed25519' : null;
 }
 
-// Prefer explicit logical ids: keyId → kid → id
+// Prefer explicit logical ids: keyId → kid
 function readKid(seal: SealPOC): string | null {
   if (typeof seal.keyId === 'string' && seal.keyId.length > 0) return seal.keyId;
   return null;
@@ -141,8 +131,11 @@ export function verifySealedVectorPOC(input: SealedVectorPOC, opts: Options = {}
     return fail('schema', 3, 'SIGNATURE_BASE64_ERROR', 'Invalid base64 in signature');
   }
 
-  const canon = canonicalize(input.vector);
-  const idHex = createHash('sha256').update(canon, 'utf8').digest('hex');
+  // 4) Canonical string via centralized C14N
+  const canon = canonicalize(input.vector as unknown as JsonValue);
+
+  // 5) Hash → compare id + URN
+  const idHex = sha256Hex(canon);
 
   if (typeof input.seal.id === 'string' && input.seal.id.length > 0 && input.seal.id !== idHex) {
     return fail('verify', 1, 'ID_MISMATCH', 'id does not match sha256(canonical(vector))');
@@ -150,26 +143,26 @@ export function verifySealedVectorPOC(input: SealedVectorPOC, opts: Options = {}
 
   const providedUrn = readUrn(input.seal);
   if (providedUrn) {
-    const expected = `urn:zkpip:vector:sha256:${idHex}`;
+    const expected = toVectorUrn(idHex);
     if (providedUrn !== expected) {
       return fail('verify', 4, 'URN_MISMATCH', 'vectorUrn/urn does not match canonical hash');
     }
   }
 
+  // 6) Load public key PEM
   let publicPem: string;
   try {
-    publicPem = loadPublicKeyPem(opts.keyDir, kid); 
+    publicPem = loadPublicKeyPem(opts.keyDir, kid);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return fail('io', 2, 'PUBLIC_KEY_NOT_FOUND', msg);
   }
 
-  // 6) Signature verify
+  // 7) Signature verify (Ed25519)
   const okVerify = nodeVerify(null, Buffer.from(canon, 'utf8'), publicPem, sigBuf);
   if (!okVerify) return fail('verify', 4, 'SIGNATURE_INVALID', 'Ed25519 signature verification failed');
 
-  const expected = `urn:zkpip:vector:sha256:${idHex}`;
-
+  const expected = toVectorUrn(idHex);
   return { ok: true, code: 0, stage: 'verify', message: 'OK', urn: expected };
 }
 

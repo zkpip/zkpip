@@ -29,10 +29,11 @@ This dual meaning is intentional: the **Project** exists to host tools and schem
 - **ProofEnvelope™**
 - **CanVectors™**
 - **VectorForge™**
-- **VectorSeal™** ← _new_
-- **CircuitSeal™** ← _new_
+- **VectorSeal™** 
+- **CircuitSeal™**
 - **ProofBridge™**
 - **BridgeSeal™**
+- **ChainSeal**
 - **SwiftSeal™**
 - **SwiftSeal+™**
 - **BatchSeal™**

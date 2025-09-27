@@ -1,28 +1,27 @@
 import { defineConfig } from 'vitest/config';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const here = path.dirname(fileURLToPath(import.meta.url));     // .../packages/cli
+const coreDist = path.resolve(here, '../core/dist');           // .../packages/core/dist
+
+console.log('[vitest] coreDist =', coreDist); // DEBUG: lásd futáskor
 
 export default defineConfig({
   test: {
+    include: [
+      'src/**/*.test.ts',
+      'src/**/__tests__/**/*.test.ts',
+      'src/__tests__/**/*.test.ts',
+    ],
     environment: 'node',
-    include: ['src/**/__tests__/**/*.{test,spec}.ts'],
-    // Optional but helps when running Vitest directly from this package
-    root: __dirname,
   },
   resolve: {
-    conditions: ['import', 'node'], // prefer ESM entry
     alias: {
-      // Force @zkpip/core to resolve to the built dist entry
-      '@zkpip/core': path.resolve(__dirname, '../core/dist/index.js'),
-    },
-  },
-  server: {
-    fs: {
-      // Allow Vitest dev server to read outside this package root
-      allow: [
-        __dirname,
-        path.resolve(__dirname, '../core/dist'),
-        path.resolve(__dirname, '..', '..'), // workspace root
-      ],
+      // ELMÉLETI csomag-subpath → KONKRÉT dist fájlok
+      '@zkpip/core/json/c14n': path.join(coreDist, 'json/c14n.js'),
+      '@zkpip/core/json':      path.join(coreDist, 'json/index.js'),
+      '@zkpip/core':           path.join(coreDist, 'index.js'),
     },
   },
 });

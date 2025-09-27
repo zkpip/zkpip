@@ -1,35 +1,62 @@
-// packages/cli/src/commands/vectors-sign.ts
-// POC sign: canonical JSON → sha256 → Ed25519 sign(private.pem)
-// ESM, strict TS, no `any`.
+// ESM, strict TS, no `any`
+// CLI: vectors-sign – refactored to use centralized C14N from @zkpip/core
+// Flow: read JSON → canonicalize → sha256 → Ed25519 sign(private.pem) → write sealed artifact
+// Notes:
+// - Compatible with exactOptionalPropertyTypes
+// - Preserves legacy fallback (~/.zkpip/key) and subfolder key discovery
+// - English comments only
 
 import * as fs from 'node:fs';
 import path from 'node:path';
-import { createHash, generateKeyPairSync, sign as nodeSign } from 'node:crypto';
+import { generateKeyPairSync, sign as nodeSign } from 'node:crypto';
 import { readdir, mkdir as fspMkdir, writeFile as fspWriteFile, readFile, writeFile } from 'node:fs/promises';
+import { canonicalize, sha256Hex, toVectorUrn, type JsonValue } from '@zkpip/core/json/c14n';
 
 export type VectorsSignOptions = Readonly<{
   inPath: string;
   outPath: string;
-  /** Directory that directly contains private.pem. Defaults to ~/.zkpip/key (legacy POC). */
-  keyDir?: string;
+  /** Directory that directly contains private.pem (or a subdir that does). Defaults to ~/.zkpip/key (legacy POC). */
+  keyDir?: string | undefined;
 }>;
-
-function canonicalize(value: unknown): string {
-  return _c14n(value);
-}
-function _c14n(v: unknown): string {
-  if (v === null || typeof v !== 'object') return JSON.stringify(v);
-  if (Array.isArray(v)) return `[${v.map((it) => _c14n(it)).join(',')}]`;
-  const obj = v as Record<string, unknown>;
-  const keys = Object.keys(obj).sort();
-  const body = keys.map((k) => `${JSON.stringify(k)}:${_c14n(obj[k])}`).join(',');
-  return `{${body}}`;
-}
 
 /** Legacy default for POC tests: ~/.zkpip/key */
 function legacyDefaultKeyDir(): string {
   const home = process.env.HOME ?? process.env.USERPROFILE ?? '';
   return path.join(home, '.zkpip', 'key');
+}
+
+/** Try to find `private.pem` directly in keyDir or in its first subfolder containing it. */
+async function resolveKeyPaths(keyDir: string): Promise<{ privPath: string; pubPath: string }> {
+  let privPath = path.join(keyDir, 'private.pem');
+  let pubPath = path.join(keyDir, 'public.pem');
+
+  if (!fs.existsSync(privPath) && fs.existsSync(keyDir)) {
+    const entries = await readdir(keyDir, { withFileTypes: true });
+    const sub = entries.find(
+      (e) => e.isDirectory() && fs.existsSync(path.join(keyDir, e.name, 'private.pem')),
+    );
+    if (sub) {
+      privPath = path.join(keyDir, sub.name, 'private.pem');
+      pubPath = path.join(keyDir, sub.name, 'public.pem');
+    }
+  }
+  return { privPath, pubPath };
+}
+
+/** Ensure Ed25519 keypair exists at given paths (generate if missing). */
+async function ensureKeypair(privPath: string, pubPath: string): Promise<void> {
+  if (fs.existsSync(privPath)) return;
+  const dir = path.dirname(privPath);
+  await fspMkdir(dir, { recursive: true });
+  const { privateKey, publicKey } = generateKeyPairSync('ed25519');
+  await fspWriteFile(privPath, privateKey.export({ type: 'pkcs8', format: 'pem' }) as string, 'utf8');
+  await fspWriteFile(pubPath, publicKey.export({ type: 'spki', format: 'pem' }) as string, 'utf8');
+}
+
+/** Sign canonical string with Ed25519 (Node supports passing PEM and null for algorithm). */
+function signCanonEd25519(canon: string, privPem: string): string {
+  const sig = nodeSign(null, Buffer.from(canon, 'utf8'), privPem);
+  return sig.toString('base64');
 }
 
 export async function runVectorsSign(opts: VectorsSignOptions): Promise<number> {
@@ -38,50 +65,39 @@ export async function runVectorsSign(opts: VectorsSignOptions): Promise<number> 
   const keyDir = path.resolve(opts.keyDir ?? legacyDefaultKeyDir());
   await fspMkdir(keyDir, { recursive: true });
 
-  let privPath = path.join(keyDir, 'private.pem');
-  let pubPath  = path.join(keyDir, 'public.pem');  
+  const { privPath, pubPath } = await resolveKeyPaths(keyDir);
+  await ensureKeypair(privPath, pubPath);
 
-  if (!fs.existsSync(privPath)) {
-    // keystore root? keressünk első almappát private.pem-mel
-    if (fs.existsSync(keyDir)) {
-      const entries = await readdir(keyDir, { withFileTypes: true });
-      const sub = entries.find(e => e.isDirectory() && fs.existsSync(path.join(keyDir, e.name, 'private.pem')));
-      if (sub) {
-        privPath = path.join(keyDir, sub.name, 'private.pem');
-        pubPath  = path.join(keyDir, sub.name, 'public.pem');
-      }
-    }
-  }
+  // 1) Load and parse as JsonValue
+  const vector = JSON.parse(await readFile(inPath, 'utf8')) as JsonValue;
 
-  if (!fs.existsSync(privPath)) {
-    // POC fallback: generáljunk kulcspárt közvetlenül keyDir alá
-    const { privateKey, publicKey } = generateKeyPairSync('ed25519');
-    await fspMkdir(keyDir, { recursive: true });
-    await fspWriteFile(privPath, privateKey.export({ type: 'pkcs8', format: 'pem' }) as string, 'utf8');
-    await fspWriteFile(pubPath,  publicKey.export({ type: 'spki',  format: 'pem' }) as string, 'utf8');
-  }
-
-  const vector = JSON.parse(await readFile(inPath, 'utf8')) as unknown;
+  // 2) Canonicalize via centralized C14N
   const canon = canonicalize(vector);
 
-  const idHex = createHash('sha256').update(canon, 'utf8').digest('hex');
-  const signatureB64 = nodeSign(null, Buffer.from(canon, 'utf8'), fs.readFileSync(privPath, 'utf8')).toString('base64');
+  // 3) Hash → URN
+  const idHex = sha256Hex(canon);
+  const urn = toVectorUrn(idHex);
 
-  // POC sealed format (legacy-kompat).
-  const keyId = path.basename(keyDir);
-  const urn = `urn:zkpip:vector:sha256:${idHex}`;
+  // 4) Sign canon
+  const privPem = await readFile(privPath, 'utf8');
+  const signatureB64 = signCanonEd25519(canon, privPem);
+
+  // 5) Compose sealed artifact (POC-compatible)
+  const keyId = path.basename(path.dirname(privPath)) === path.basename(keyDir)
+    ? path.basename(keyDir)
+    : path.basename(path.dirname(privPath));
 
   const sealed = {
-    vector, // <-- a teljes bemenő objektum
+    vector, // original JSON value (not yet renamed to `body` for POC compatibility)
     seal: {
-      signer: 'codeseal/0',           // POC 
+      signer: 'codeseal/0' as const, // POC tag
       algo: 'ed25519' as const,
       id: idHex,
-      urn,                            
-      keyId,                          
+      urn,
+      keyId,
       signature: signatureB64,
     },
-  };
+  } as const;
 
   await writeFile(outPath, JSON.stringify(sealed, null, 2) + '\n', 'utf8');
   console.log(JSON.stringify({ ok: true, out: outPath }));

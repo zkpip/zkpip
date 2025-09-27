@@ -29,6 +29,7 @@
     "forceConsistentCasingInFileNames": true,
     "emitDeclarationOnly": false    
   },
+  "references": [{ "path": "../core" }],
   "engines": { 
     "node": ">=20" 
   },
