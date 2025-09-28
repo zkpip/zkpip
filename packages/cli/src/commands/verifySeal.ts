@@ -4,9 +4,10 @@
 //  - prepareBodyDigest(body, kind) → canon + expected URN
 //  - validateSealV1 → fast structural checks
 
-import { verify as nodeVerify } from 'node:crypto';
 import * as fs from 'node:fs';
 import path from 'node:path';
+import { verify as nodeVerify, createPublicKey } from 'node:crypto';
+import { keyIdFromSpki } from '@zkpip/core/keys/keyId';
 
 // Keystore util
 import { defaultStoreRoot } from '../utils/keystore.js';
@@ -26,32 +27,87 @@ function fail(stage: VerifyStage, code: number, error: string, message: string):
   return { ok: false as const, code, stage, error, message };
 }
 
-/** Load a public key PEM resolving common layouts.
- * - If keyDir points to a key folder: use "<keyDir>/public.pem"
- * - Else try legacy "<keyDir>/<keyId>.pub.pem"
- * - Else treat keyDir/default as store root and try common patterns
+/** Resolve public key PEM by keyId with reverse lookup and fallbacks (sync).
+ * Search order (all under base = keyDir || defaultStoreRoot()):
+ *  1) keys.index.json → entry.dir/public.pem
+ *  2) Structured dirs: <base>/<keyId>/public.pem , <base>/ed25519/<keyId>/public.pem
+ *  3) Legacy files:    <base>/<keyId>.pub.pem , <base>/ed25519/<keyId>.pub.pem
+ *  4) Legacy singleton: <base>/public.pem , <base>/signer.pub  (only if matches keyId)
+ *  5) Scan subdirs:     <base>/public.pem and match computed keyId(SPKI)
  */
 function loadPublicKeyPem(keyDir: string | undefined, keyId: string): string {
   const base = keyDir ? path.resolve(keyDir) : defaultStoreRoot();
 
-  const candidates: string[] = [
-    path.join(base, 'public.pem'),
-    path.join(base, `${keyId}.pub.pem`),
-    path.join(base, 'ed25519', keyId, 'public.pem'),
-    path.join(base, keyId, 'public.pem'),
-    path.join(base, 'ed25519', `${keyId}.pub.pem`),
-  ];
+  const isPlausibleKeyId = (kid: string): boolean =>
+    /^[a-z2-7]{20}$/.test(kid); // base32lower, 20ch
 
-  for (const p of candidates) {
+  const matchesKid = (pem: string): boolean => {
+    try {
+      const der = createPublicKey(pem).export({ type: 'spki', format: 'der' }) as Buffer;
+      const kid = keyIdFromSpki(new Uint8Array(der));
+      return kid === keyId;
+    } catch {
+      return false;
+    }
+  };
+
+  // 1) keys.index.json …
+  const indexPath = path.join(base, 'keys.index.json');
+  if (fs.existsSync(indexPath)) {
+    try {
+      const idx = JSON.parse(fs.readFileSync(indexPath, 'utf8')) as unknown;
+      if (idx && typeof idx === 'object' && !Array.isArray(idx)) {
+        const entry = (idx as Record<string, unknown>)[keyId];
+        if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
+          const dir = (entry as { dir?: unknown }).dir;
+          if (typeof dir === 'string') {
+            const p = path.join(base, dir, 'public.pem');
+            if (fs.existsSync(p)) return fs.readFileSync(p, 'utf8');
+          }
+        }
+      }
+    } catch { /* ignore malformed index */ }
+  }
+
+  // 2) Structured dirs
+  for (const p of [
+    path.join(base, keyId, 'public.pem'),
+    path.join(base, 'ed25519', keyId, 'public.pem'),
+  ]) {
     if (fs.existsSync(p)) return fs.readFileSync(p, 'utf8');
   }
 
+  // 3) Legacy files named by keyId
+  for (const p of [
+    path.join(base, `${keyId}.pub.pem`),
+    path.join(base, 'ed25519', `${keyId}.pub.pem`),
+  ]) {
+    if (fs.existsSync(p)) return fs.readFileSync(p, 'utf8');
+  }
+
+  // 4) Legacy singleton at root
+  //    - if keyId looks like a real kid -> require match
+  //    - else (labelish keyId) accept as last resort for backwards compat
+  for (const p of [path.join(base, 'public.pem'), path.join(base, 'signer.pub')]) {
+    if (!fs.existsSync(p)) continue;
+    const pem = fs.readFileSync(p, 'utf8');
+    if (isPlausibleKeyId(keyId)) {
+      if (matchesKid(pem)) return pem;      // strict when kid is plausible
+    } else {
+      return pem;                            // permissive when keyId is a label (legacy tests)
+    }
+  }
+
+  // 5) Scan subdirs for public.pem and match computed keyId
   if (fs.existsSync(base)) {
-    const entries = fs.readdirSync(base, { withFileTypes: true });
-    for (const e of entries) {
+    for (const e of fs.readdirSync(base, { withFileTypes: true })) {
       if (!e.isDirectory()) continue;
       const pub = path.join(base, e.name, 'public.pem');
-      if (fs.existsSync(pub)) return fs.readFileSync(pub, 'utf8');
+      if (!fs.existsSync(pub)) continue;
+      const pem = fs.readFileSync(pub, 'utf8');
+      if (!isPlausibleKeyId(keyId) || matchesKid(pem)) {
+        return pem;
+      }
     }
   }
 

@@ -2,28 +2,40 @@
 // Algorithm: base32(lowercase, no padding)(sha256(spki)) → slice to desired length.
 import { createHash } from 'node:crypto';
 
-const B32 = 'abcdefghijklmnopqrstuvwxyz234567';
+/**
+ * Compute keyId from an Ed25519 SPKI DER.
+ * Policy: base32lower(sha256(SPKI)) first 20 chars (no padding).
+ */
+export function keyIdFromSpki(spkiDer: Uint8Array): string {
+  const sha = createHash('sha256').update(spkiDer).digest(); // Buffer
+  const b32 = base32LowerNoPad(new Uint8Array(sha));
+  return b32.slice(0, 20);
+}
 
-function base32(data: Uint8Array): string {
+/** RFC4648 base32 (A–Z2–7) lowercase, no padding. */
+function base32LowerNoPad(bytes: Uint8Array): string {
+  const alphabet = 'abcdefghijklmnopqrstuvwxyz234567';
   let bits = 0;
   let value = 0;
   let out = '';
-  for (const byte of data) {
-    value = (value << 8) | byte;
+  for (const b of bytes) {
+    value = (value << 8) | b;
     bits += 8;
     while (bits >= 5) {
-      out += B32[(value >>> (bits - 5)) & 31];
+      out += alphabet[(value >>> (bits - 5)) & 31]!;
       bits -= 5;
     }
   }
-  if (bits > 0) out += B32[(value << (5 - bits)) & 31];
+  if (bits > 0) out += alphabet[(value << (5 - bits)) & 31]!;
   return out;
 }
 
-/** Returns a stable keyId from raw SPKI bytes (default 16 chars, min 8). */
-export function keyIdFromSpki(spki: Uint8Array, length: number = 16): string {
-  const hash = createHash('sha256').update(spki).digest();
-  const b32 = base32(hash);
-  const L = Math.max(8, length);
-  return b32.slice(0, L);
+/** Convenience: also return hex of sha256(SPKI) for indexing. */
+export function spkiSha256Hex(spkiDer: Uint8Array): string {
+  return sha256Hex(spkiDer);
+}
+
+/** SHA-256 digest (hex lower). */
+export function sha256Hex(data: Uint8Array): string {
+  return createHash('sha256').update(data).digest('hex');
 }
