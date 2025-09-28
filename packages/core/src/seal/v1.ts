@@ -5,6 +5,7 @@
 // - Optional `kind` discriminator (e.g. "vector", "circuit", "image")
 
 import { canonicalize, sha256Hex, toVectorUrn, type JsonValue } from '../json/c14n.js';
+import { Kind } from '../kind.js';
 
 export type SealAlgoV1 = 'ed25519';
 
@@ -18,10 +19,10 @@ export interface SealBlockV1 {
 }
 
 export interface SealV1 {
-  readonly version?: '1' | undefined;        // may be omitted, treated as "1"
-  readonly kind?: string | undefined;        // discriminator, e.g., "vector", "circuit"
-  readonly body: JsonValue;                  // hashed/signature subject
-  readonly seal: SealBlockV1;                // signature metadata
+  readonly version?: '1' | undefined;  // may be omitted, treated as "1"
+  readonly kind: Kind;                 // canonical or x-* extension (schema-aligned)
+  readonly body: JsonValue;            // hashed/signature subject
+  readonly seal: SealBlockV1;          // signature metadata
 }
 
 export interface SealV1Ok {

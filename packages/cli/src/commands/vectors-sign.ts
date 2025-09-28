@@ -1,106 +1,196 @@
-// ESM, strict TS, no `any`
-// CLI: vectors-sign – refactored to use centralized C14N from @zkpip/core
-// Flow: read JSON → canonicalize → sha256 → Ed25519 sign(private.pem) → write sealed artifact
-// Notes:
-// - Compatible with exactOptionalPropertyTypes
-// - Preserves legacy fallback (~/.zkpip/key) and subfolder key discovery
-// - English comments only
+// packages/cli/src/commands/vectors-sign.ts
+// Seal an input artifact with Seal V1 (ed25519). ESM/NodeNext, no `any`.
 
 import * as fs from 'node:fs';
+import * as fsp from 'node:fs/promises';
 import path from 'node:path';
-import { generateKeyPairSync, sign as nodeSign } from 'node:crypto';
-import { readdir, mkdir as fspMkdir, writeFile as fspWriteFile, readFile, writeFile } from 'node:fs/promises';
-import { prepareBodyDigest, type SealV1 } from '@zkpip/core/seal/v1';
-import { JsonValue } from '@zkpip/core/json/c14n';
+import { createHash, sign as edSign, createPrivateKey, createPublicKey, generateKeyPairSync } from 'node:crypto';
+import { keyIdFromSpki } from '@zkpip/core/keys/keyId';
+import { isKind, ensureUrnMatchesKind, type Kind } from '@zkpip/core/kind';
+import { K } from '@zkpip/core/kind';
 
-export type VectorsSignOptions = Readonly<{
-  inPath: string;
-  outPath: string;
-  /** Directory that directly contains private.pem (or a subdir that does). Defaults to ~/.zkpip/key (legacy POC). */
-  keyDir?: string | undefined;
-  /** Optional URN subject discriminator. Defaults to "vector". */
-  kind?: string | undefined;  
+// ---------- Types aligned with Seal V1 schema ----------
+export type SealV1 = Readonly<{
+  version: '1';
+  kind: Kind;
+  body: unknown;
+  seal: Readonly<{
+    algo: 'ed25519';
+    keyId: string;
+    signature: string; // base64
+    urn: string;       // urn:zkpip:<kind>:sha256:<hex64>
+    signer: string;    // e.g., 'codeseal/1'
+    createdAt: string; // ISO8601
+  }>;
 }>;
 
-/** Legacy default for POC tests: ~/.zkpip/key */
-function legacyDefaultKeyDir(): string {
-  const home = process.env.HOME ?? process.env.USERPROFILE ?? '';
-  return path.join(home, '.zkpip', 'key');
+export type VectorsSignOptions = Readonly<{
+  inFile: string;
+  outFile?: string;
+  keyDir: string;
+  kind?: string; // user input, validated to Kind below
+}>;
+
+// ---------- Helpers ----------
+function sha256Base16(data: Uint8Array): string {
+  return createHash('sha256').update(data).digest('hex');
 }
 
-/** Try to find `private.pem` directly in keyDir or in its first subfolder containing it. */
-async function resolveKeyPaths(keyDir: string): Promise<{ privPath: string; pubPath: string }> {
-  let privPath = path.join(keyDir, 'private.pem');
-  let pubPath = path.join(keyDir, 'public.pem');
+function expectedUrnFor(kind: Kind, digestHex: string): string {
+  return `urn:zkpip:${kind}:sha256:${digestHex}`;
+}
 
-  if (!fs.existsSync(privPath) && fs.existsSync(keyDir)) {
-    const entries = await readdir(keyDir, { withFileTypes: true });
-    const sub = entries.find(
-      (e) => e.isDirectory() && fs.existsSync(path.join(keyDir, e.name, 'private.pem')),
-    );
-    if (sub) {
-      privPath = path.join(keyDir, sub.name, 'private.pem');
-      pubPath = path.join(keyDir, sub.name, 'public.pem');
+/** Generate an Ed25519 keypair and save as PEM files into keyDir (with legacy aliases). */
+async function generateEd25519ToDir(keyDir: string): Promise<{ privPath: string; pubPath: string }> {
+  await fsp.mkdir(keyDir, { recursive: true });
+  const { privateKey, publicKey } = generateKeyPairSync('ed25519');
+
+  const privPem = privateKey.export({ type: 'pkcs8', format: 'pem' }) as string;
+  const pubPem  = publicKey.export({ type: 'spki',  format: 'pem' }) as string;
+
+  // Primary filenames
+  const privPrimary = path.join(keyDir, 'signer.key'); // PKCS#8 PEM
+  const pubPrimary  = path.join(keyDir, 'signer.pub'); // SPKI PEM
+
+  // Legacy/compat aliases expected by some tests/tools
+  const privAlias = path.join(keyDir, 'private.pem');
+  const pubAlias  = path.join(keyDir, 'public.pem');
+
+  await Promise.all([
+    fsp.writeFile(privPrimary, privPem, 'utf8'),
+    fsp.writeFile(pubPrimary,  pubPem,  'utf8'),
+    // write aliases too
+    fsp.writeFile(privAlias,   privPem, 'utf8'),
+    fsp.writeFile(pubAlias,    pubPem,  'utf8'),
+  ]);
+
+  return { privPath: privPrimary, pubPath: pubPrimary };
+}
+
+/**
+ * Loads an Ed25519 keypair from keyDir with fallbacks:
+ * - If directory has no keys, auto-generate a new pair (PKCS#8/SPKI in PEM).
+ * - Prefer signer.key / signer.pem; else first *.key|*.pem
+ * - Public SPKI optional; derive from private if missing.
+ * - Accept PEM or DER for either side.
+ */
+async function loadKeys(keyDir: string): Promise<{ spki: Uint8Array; pkcs8: Uint8Array }> {
+  await fsp.mkdir(keyDir, { recursive: true });
+  let files = await fsp.readdir(keyDir).catch(() => []);
+
+  if (files.length === 0) {
+    await generateEd25519ToDir(keyDir);
+    files = await fsp.readdir(keyDir);
+  }
+
+  const preferPrivNames = ['signer.key', 'signer.pem', 'private.key', 'private.pem'];
+  const preferPubNames  = ['signer.pub', 'public.spki', 'public.der', 'public.pem'];
+
+  // pick private
+  let privPath = preferPrivNames.map(n => path.join(keyDir, n)).find(p => fs.existsSync(p));
+  if (!privPath) {
+    const cand = files.find(f => /\.(key|pem)$/i.test(f));
+    if (cand) privPath = path.join(keyDir, cand);
+  }
+  if (!privPath) {
+    // last resort: generate now
+    const gen = await generateEd25519ToDir(keyDir);
+    privPath = gen.privPath;
+  }
+
+  const privRaw = await fsp.readFile(privPath);
+  let privateKeyObj;
+  try {
+    privateKeyObj = createPrivateKey(privRaw); // auto-detect PEM/DER
+  } catch {
+    privateKeyObj = createPrivateKey({ key: privRaw.toString('utf8'), format: 'pem' });
+  }
+  const pkcs8Der = privateKeyObj.export({ type: 'pkcs8', format: 'der' }) as Buffer;
+
+  // try public
+  let spkiDer: Buffer | null = null;
+  let pubPath = preferPubNames.map(n => path.join(keyDir, n)).find(p => fs.existsSync(p));
+  if (!pubPath) {
+    const cand = files.find(f => /(pub|spki|der|pem)$/i.test(f) && !/\.key$/i.test(f));
+    if (cand) pubPath = path.join(keyDir, cand);
+  }
+  if (pubPath) {
+    const pubRaw = await fsp.readFile(pubPath);
+    try {
+      const pubKeyObj = createPublicKey(pubRaw); // auto-detect
+      spkiDer = pubKeyObj.export({ type: 'spki', format: 'der' }) as Buffer;
+    } catch {
+      try {
+        const pubKeyObj = createPublicKey({ key: pubRaw, format: 'der', type: 'spki' });
+        spkiDer = pubKeyObj.export({ type: 'spki', format: 'der' }) as Buffer;
+      } catch {
+        spkiDer = null;
+      }
     }
   }
-  return { privPath, pubPath };
+  if (!spkiDer) {
+    const pubFromPriv = createPublicKey(privateKeyObj);
+    spkiDer = pubFromPriv.export({ type: 'spki', format: 'der' }) as Buffer;
+  }
+
+  return { spki: new Uint8Array(spkiDer), pkcs8: new Uint8Array(pkcs8Der) };
 }
 
-/** Ensure Ed25519 keypair exists at given paths (generate if missing). */
-async function ensureKeypair(privPath: string, pubPath: string): Promise<void> {
-  if (fs.existsSync(privPath)) return;
-  const dir = path.dirname(privPath);
-  await fspMkdir(dir, { recursive: true });
-  const { privateKey, publicKey } = generateKeyPairSync('ed25519');
-  await fspWriteFile(privPath, privateKey.export({ type: 'pkcs8', format: 'pem' }) as string, 'utf8');
-  await fspWriteFile(pubPath, publicKey.export({ type: 'spki', format: 'pem' }) as string, 'utf8');
-}
-
-/** Sign canonical string with Ed25519 (Node supports passing PEM and null for algorithm). */
-function signCanonEd25519(canon: string, privPem: string): string {
-  const sig = nodeSign(null, Buffer.from(canon, 'utf8'), privPem);
+function signEd25519(pkcs8: Uint8Array, payload: Uint8Array): string {
+  // ed25519 ignores the hash param -> pass null
+  const key = createPrivateKey({ key: Buffer.from(pkcs8), format: 'der', type: 'pkcs8' });
+  const sig = edSign(null, Buffer.from(payload), key);
   return sig.toString('base64');
 }
 
+// ---------- Main ----------
 export async function runVectorsSign(opts: VectorsSignOptions): Promise<number> {
-  const inPath = path.resolve(opts.inPath);
-  const outPath = path.resolve(opts.outPath);
-  const keyDir = path.resolve(opts.keyDir ?? legacyDefaultKeyDir());
-  await fspMkdir(keyDir, { recursive: true });
+  try {
+    const userKind = opts.kind ?? K.vector;
+    if (!isKind(userKind)) {
+      console.error(JSON.stringify({ ok: false, code: 15, message: `Unknown kind: ${userKind}` }));
+      return 15; // unknown_kind
+    }
+    const kind = userKind as Kind;
 
-  const { privPath, pubPath } = await resolveKeyPaths(keyDir);
-  await ensureKeypair(privPath, pubPath);
+    const rawText = await fs.promises.readFile(opts.inFile, 'utf8');
+    const body = JSON.parse(rawText) as unknown;
 
-  // 1) Load and parse as JsonValue → this is v1 `body`
-  const body = JSON.parse(await readFile(inPath, 'utf8')) as JsonValue;
+    // Deterministic payload: raw JSON text bytes (swap to JCS later if needed)
+    const payload = new TextEncoder().encode(rawText);
+    const digestHex = sha256Base16(payload);
 
-  // 2–3) Canon + sha256 + URN (subject from kind, default "vector")
-  const { canon, expectedUrn } = prepareBodyDigest({ body, kind: opts.kind });
+    const urn = expectedUrnFor(kind, digestHex);
+    const { spki, pkcs8 } = await loadKeys(opts.keyDir);
 
-  // 4) Sign canon
-  const privPem = await readFile(privPath, 'utf8');
-  const signatureB64 = signCanonEd25519(canon, privPem);
+    const keyId = keyIdFromSpki(spki, 16);
+    const signatureB64 = signEd25519(pkcs8, payload);
 
-  // 5) Compose Seal v1
-  const keyId = path.basename(path.dirname(privPath)) === path.basename(keyDir)
-    ? path.basename(keyDir)
-    : path.basename(path.dirname(privPath));
+    const sealed: SealV1 = {
+      version: '1',
+      kind,
+      body,
+      seal: {
+        algo: 'ed25519',
+        keyId,
+        signature: signatureB64,
+        urn,
+        signer: 'codeseal/1',
+        createdAt: new Date().toISOString(),
+      },
+    };
 
-  const sealed: SealV1 = {
-    version: '1',
-    kind: opts.kind ?? 'vector',
-    body,
-    seal: {
-      algo: 'ed25519',
-      keyId,
-      signature: signatureB64,
-      urn: expectedUrn,
-      signer: 'codeseal/1',
-      createdAt: new Date().toISOString(),
-    },
-  };
+    // Safety: Kind ↔ URN subject consistency
+    ensureUrnMatchesKind(kind, sealed.seal.urn);
 
-  await writeFile(outPath, JSON.stringify(sealed, null, 2) + '\n', 'utf8');
-  console.log(JSON.stringify({ ok: true, out: outPath, urn: expectedUrn }));
-  return 0;
+    const out = opts.outFile ?? `${opts.inFile}.seal.json`;
+    await fs.promises.writeFile(out, JSON.stringify(sealed, null, 2), 'utf8');
+
+    console.log(JSON.stringify({ ok: true, code: 0, out, urn }));
+    return 0;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'unknown error';
+    console.error(JSON.stringify({ ok: false, code: 14, message }));
+    return 14; // io_error
+  }
 }

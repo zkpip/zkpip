@@ -3,6 +3,7 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "module": "./dist/index.js",
   "exports": {
     ".": {
       "import": "./dist/index.js",
@@ -25,6 +26,14 @@
     "./seal/v1": { 
       "types": "./dist/seal/v1.d.ts", 
       "import": "./dist/seal/v1.js" 
+    },
+    "./keys/keyId": {
+      "types": "./dist/keys/keyId.d.ts",
+      "import": "./dist/keys/keyId.js"
+    },
+    "./kind": {
+      "types": "./dist/kind.d.ts",
+      "import": "./dist/kind.js"
     }
   },
   "version": "0.1.0",

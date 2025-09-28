@@ -8,6 +8,7 @@ import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { generateKeyPairSync, createPrivateKey, sign as edSign } from 'node:crypto';
+import { K } from '@zkpip/core/kind';
 
 import verifySealV1, {
   type VerifySealResult,
@@ -67,10 +68,10 @@ describe('vectors verify-seal (Seal v1)', () => {
     const canon = canonicalize(body);
     const hex = sha256Hex(canon);
     const urn = toUrnFromHex(hex);
-
+    
     const sealed: SealV1 = {
       version: '1',
-      kind: 'vector',
+      kind: K.vector,
       body,
       seal: {
         algo: 'ed25519',
@@ -106,7 +107,7 @@ describe('vectors verify-seal (Seal v1)', () => {
 
     const sealed: SealV1 = {
       version: '1',
-      kind: 'vector',
+      kind: K.vector,
       body,
       seal: {
         algo: 'ed25519',
@@ -140,7 +141,7 @@ describe('vectors verify-seal (Seal v1)', () => {
 
     const sealed: SealV1 = {
       version: '1',
-      kind: 'vector',
+      kind: K.vector,
       body,
       seal: {
         algo: 'ed25519',
@@ -171,7 +172,7 @@ describe('vectors verify-seal (Seal v1)', () => {
 
     const sealed: SealV1 = {
       version: '1',
-      kind: 'vector',
+      kind: K.vector,
       body,
       seal: {
         algo: 'ed25519',
@@ -206,7 +207,7 @@ describe('vectors verify-seal (Seal v1)', () => {
 
     const sealed = {
       version: '1',
-      kind: 'vector',
+      kind: K.vector,
       body,
       seal: {
         algo: 'rsa2048', // unsupported
