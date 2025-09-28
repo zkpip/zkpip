@@ -1,28 +1,30 @@
 import { defineConfig } from 'vitest/config';
-import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
 
-const here = path.dirname(fileURLToPath(import.meta.url));     // .../packages/cli
-const coreDist = path.resolve(here, '../core/dist');           // .../packages/core/dist
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = dirname(__filename);
 
-console.log('[vitest] coreDist =', coreDist); // DEBUG: lásd futáskor
+// Monorepo: packages/cli  → sibling  → packages/core/src
+const CORE_SRC = resolve(__dirname, '../core/src');
 
 export default defineConfig({
+  root: __dirname,
   test: {
-    include: [
-      'src/**/*.test.ts',
-      'src/**/__tests__/**/*.test.ts',
-      'src/__tests__/**/*.test.ts',
-    ],
     environment: 'node',
+    globals: true,
   },
   resolve: {
-    alias: {
-      '@zkpip/core/json/c14n': path.join(coreDist, 'json/c14n.js'),
-      '@zkpip/core/json':      path.join(coreDist, 'json/index.js'),
-      '@zkpip/core/seal/v1':   path.join(coreDist, 'seal/v1.js'),
-      '@zkpip/core/kind':      path.join(coreDist, 'kind.js'),
-      '@zkpip/core':           path.join(coreDist, 'index.js'),
-    },
+    alias: [
+      { find: '@zkpip/core/seal/v1',    replacement: resolve(CORE_SRC, 'seal', 'v1.ts') },
+      { find: '@zkpip/core/json/c14n',  replacement: resolve(CORE_SRC, 'json', 'c14n.ts') },
+      { find: '@zkpip/core/kind',       replacement: resolve(CORE_SRC, 'kind.ts') },
+      { find: '@zkpip/core/keys/keyId', replacement: resolve(CORE_SRC, 'keys', 'keyId.ts') },
+      { find: '@zkpip/core/json',       replacement: resolve(CORE_SRC, 'json', 'index.ts') },
+      { find: '@zkpip/core',            replacement: resolve(CORE_SRC, 'index.ts') },
+
+      { find: /^@zkpip\/core\/(.*)$/,   replacement: `${CORE_SRC}/$1.ts` },
+    ],
+    conditions: ['import', 'module', 'default'],
   },
 });

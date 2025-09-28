@@ -163,7 +163,7 @@ export async function runVectorsSign(opts: VectorsSignOptions): Promise<number> 
     const urn = expectedUrnFor(kind, digestHex);
     const { spki, pkcs8 } = await loadKeys(opts.keyDir);
 
-    const keyId = keyIdFromSpki(spki, 16);
+    const keyId = keyIdFromSpki(spki);
     const signatureB64 = signEd25519(pkcs8, payload);
 
     const sealed: SealV1 = {
