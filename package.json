@@ -15,7 +15,7 @@
     "spec:drift": "tsx scripts/spec/check-drift.ts",
     "clean": "rimraf packages/**/dist packages/**/dist-* **/*.tsbuildinfo",
     "build": "tsc -b packages/core/tsconfig.build.json packages/cli/tsconfig.build.json",
-    "typecheck": "npx tsc --noEmit -p packages/core/tsconfig.json && npx tsc --noEmit -p packages/cli/tsconfig.typecheck.json",
+    "typecheck": "npm run -w @zkpip/core build && npx tsc --noEmit -p packages/cli/tsconfig.typecheck.json",
     "test": "npm -w @zkpip/core test && npm -w @zkpip/cli test",
     "lint": "eslint -c eslint.config.mjs \"packages/**/{src,scripts}/**/*.ts\"",
     "lint:strict": "STRICT_LINT=1 eslint -c eslint.config.mjs \"packages/**/{src,scripts}/**/*.ts\"",

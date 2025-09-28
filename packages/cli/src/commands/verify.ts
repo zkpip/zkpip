@@ -18,6 +18,7 @@ import { join, isAbsolute, dirname as pathDirname, sep } from 'node:path';
 import { resolveDumpRoot } from '../utils/dumpRoot.js';
 import { getDumpNormalizedArg, prettyVerificationPath } from './_internals/verify-argv.js';
 import { repoJoin } from '../utils/paths.js';
+import { K_VERIFICATION_JSON } from '../kinds.js';
 
 function toAdapterId(s: string): AdapterId {
   if (isAdapterId(s)) return s;
@@ -235,7 +236,7 @@ export async function verifyCommand(argv: VerifyHandlerArgs): Promise<void> {
         {
           dirOverride: runRoot,
           meta: {
-            inputKind: 'verification-json',
+            inputKind: K_VERIFICATION_JSON,
             verificationPath: prettyVerificationPath(argv),
           },
         }

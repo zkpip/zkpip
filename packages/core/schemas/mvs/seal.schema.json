@@ -1,73 +1,145 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://zkpip.dev/schemas/mvs/seal.schema.json",
-  "title": "ZKPIP Seal v1",
-  "description": "Generic, future-proof seal container with body-based hashing/URN and signature.",
+  "$id": "urn:zkpip:schema:seal.v1",
+  "title": "ZKPIP Seal V1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["body", "seal"],
+  "required": ["version", "kind", "body", "seal"],
   "properties": {
-    "version": {
-      "type": "string",
-      "const": "1",
-      "description": "Schema version tag. Always '1' for v1."
-    },
+    "version": { "const": "1" },
+
     "kind": {
-      "type": "string",
-      "pattern": "^[a-z][a-z0-9-]{1,63}$",
-      "description": "Optional subject discriminator, e.g. 'vector', 'circuit', 'image'."
-    },
-    "meta": {
-      "type": "object",
-      "description": "Optional, free-form metadata (not part of the signature subject).",
-      "additionalProperties": true
-    },
-    "body": {
-      "description": "Arbitrary JSON value to be canonicalized (C14N) and hashed. Must be JSON (no undefined/functions/symbols).",
-      "oneOf": [
-        { "type": "object" },
-        { "type": "array" },
-        { "type": "string" },
-        { "type": "number" },
-        { "type": "boolean" },
-        { "type": "null" }
+      "description": "Canonical artifact kind or vendor extension (x-*)",
+      "anyOf": [
+        { "enum": [
+          "vector", "circuit", "image",
+          "proof", "verifying-key", "params",
+          "verifier-sol", "verifier-bytecode", "manifest",
+          "witness", "proving-key", "transcript", "constraints", "bench-report",
+          "adapter-meta", "attestation", "policy", "bundle", "artifact-log"
+        ]},
+        { "type": "string", "pattern": "^x-[a-z0-9-]{1,63}$" }
       ]
     },
+
+    "body": {
+      "description": "Artifact content or reference (see kind-specific rules below)"
+    },
+
     "seal": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["algo", "keyId", "signature", "urn"],
+      "required": ["algo", "keyId", "signature", "urn", "signer", "createdAt"],
       "properties": {
-        "algo": {
-          "type": "string",
-          "enum": ["ed25519"],
-          "description": "Signing algorithm. v1 supports 'ed25519'."
-        },
+        "algo": { "enum": ["ed25519"] },
         "keyId": {
           "type": "string",
-          "minLength": 1,
-          "description": "Logical key identifier (directory name, pubkey hash, etc.)."
+          "description": "base32(lowercase, no padding) of sha256(SPKI) — min 8 chars",
+          "pattern": "^[a-z2-7]{8,}$"
         },
         "signature": {
           "type": "string",
-          "pattern": "^[A-Za-z0-9+/]+={0,2}$",
-          "description": "Base64-encoded signature over the canonicalized 'body'."
+          "description": "Base64 signature",
+          "pattern": "^[A-Za-z0-9+/]+={0,2}$"
         },
         "urn": {
           "type": "string",
-          "pattern": "^urn:zkpip:[a-z0-9-]+:sha256:[0-9a-f]{64}$",
-          "description": "URN embedding subject + hash algo + hex digest of C14N(body). Example: urn:zkpip:vector:sha256:<64-hex>"
+          "description": "urn:zkpip:<kind>:sha256:<hex64>",
+          "pattern": "^urn:zkpip:(vector|circuit|image|proof|verifying-key|params|verifier-sol|verifier-bytecode|manifest|witness|proving-key|transcript|constraints|bench-report|adapter-meta|attestation|policy|bundle|artifact-log|x-[a-z0-9-]{1,63}):sha256:[0-9a-f]{64}$"
         },
-        "signer": {
-          "type": "string",
-          "description": "Optional signer tag or tool version, e.g. 'codeseal/1'."
-        },
-        "createdAt": {
-          "type": "string",
-          "format": "date-time",
-          "description": "ISO 8601 timestamp when the seal was produced (UTC recommended)."
+        "signer": { "type": "string", "minLength": 1 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+
+  "allOf": [
+    {
+      "if": { "properties": { "kind": { "const": "witness" } } },
+      "then": {
+        "properties": {
+          "body": { "$ref": "#/$defs/ArtifactRef" }
         }
       }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "proving-key" } } },
+      "then": {
+        "properties": {
+          "body": { "$ref": "#/$defs/ArtifactRef" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "proof" } } },
+      "then": {
+        "properties": {
+          "body": {
+            "oneOf": [
+              { "$ref": "#/$defs/Base64Blob" },
+              { "$ref": "#/$defs/ArtifactRef" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "verifying-key" } } },
+      "then": {
+        "properties": {
+          "body": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["system", "format", "data"],
+            "properties": {
+              "system": { "enum": ["groth16", "plonk", "halo2", "plonky2", "stark", "x-other"] },
+              "format": { "enum": ["bin", "base64", "hex", "json"] },
+              "data": {
+                "oneOf": [
+                  { "$ref": "#/$defs/Base64Blob" },
+                  { "$ref": "#/$defs/HexBlob" },
+                  { "type": "object" }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+
+  "$defs": {
+    "ContentDigest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algo", "hex"],
+      "properties": {
+        "algo": { "enum": ["sha256"] },
+        "hex":  { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+
+    "ArtifactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contentDigest"],
+      "properties": {
+        "contentDigest": { "$ref": "#/$defs/ContentDigest" },
+        "size": { "type": "integer", "minimum": 0 },
+        "cid":  { "type": "string" },
+        "url":  { "type": "string", "format": "uri" }
+      },
+      "unevaluatedProperties": false
+    },
+
+    "Base64Blob": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9+/]+={0,2}$"
+    },
+
+    "HexBlob": {
+      "type": "string",
+      "pattern": "^(0x)?[0-9a-fA-F]+$"
     }
   }
 }

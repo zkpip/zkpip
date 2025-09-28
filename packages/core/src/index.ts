@@ -15,3 +15,7 @@ export { loadSchemaJson } from './schemaUtils.js';
 export { c14nStringify } from './utils/json-c14n.js';
 export type { SignVectorArgs, SealedVector } from './utils/seal/signVector.js';
 export { signVector } from './utils/seal/signVector.js';
+
+export * from './keys/keyId.js';
+export * from './kind.js';
+export * from './seal/v1.js';

@@ -3,28 +3,25 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "module": "./dist/index.js",
   "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    },
-    "./schemas/*": "./dist/schemas/*",
-    "./utils/fs-compat.js": "./dist/utils/fs-compat.js",
-    "./json/c14n": {
-      "types": "./dist/json/c14n.d.ts",
-      "import": "./dist/json/c14n.js"
-    },
-    "./json/*": {
-      "types": "./dist/json/*.d.ts",
-      "import": "./dist/json/*.js"
-    },
-    "./json": {
-      "types": "./dist/json/index.d.ts",
-      "import": "./dist/json/index.js"
-    },
-    "./seal/v1": { 
-      "types": "./dist/seal/v1.d.ts", 
-      "import": "./dist/seal/v1.js" 
+    ".": { "import": "./dist/index.js", "types": "./dist/index.d.ts" },
+    "./kind": { "import": "./dist/kind.js", "types": "./dist/kind.d.ts" },
+    "./keys/keyId": { "import": "./dist/keys/keyId.js", "types": "./dist/keys/keyId.d.ts" },
+    "./seal/v1": { "import": "./dist/seal/v1.js", "types": "./dist/seal/v1.d.ts" },
+    "./json": { "import": "./dist/json/index.js", "types": "./dist/json/index.d.ts" },
+    "./json/*": { "import": "./dist/json/*.js", "types": "./dist/json/*.d.ts" },
+    "./schemas/*": { "import": "./dist/schemas/*", "types": "./dist/schemas/*" }
+  },
+  "typesVersions": {
+    "*": {
+      "kind": ["dist/kind.d.ts"],
+      "keys/keyId": ["dist/keys/keyId.d.ts"],
+      "seal/v1": ["dist/seal/v1.d.ts"],
+      "json": ["dist/json/index.d.ts"],
+      "json/*": ["dist/json/*.d.ts"],
+      "schemas/*": ["dist/schemas/*"],
+      "*": ["dist/index.d.ts"]
     }
   },
   "version": "0.1.0",

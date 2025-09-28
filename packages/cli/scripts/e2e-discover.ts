@@ -12,6 +12,7 @@ import * as cp from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
+import { Kind } from '@zkpip/core/kind';
 
 type JSONPrimitive = string | number | boolean | null;
 type JSONValue = JSONPrimitive | JSONObject | JSONArray;
@@ -29,6 +30,13 @@ type EntryMeta = Readonly<{
   }>;
 }>;
 
+// Local row classification for the discover index (NOT an artifact kind)
+export const RowKind = {
+  Bundle: 'bundle',
+  Expect: 'expect',
+} as const;
+export type RowKind = typeof RowKind[keyof typeof RowKind];
+
 type IndexRow = Readonly<{
   path: string; // relative to VECTORS_ROOT
   adapter?: string; // adapter folder if any
@@ -38,7 +46,8 @@ type IndexRow = Readonly<{
   parseOk: boolean;
   meta?: EntryMeta;
   error?: string; // parse error only
-  kind: 'bundle' | 'expect';
+  rowKind: RowKind;                  
+  artifactKind?: Kind | undefined; 
 }>;
 
 type RunInfo = Readonly<{
@@ -261,10 +270,9 @@ async function main(): Promise<void> {
           errors.push({ path: rel, error: errMsg });
         }
 
-        // ✅ compute kind from REL (not abs), and INSIDE the loop
-        const kind: 'bundle' | 'expect' = path.basename(rel).includes('.expect.')
-          ? 'expect'
-          : 'bundle';
+        const rowKind: RowKind = path.basename(rel).includes('.expect.')
+          ? RowKind.Expect
+          : RowKind.Bundle;
 
         indexRows.push({
           path: rel,
@@ -275,7 +283,7 @@ async function main(): Promise<void> {
           parseOk,
           ...(meta !== undefined ? { meta } : {}),
           ...(errMsg !== undefined ? { error: errMsg } : {}),
-          kind,
+          rowKind,
         });
       }
     }

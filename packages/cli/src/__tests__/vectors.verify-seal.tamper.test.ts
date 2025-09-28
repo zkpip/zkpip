@@ -13,6 +13,7 @@ import { generateKeyPairSync, sign as nodeSign } from 'node:crypto';
 import { canonicalize, sha256Hex, toVectorUrn, type JsonValue } from '@zkpip/core/json/c14n';
 import type { SealV1 } from '@zkpip/core/seal/v1';
 import verifySealV1, { type Options } from '../commands/verifySeal.js';
+import { K } from '@zkpip/core/kind';
 
 // ---------- helpers ----------
 function createKeystore(): { keyDir: string; keyId: string; privPem: string } {
@@ -38,7 +39,7 @@ function buildSealed(body: JsonValue, keyId: string, privPem: string): SealV1 {
   const signature = signCanonEd25519(canon, privPem);
   return {
     version: '1',
-    kind: 'vector',
+    kind: K.vector,
     body,
     seal: {
       algo: 'ed25519',
