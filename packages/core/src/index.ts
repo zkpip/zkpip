@@ -18,3 +18,4 @@ export { signVector } from './utils/seal/signVector.js';
 
 export * from './keys/keyId.js';
 export * from './kind.js';
+export * from './seal/v1.js';

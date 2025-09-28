@@ -1,28 +1,18 @@
 {
   "compilerOptions": {
     "noEmit": true,
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
     "strict": true,
     "skipLibCheck": true,
-
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "resolveJsonModule": true,
     "baseUrl": ".",
-    "rootDir": "../..",
-
     "paths": {
       "@zkpip/core": ["../core/src/index.ts"],
-      "@zkpip/core/*": ["../core/src/*"],
-      "@zkpip/core/json": ["../core/src/json/index.ts"],
-      "@zkpip/core/json/*": ["../core/src/json/*"],
-      "@zkpip/core/json/c14n": ["../core/src/json/c14n.ts"],
-      "@zkpip/core/seal/v1": ["../core/src/seal/v1.ts"],
-      
-      "#fs-compat": ["../core/src/utils/fs-compat.ts"]
+      "@zkpip/core/*": ["../core/src/*"]
     },
-
     "types": ["node"]
   },
-  "include": ["src/**/*.ts", "../core/src/**/*.ts"],
-  "exclude": ["**/__tests__/**", "dist", "node_modules"],
-  "references": []
+  "include": ["src"],
+  "exclude": ["**/__tests__/**", "dist", "node_modules"]
 }

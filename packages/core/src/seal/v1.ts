@@ -5,7 +5,7 @@
 // - Optional `kind` discriminator (e.g. "vector", "circuit", "image")
 
 import { canonicalize, sha256Hex, toVectorUrn, type JsonValue } from '../json/c14n.js';
-import { Kind } from '../kind.js';
+import { Kind } from '../kind.js'; //
 
 export type SealAlgoV1 = 'ed25519';
 

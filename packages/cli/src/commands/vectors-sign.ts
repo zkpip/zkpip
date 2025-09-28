@@ -28,7 +28,7 @@ export type VectorsSignOptions = Readonly<{
   inFile: string;
   outFile?: string;
   keyDir: string;
-  kind?: string; // user input, validated to Kind below
+  kind?: string; 
 }>;
 
 // ---------- Helpers ----------
