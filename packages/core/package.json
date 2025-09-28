@@ -11,7 +11,8 @@
     "./seal/v1": { "import": "./dist/seal/v1.js", "types": "./dist/seal/v1.d.ts" },
     "./json": { "import": "./dist/json/index.js", "types": "./dist/json/index.d.ts" },
     "./json/*": { "import": "./dist/json/*.js", "types": "./dist/json/*.d.ts" },
-    "./schemas/*": { "import": "./dist/schemas/*", "types": "./dist/schemas/*" }
+    "./schemas/*": { "import": "./dist/schemas/*", "types": "./dist/schemas/*" },
+    "./validation/ajv": { "types": "./dist/validation/ajv.d.ts", "import": "./dist/validation/ajv.js" }
   },
   "typesVersions": {
     "*": {

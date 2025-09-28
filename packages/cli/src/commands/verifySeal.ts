@@ -15,6 +15,9 @@ import { defaultStoreRoot } from '../utils/keystore.js';
 // Core v1 Seal helpers
 import { validateSealV1, prepareBodyDigest, type SealV1 } from '@zkpip/core/seal/v1';
 
+import { createAjv } from '@zkpip/core/validation/ajv';
+import { loadSchemaJson } from '@zkpip/core';
+
 // ---------- Options & result ----------
 export type Options = Readonly<{ keyDir?: string | undefined }>;
 export type VerifyStage = 'schema' | 'keystore' | 'verify' | 'io';
@@ -23,8 +26,25 @@ export type VerifySealResult =
   | Readonly<{ ok: true; code: 0; stage: VerifyStage; message: string; urn: string }>
   | Readonly<{ ok: false; code: number; stage: VerifyStage; error: string; message: string }>;
 
+type AjvErr = Readonly<{ instancePath?: string; message?: string }>;
+
+function formatAjvErrors(errs: readonly AjvErr[], max: number = 5): string {
+  const lines = errs.slice(0, max).map(e => {
+    const p = e.instancePath && e.instancePath.length > 0 ? e.instancePath : '(root)';
+    const m = e.message ?? 'validation error';
+    return `${p}: ${m}`;
+  });
+  const more = errs.length > max ? ` …and ${errs.length - max} more` : '';
+  return lines.join('; ') + more;
+}
+
 function fail(stage: VerifyStage, code: number, error: string, message: string): VerifySealResult {
   return { ok: false as const, code, stage, error, message };
+}
+
+function isSchemaCheckEnabled(): boolean {
+  const v = (process.env['ZKPIP_VERIFY_SCHEMA'] || '').toLowerCase();
+  return v === '' || v === '1' || v === 'true' || v === 'yes';
 }
 
 /** Resolve public key PEM by keyId with reverse lookup and fallbacks (sync).
@@ -120,7 +140,28 @@ export function verifySealV1(input: SealV1, opts: Options = {}): VerifySealResul
   const chk = validateSealV1(input);
   if (!chk.ok) return fail('schema', 3, chk.error, chk.message);
 
-  // 2) Canon + expected URN over body/kind
+  // 2.1) AJV (részletes) – feature flaggel
+  if (isSchemaCheckEnabled()) {
+    try {
+      const ajv = createAjv();
+      // ha van addCoreSchemas-ed, itt hívható; most közvetlenül a seal schema kell
+      const schema = loadSchemaJson('mvs/seal.schema.json'); // core helper: JSON objectet adjon vissza
+      const validate = ajv.compile(schema as object);
+      const ok = validate(input);
+      if (!ok) {
+        const errs = Array.isArray(validate.errors) ? validate.errors : [];
+        const message = errs.length > 0
+          ? formatAjvErrors(errs as AjvErr[])
+          : 'AJV validation failed';
+        return fail('schema', 3, 'AJV_VALIDATION_ERROR', message);
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return fail('schema', 3, 'AJV_RUNTIME_ERROR', msg);
+    }
+  }
+
+  // 2.2) Canon + expected URN over body/kind
   const { canon, expectedUrn } = prepareBodyDigest({ body: input.body, kind: input.kind });
 
   // 3) URN must match
