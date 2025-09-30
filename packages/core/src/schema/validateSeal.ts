@@ -52,7 +52,7 @@ export function validateSealV1Ajv(input: unknown): ValidateSealV1Ajv {
     instancePath: e.instancePath ?? '',
     keyword: e.keyword,
     message: e.message,
-    schemaPath: e.schemaPath, // ok, Ajv ErrorObject-ben kötelező string; a te típusod optional, ez kompatibilis
+    schemaPath: e.schemaPath, 
     params: (e.params ?? {}) as Readonly<Record<string, unknown>>,
   }));
 
