@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:zkpip:schema:seal.v1",
+  "title": "ZKPIP Seal V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "kind", "body", "seal"],
+  "properties": {
+    "version": { "const": "1" },
+
+    "kind": {
+      "description": "Canonical artifact kind or vendor extension (x-*)",
+      "anyOf": [
+        { "enum": [
+          "vector", "circuit", "image",
+          "proof", "verifying-key", "params",
+          "verifier-sol", "verifier-bytecode", "manifest",
+          "witness", "proving-key", "transcript", "constraints", "bench-report",
+          "adapter-meta", "attestation", "policy", "bundle", "artifact-log"
+        ]},
+        { "type": "string", "pattern": "^x-[a-z0-9-]{1,63}$" }
+      ]
+    },
+
+    "body": {
+      "description": "Artifact content or reference (see kind-specific rules below)",
+      "type": ["object", "array", "string", "number", "boolean", "null"]
+    },
+
+    "seal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algo", "keyId", "signature", "urn", "signer", "createdAt"],
+      "properties": {
+        "algo": { "enum": ["ed25519"] },
+        "keyId": 
+          { "type":"string", "minLength": 8, "pattern":"^(?:[a-z2-7]{8,}|[0-9a-f]{16,})$" },
+        "signature": {
+          "type": "string",
+          "description": "Base64 signature",
+          "pattern": "^[A-Za-z0-9+/]+={0,2}$"
+        },
+        "urn": {
+          "type": "string",
+          "description": "URN with zkpip scheme; exact hash and kind checked semantically",
+          "pattern": "^urn:zkpip:"
+        },
+        "signer": { "type": "string", "minLength": 1 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+
+  "allOf": [
+    {
+      "if": { "properties": { "kind": { "const": "witness" } } },
+      "then": {
+        "properties": {
+          "body": { "$ref": "#/$defs/ArtifactRef" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "proving-key" } } },
+      "then": {
+        "properties": {
+          "body": { "$ref": "#/$defs/ArtifactRef" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "proof" } } },
+      "then": {
+        "properties": {
+          "body": {
+            "oneOf": [
+              { "$ref": "#/$defs/Base64Blob" },
+              { "$ref": "#/$defs/ArtifactRef" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "verifying-key" } } },
+      "then": {
+        "properties": {
+          "body": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["system", "format", "data"],
+            "properties": {
+              "system": { "enum": ["groth16", "plonk", "halo2", "plonky2", "stark", "x-other"] },
+              "format": { "enum": ["bin", "base64", "hex", "json"] },
+              "data": {
+                "oneOf": [
+                  { "$ref": "#/$defs/Base64Blob" },
+                  { "$ref": "#/$defs/HexBlob" },
+                  { "type": "object" }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+
+  "$defs": {
+    "ContentDigest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algo", "hex"],
+      "properties": {
+        "algo": { "enum": ["sha256"] },
+        "hex":  { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+
+    "ArtifactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contentDigest"],
+      "properties": {
+        "contentDigest": { "$ref": "#/$defs/ContentDigest" },
+        "size": { "type": "integer", "minimum": 0 },
+        "cid":  { "type": "string" },
+        "url":  { "type": "string", "format": "uri" }
+      },
+      "unevaluatedProperties": false
+    },
+
+    "Base64Blob": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9+/]+={0,2}$"
+    },
+
+    "HexBlob": {
+      "type": "string",
+      "pattern": "^(0x)?[0-9a-fA-F]+$"
+    }
+  }
+}
