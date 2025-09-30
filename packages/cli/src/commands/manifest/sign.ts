@@ -1,19 +1,24 @@
+// packages/cli/src/commands/manifest/sign.ts
 import { writeFileSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import type { CommandModule, Argv, ArgumentsCamelCase } from 'yargs';
+
 import { signManifest } from '@zkpip/core';
 import type { ManifestSignature, ZkpipManifest } from '@zkpip/core';
+
 import { readUtf8Checked, resolvePath, ensureParentDir } from '../../utils/fs.js';
-import { readPrivatePemForKeyId } from '../../utils/keystore.js';
+import { defaultStoreRoot } from '../../utils/keystore.js';
+import { resolvePrivateKeyPath } from '../../utils/keystore-resolve.js';
 
 interface Args {
   in: string;
   out: string;
   keyId: string;
-  priv?: string;            
+  priv?: string;
   json?: boolean;
-  createOutDir?: boolean;   
-  append?: boolean;      
-  store?: string;     
+  createOutDir?: boolean;
+  append?: boolean;
+  store?: string;
 }
 
 export const manifestSignCmd: CommandModule<unknown, Args> = {
@@ -22,90 +27,97 @@ export const manifestSignCmd: CommandModule<unknown, Args> = {
   builder: (y) =>
     (
       y
-        .option('in',   { type: 'string', demandOption: true,  desc: 'Input manifest JSON path' })
-        .option('out',  { type: 'string', demandOption: true,  desc: 'Output manifest JSON path' })
-        .option('keyId',{ type: 'string', demandOption: true,  desc: 'Signature keyId to embed (also keystore lookup key)' })
+        .option('in',    { type: 'string', demandOption: true,  desc: 'Input manifest JSON path' })
+        .option('out',   { type: 'string', demandOption: true,  desc: 'Output manifest JSON path' })
+        .option('keyId', { type: 'string', demandOption: true,  desc: 'Signature keyId to embed (also keystore lookup key)' })
         .alias('keyId', 'key-id')
 
-        // priv is optional -> keystore fallback ha nincs megadva
-        .option('priv', { type: 'string', demandOption: false, desc: 'Private key PEM (PKCS#8) path; if omitted, keystore is used by --key-id' })
+        // --priv opcionális → ha nincs, keystore lookup (--key-id, --store)
+        .option('priv',  { type: 'string', demandOption: false, desc: 'Private key PEM (PKCS#8) path; if omitted, keystore is used by --key-id' })
 
-        .option('json', { type: 'boolean', default: false,     desc: 'JSON structured CLI output' })
+        .option('json',  { type: 'boolean', default: false,     desc: 'JSON structured CLI output' })
 
-        // prefer createOutDir, de tartsunk alias-t a régi --mkdirs-re
         .option('createOutDir', { type: 'boolean', default: false, desc: 'Create parent dir for --out if missing' })
         .alias('createOutDir', 'mkdirs')
 
-        // NEW: append to signatures[]
         .option('append', { type: 'boolean', default: false,   desc: 'Append signature to signatures[] (convert from single if needed)' })
-        .option('store', { type: 'string', demandOption: false, desc: 'Keystore root (defaults to ~/.zkpip/keys)' })
-        
+        .option('store',  { type: 'string',  demandOption: false, desc: 'Keystore root (defaults to ~/.zkpip/keys)' })
+
         .strictOptions()
     ) as Argv<Args>,
-  handler: (argv: ArgumentsCamelCase<Args>) => {
-    // Resolve input/output to absolute paths (stable I/O regardless of CWD)
-    const inPath = resolvePath(argv.in);
+  handler: async (argv: ArgumentsCamelCase<Args>) => {
+    const inPath  = resolvePath(argv.in);
     const outPath = resolvePath(argv.out);
 
-    // Optional keystore root and explicit private key path
-    const store: string | undefined = argv.store;
-    const privPath: string | undefined = typeof argv.priv === 'string' ? resolvePath(argv.priv) : undefined;
+    const storeRoot = argv.store ? resolvePath(argv.store) : defaultStoreRoot();
+    const privPath  = typeof argv.priv === 'string' ? resolvePath(argv.priv) : undefined;
 
     try {
-      // Load manifest JSON
+      // 1) Input manifest beolvasása
       const manifest: ZkpipManifest = JSON.parse(readUtf8Checked(inPath));
 
-      // Ensure parent directory for --out if requested
+      // 2) Out dir biztosítása (ha kérték)
       ensureParentDir(outPath, argv.createOutDir === true);
 
-      // Resolve private key PEM: prefer --priv, otherwise load from keystore by --keyId
-      const privPem = privPath ? readUtf8Checked(privPath) : readPrivatePemForKeyId(argv.keyId, store);
+      // 3) Private key PEM feloldása
+      let privatePem: string;
+      if (privPath) {
+        // explicit --priv
+        privatePem = readUtf8Checked(privPath);
+      } else {
+        // keystore lookup --key-id alapján
+        const pemPath = await resolvePrivateKeyPath(storeRoot, argv.keyId);
+        if (!pemPath) {
+          const msg = `Private key not found for keyId="${argv.keyId}" under "${storeRoot}"`;
+          if (argv.json) {
+            process.stderr.write(JSON.stringify({ ok: false, code: 2, stage: 'keystore', error: 'KEY_NOT_FOUND', message: msg }) + '\n');
+          } else {
+            console.error(`❌ ${msg}`);
+          }
+          process.exitCode = 2;
+          return;
+        }
+        privatePem = await readFile(pemPath, 'utf8');
+      }
 
-      // Produce canonical hash + fresh signature for this keyId
-      // NOTE: signManifest must canonicalize by excluding {hash, signature, signatures}
+      // 4) Aláírás
       const { hash, signature } = signManifest({
         manifest,
-        privateKeyPem: privPem,
+        privateKeyPem: privatePem,
         keyId: argv.keyId,
       });
 
-      // Gather any previous signatures into a mutable array
+      // 5) Korábbi signature-k összegyűjtése
       const prior: ManifestSignature[] = [];
       if (manifest.signature) prior.push(manifest.signature);
       if (Array.isArray(manifest.signatures)) prior.push(...manifest.signatures);
 
-      // Drop legacy signature fields from the base object, keep all other fields
+      // 6) Legacy mezők kiszedése
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { signature: _oldSingle, signatures: _oldMulti, ...rest } = manifest;
 
-      // Build the output manifest based on --append
+      // 7) Kimeneti manifest összeállítása
       const outManifest: ZkpipManifest =
         (argv as { append?: boolean }).append === true
-          // append=true → persist as signatures[]
           ? { ...rest, hash, signatures: [...prior, signature] }
-          // append=false → single signature only
           : { ...rest, hash, signature };
 
-      // Persist signed manifest (pretty-printed + trailing LF for stability)
+      // 8) Kiírás
       writeFileSync(outPath, JSON.stringify(outManifest, null, 2) + '\n', 'utf8');
 
       if (argv.json) {
-        process.stdout.write(
-          JSON.stringify({ ok: true, alg: signature.alg, keyId: signature.keyId, out: outPath }) + '\n',
-        );
+        process.stdout.write(JSON.stringify({ ok: true, alg: signature.alg, keyId: signature.keyId, out: outPath }) + '\n');
       } else {
-        //
         console.log(`✅ Signed manifest → ${outPath}  [alg=${signature.alg}, keyId=${signature.keyId}]`);
       }
     } catch (err) {
-      // Emit machine-readable error when --json, otherwise human-friendly line
       const message = err instanceof Error ? err.message : 'Unexpected error during manifest signing';
       const errorBody =
         err && typeof err === 'object' && 'code' in err
           ? { code: (err as { code: string }).code }
           : {};
       if (argv.json) {
-        process.stderr.write(JSON.stringify({ ok: false, message, ...errorBody }) + '\n');
+        process.stderr.write(JSON.stringify({ ok: false, code: 1, stage: 'io', message, ...errorBody }) + '\n');
       } else {
         console.error(`❌ ${message}`);
       }

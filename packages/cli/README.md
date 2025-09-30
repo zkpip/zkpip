@@ -172,6 +172,15 @@ On failure:
 
 ---
 
+## Keys
+
+Generate an Ed25519 keypair and register it in the keystore.
+
+```sh
+zkpip keys generate --store <dir> [--label <txt>] [--keyId <kid>] [--json]
+
+---
+
 ## `vectors pull` (POC)
 
 Fetch canonical vectors or any JSON from URL / file / data URI with safe defaults.

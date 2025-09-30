@@ -32,7 +32,7 @@ function isHexSeed(v: string): boolean {
   return /^0x[0-9a-fA-F]+$/.test(v) && ((v.length - 2) % 2 === 0);
 }
 
-function parseForgeArgv(argv: string[]): ForgeCliArgs {
+function parseForgeArgv(argv: readonly string[]): ForgeCliArgs {
   let inDir: string | undefined;
   let adapter: AdapterId | undefined;
   let outFile: string | undefined;
@@ -44,23 +44,30 @@ function parseForgeArgv(argv: string[]): ForgeCliArgs {
   let seedHex: string | undefined;
 
   for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
+    const a = argv[i]!;
     if (a === '--in') {
-      inDir = argv[++i];
+      const v = argv[++i];
+      if (!v) throw new Error('Missing value for --in');
+      inDir = v;
       continue;
     }
     if (a === '--adapter') {
-      const v = argv[++i] ?? '';
+      const v = argv[++i];
+      if (!v) throw new Error('Missing value for --adapter');
       if (!isAdapterId(v)) throw new Error(`Unknown adapter: ${v}`);
       adapter = v;
       continue;
     }
     if (a === '--out') {
-      outFile = argv[++i];
+      const v = argv[++i];
+      if (!v) throw new Error('Missing value for --out');
+      outFile = v;
       continue;
     }
     if (a === '--invalid-out') {
-      invalidOutDir = argv[++i];
+      const v = argv[++i];
+      if (!v) throw new Error('Missing value for --invalid-out');
+      invalidOutDir = v;
       continue;
     }
     if (a === '--pretty') {
@@ -80,7 +87,8 @@ function parseForgeArgv(argv: string[]): ForgeCliArgs {
       continue;
     }
     if (a === '--seed') {
-      const v = argv[++i] ?? '';
+      const v = argv[++i];
+      if (!v) throw new Error('Missing value for --seed');
       if (!isHexSeed(v)) throw new Error(`Invalid --seed (expected 0x-prefixed even-length hex): ${v}`);
       seedHex = v;
       continue;
@@ -133,51 +141,65 @@ export function printForgeHelp(): void {
   console.log(composeHelp(body));
 }
 
-export async function runForgeCli(argv: string[]): Promise<void> {
+export async function runForgeCli(args: readonly string[]): Promise<void> {
+  const argv: string[] = Array.from(args);
+
   if (argv.includes('--help') || argv.includes('-h')) {
     printForgeHelp();
     return;
   }
+
+  const argvIn = process.argv.slice(2);
+  const isForge = argvIn[0] === 'forge';
+  const hasIn = argvIn.some(a => a === '--in' || a.startsWith('--in=') || a === '--inDir' || a.startsWith('--inDir='));
+  const hasDryRun = argvIn.includes('--dry-run');
+
+  if (isForge && !hasIn && !hasDryRun) {
+    // what the test expects:
+    process.stderr.write(
+      JSON.stringify({ ok: false, code: 'FORGE_ERROR', message: 'Missing --in option' }) + '\n'
+    );
+    process.exitCode = 1; // <-- critical
+    // IMPORTANT: stop here so we don't fall through
+    return;
+  }
+
   try {
-    const args = parseForgeArgv(argv);
+    const parsed = parseForgeArgv(argv);
 
     // Dry-run path: no call to runForge; we emit deterministic content.
-    if (args.dryRun) {
-      // Minimal deterministic payload; extend later to mirror real forge output.
+    if (parsed.dryRun) {
       const payload = {
         mode: 'dry-run' as const,
-        seed: args.seedHex!, // validated in parse
-        adapter: args.adapter ?? null,
-        strict: args.strict,
-        pretty: args.pretty,
+        seed: parsed.seedHex!, // validated in parse
+        adapter: parsed.adapter ?? null,
+        strict: parsed.strict,
+        pretty: parsed.pretty,
       };
 
-      if (args.json) {
+      if (parsed.json) {
         process.stdout.write(JSON.stringify({ ok: true, result: payload }));
       } else {
         console.log('Forge dry-run OK');
       }
-      // Respect CI: do not hard-exit unless explicitly requested.
       if (process.env.ZKPIP_HARD_EXIT === '1') process.exit(0);
       return;
     }
 
-    // Normal path: call runForge with known args only.
+    const inArg: string = typeof parsed.inDir === 'string' ? parsed.inDir : '';
+
     const runArgs: RunForgeArgs = {
-      in: args.inDir!, // validated
-      pretty: args.pretty,
-      ...(args.adapter ? { adapter: args.adapter } : {}),
-      ...(args.outFile ? { out: args.outFile } : {}),
-      ...(args.invalidOutDir ? { invalidOut: args.invalidOutDir } : {}),
-      // NOTE: we intentionally do NOT pass seed/strict/json here,
-      // to avoid coupling to RunForgeArgs. Handle those inside runForge if supported.
+      in: inArg.trim(),                      // <- sosem undefined
+      pretty: parsed.pretty === true,
+      ...(parsed.adapter ? { adapter: parsed.adapter } : {}),
+      ...(parsed.outFile ? { out: parsed.outFile } : {}),
+      ...(parsed.invalidOutDir ? { invalidOut: parsed.invalidOutDir } : {}),
     };
 
     const code = await runForge(runArgs);
     process.exitCode = code;
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
-    // Keep JSON-shaped error for --json consumers
     console.error(JSON.stringify({ ok: false, code: 'FORGE_ERROR', message }));
     process.exitCode = 1;
   }

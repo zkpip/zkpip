@@ -7,7 +7,8 @@
 import path from 'node:path';
 import * as fs from 'node:fs';
 import process from 'node:process';
-import { createAjv, loadSchemaJson } from '@zkpip/core';
+import { addCoreSchemas, createAjv } from '@zkpip/core';
+import type { AjvRegistryLike } from '@zkpip/core';
 
 type VectorValidateFlags = Readonly<{
   vectorsRoot?: string;
@@ -116,11 +117,10 @@ export async function runVectorsValidateCli(argv: readonly string[]): Promise<vo
     const schemasRoot = resolveAbs(flags.schemasRoot);
     if (schemasRoot) process.env.ZKPIP_SCHEMAS_ROOT = schemasRoot;
 
-    // AJV + schema registration (legacy proof-envelope)
-    const ajv = createAjv();
-    const proofEnvelopeSchema = loadSchemaJson('mvs/proof-envelope.schema.json');
-    ajv.addSchema(proofEnvelopeSchema, 'mvs/proof-envelope');
-
+    // AJV + schema registration (legacy proof-envelope)    
+    const ajv = createAjv() as AjvRegistryLike;
+    addCoreSchemas(ajv);
+    
     const files = walkJson(vectorsRoot);
     if (files.length === 0) {
       const msg = `No JSON vectors found under: ${vectorsRoot}`;
@@ -133,7 +133,9 @@ export async function runVectorsValidateCli(argv: readonly string[]): Promise<vo
       return;
     }
 
-    const validate = ajv.getSchema('mvs/proof-envelope');
+    type AjvValidateFn = ((data: unknown) => boolean) & { errors?: readonly unknown[] | null };
+
+    const validate = ajv.getSchema('mvs/proof-envelope') as AjvValidateFn | undefined;
     if (!validate) throw new Error(`Schema 'mvs/proof-envelope' is not registered`);
 
     const results: ValidationRow[] = [];
@@ -141,8 +143,9 @@ export async function runVectorsValidateCli(argv: readonly string[]): Promise<vo
       const rel = path.relative(vectorsRoot, abs);
       const raw = fs.readFileSync(abs, 'utf8');
       const data = safeParseJson(raw);
+
       const isValid = Boolean(validate(data));
-      const errs: readonly unknown[] = isValid ? [] : (validate.errors ?? []);
+      const errs = isValid ? [] : (validate.errors ?? []);
       results.push({ file: rel, valid: isValid, errors: errs });
     }
 

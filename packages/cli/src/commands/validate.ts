@@ -9,16 +9,12 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
 import { createAjv, addCoreSchemas } from '@zkpip/core';
-import { pickSchemaId } from './pickSchemaId.js';
 
-type ErrorObject = {
-  readonly path?: string;
-  readonly instancePath?: string;
-  readonly message?: string;
-  readonly keyword?: string;
+type AjvErr = Readonly<{ instancePath?: string; message?: string }>;
+
+type AjvValidateFn = ((data: unknown) => boolean) & {
+  readonly errors?: readonly unknown[] | null;
 };
-
-type AjvErrorCarrier = Error & { errors?: ReadonlyArray<ErrorObject> | null };
 
 /* ---------------------------------------------------------------------- */
 /*                          schemasRoot                                    */
@@ -80,6 +76,19 @@ function resolveSchemasRootFromEnvArgsOrInfer(): string | undefined {
   return absFromArg ?? inferCoreSchemasRoot();
 }
 
+function formatAjvErrors(errs: readonly unknown[], max: number = 10): readonly string[] {
+  const list = errs
+    .slice(0, max)
+    .map((e) => {
+      const ee = e as AjvErr;
+      const p = ee.instancePath && ee.instancePath.length > 0 ? ee.instancePath : '(root)';
+      const m = ee.message ?? 'validation error';
+      return `${p}: ${m}`;
+    });
+  const more = errs.length > max ? ` …and ${errs.length - max} more` : '';
+  return more ? [...list, more] : list;
+}
+
 /* ---------------------------------------------------------------------- */
 /*                             validation core                              */
 /* ---------------------------------------------------------------------- */
@@ -114,29 +123,17 @@ export async function validatePath(inputPath: string): Promise<void> {
     Object.keys(opts).length > 0 ? opts : undefined,
   );
 
-  // Pick target schema based on filename heuristics
-  const schemaId = pickSchemaId(abs, schemasRoot);
-
-  const validate = ajv.getSchema(schemaId);
+  // ajv: AjvRegistryLike already created + schemas added
+  const validate = ajv.getSchema('mvs/proof-envelope') as AjvValidateFn | undefined;
   if (!validate) {
-    const hint =
-      `Schema not registered in AJV: ${schemaId}\n` +
-      `Ensure the schema exists under /schemas and has proper "$id".\n` +
-      (schemasRoot
-        ? `Using schemasRoot: ${schemasRoot}`
-        : `Hint: pass --schemas-root ./packages/core/schemas (or set ZKPIP_SCHEMAS_ROOT)`);
-    throw new Error(hint);
+    throw new Error(`Schema 'mvs/proof-envelope' is not registered`);
   }
 
   const ok = validate(data);
   if (!ok) {
-    // Build a readable error message; attach raw errors for tests if needed
-    const msg = ajv.errorsText(validate.errors, { separator: '\n' });
-    const err: AjvErrorCarrier = new Error(
-      `Validation failed for ${abs}\nSchema: ${schemaId}\n${msg}`,
-    );
-    err.errors = validate.errors ?? null;
-    throw err;
+    const errs: readonly unknown[] = Array.isArray(validate.errors) ? validate.errors : [];
+    const lines = formatAjvErrors(errs, 10); // your local formatter
+    throw new Error(`Validation failed:\n${lines.join('\n')}`);
   }
 }
 

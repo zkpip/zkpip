@@ -15,7 +15,17 @@ export { loadSchemaJson } from './schemaUtils.js';
 export { c14nStringify } from './utils/json-c14n.js';
 export type { SignVectorArgs, SealedVector } from './utils/seal/signVector.js';
 export { signVector } from './utils/seal/signVector.js';
+export { validateSealV1Ajv } from './schema/validateSeal.js';
+
+export type { VerifySealResult, Options, VerifyStage } from './verify/verifySealV1.js';
+export { VerifyCode, type VerifyReason, type VerifyResult } from './verify/codes.js';
+export { verifySealV1 } from './verify/verifySealV1.js';
 
 export * from './keys/keyId.js';
 export * from './kind.js';
 export * from './seal/v1.js';
+
+export { verifySealV1 as default } from './verify/verifySealV1.js';
+export { AjvRegistryLike } from './validation/ajv-types.js';
+
+export { PublicKeyProvider } from '../src/verify/types.js';

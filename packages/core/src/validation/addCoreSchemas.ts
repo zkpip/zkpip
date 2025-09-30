@@ -1,20 +1,18 @@
-// packages/core/src/validation/addCoreSchemas.ts
+// English comments, strict TS, no `any`.
 
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CANONICAL_IDS } from '../constants/canonicalIds.js';
 import type { AjvRegistryLike } from './ajv-types.js';
+import { addSchemaOnce } from '../validation/ajvSafeAdd.js';
 
 export type CanonicalId = (typeof CANONICAL_IDS)[keyof typeof CANONICAL_IDS];
 
 function resolveSchemasDir(custom?: string): string {
-  // Prefer explicit option first.
   if (custom && custom.length > 0) return custom;
-  // Then environment variables (both names supported).
   const env = process.env.ZKPIP_SCHEMAS_DIR ?? process.env.ZKPIP_SCHEMAS_ROOT;
   if (env && env.length > 0) return env;
-  // Fallback: repo default (packages/core/schemas/)
   return fileURLToPath(new URL('../../schemas/', import.meta.url));
 }
 
@@ -27,30 +25,20 @@ function walk(dir: string, acc: string[] = []): string[] {
   return acc;
 }
 
-function hasSchema(ajv: AjvRegistryLike, key: string): boolean {
-  try {
-    return Boolean(ajv.getSchema(key));
-  } catch {
-    return false;
-  }
+function toKebab(x: string): string {
+  return x.replace(/([a-z0-9])([A-Z])/g, '$1-$2').replace(/[_\s]+/g, '-').toLowerCase();
 }
 
-function addIfMissing(ajv: AjvRegistryLike, key: string, schemaObj: object): void {
-  if (!key) return;
-  if (!hasSchema(ajv, key)) ajv.addSchema(schemaObj, key);
-}
-
-// More precise typing: aliases are optional per canonical id.
+// Optional aliases per canonical id (kept as-is)
 const ALIASES: Partial<Record<CanonicalId, readonly string[]>> = {
   [CANONICAL_IDS.proofEnvelope]: [
-    // tolerant legacy/typo aliases
     'urn:zkpip:mvs.proof-envelopes.schema.json',
     'urn:zkpip:mvs.proof-envelope.schema.json',
     'mvs.proof-envelope',
     'mvs/proof-envelope',
     'mvs.proofEnvelope.schema.json',
-    'mvs/verification/proofEnvelope'
-  ]
+    'mvs/verification/proofEnvelope',
+  ],
 };
 
 const NEW_URN_BY_CANONICAL: Record<CanonicalId, string> = {
@@ -59,33 +47,10 @@ const NEW_URN_BY_CANONICAL: Record<CanonicalId, string> = {
   [CANONICAL_IDS.cir]:          'urn:zkpip:mvs:schemas:cir.schema.json',
   [CANONICAL_IDS.issue]:        'urn:zkpip:mvs:schemas:issue.schema.json',
   [CANONICAL_IDS.ecosystem]:    'urn:zkpip:mvs:schemas:ecosystem.schema.json',
-  [CANONICAL_IDS.core]:         'urn:zkpip:mvs:schemas:core.schema.json'
+  [CANONICAL_IDS.core]:         'urn:zkpip:mvs:schemas:core.schema.json',
 };
 
-function toKebab(x: string): string {
-  return x.replace(/([a-z0-9])([A-Z])/g, '$1-$2').replace(/[_\s]+/g, '-').toLowerCase();
-}
-
-function addShortAliases(ajv: AjvRegistryLike, schemaObj: object, name: string): void {
-  // proofEnvelope -> proof-envelope
-  const keb = toKebab(name);
-  const dot = `mvs.${name}.schema.json`;
-  const slash = `mvs/${name}.schema.json`;
-  const shortSlash = `mvs/${keb}`;
-  const shortSlashCamel = `mvs/${name}`;
-  const shortDot = `mvs.${keb}.schema.json`;
-
-  addIfMissing(ajv, dot, schemaObj);
-  addIfMissing(ajv, slash, schemaObj);
-  addIfMissing(ajv, shortSlash, schemaObj);
-  addIfMissing(ajv, shortSlashCamel, schemaObj);
-  addIfMissing(ajv, shortDot, schemaObj);
-  addIfMissing(ajv, `mvs.${name}`, schemaObj);
-  addIfMissing(ajv, `mvs.${keb}`, schemaObj);
-}
-
 export function detectKind(schema: unknown, file: string): CanonicalId | undefined {
-  // Normalize for robust substring checks.
   const idRaw =
     typeof schema === 'object' &&
     schema !== null &&
@@ -96,12 +61,9 @@ export function detectKind(schema: unknown, file: string): CanonicalId | undefin
   const id = idRaw.toLowerCase();
   const f = file.toLowerCase();
 
-  // Prefer envelope whenever any envelope-related token is present.
   if (id.includes('proofenvelope') || id.includes('proof-envelope') || f.includes('proofenvelope') || f.includes('proof-envelope')) {
     return CANONICAL_IDS.proofEnvelope;
   }
-
-  // Legacy bundle tokens map to envelope.
   if (id.includes('proofbundle') || f.includes('proofbundle')) {
     return CANONICAL_IDS.proofEnvelope;
   }
@@ -113,6 +75,64 @@ export function detectKind(schema: unknown, file: string): CanonicalId | undefin
   if (id.includes('core') || f.includes('core'))               return CANONICAL_IDS.core;
 
   return undefined;
+}
+
+/** Per-call guards to avoid duplicate adds regardless of Ajv.getSchema() state. */
+type Seen = {
+  ids: Set<string>;
+  keys: Set<string>;
+};
+
+/** Add the base schema exactly once (by $id if present, else by an explicit key). */
+function addBaseOnce(
+  ajv: AjvRegistryLike,
+  seen: Seen,
+  schemaObj: object & { $id?: string | undefined },
+  keyIfNoId: string,
+): string {
+  const id = typeof schemaObj.$id === 'string' ? schemaObj.$id : undefined;
+
+  if (id) {
+    if (!seen.ids.has(id)) {
+      addSchemaOnce(ajv, schemaObj);   // this adds by $id
+      seen.ids.add(id);
+      seen.keys.add(id);               // treat id as a key too
+    }
+    return id;
+  }
+
+  // No $id → register by provided key (e.g., relative file path)
+  if (!seen.keys.has(keyIfNoId)) {
+    ajv.addSchema(schemaObj, keyIfNoId);
+    seen.keys.add(keyIfNoId);
+  }
+  return keyIfNoId;
+}
+
+/** Add an alias key as a $ref wrapper exactly once. */
+function addAliasRefOnce(ajv: AjvRegistryLike, seen: Seen, targetId: string, alias: string): void {
+  if (!alias || alias === targetId) return;
+  if (seen.keys.has(alias)) return;
+  ajv.addSchema({ $ref: targetId } as object, alias);
+  seen.keys.add(alias);
+}
+
+/** Add a family of short aliases for a logical name, all as $ref wrappers. */
+function addShortAliases(ajv: AjvRegistryLike, seen: Seen, targetId: string, name: string): void {
+  const keb = toKebab(name);
+  const dot = `mvs.${name}.schema.json`;
+  const slash = `mvs/${name}.schema.json`;
+  const shortSlash = `mvs/${keb}`;
+  const shortSlashCamel = `mvs/${name}`;
+  const shortDot = `mvs.${keb}.schema.json`;
+
+  addAliasRefOnce(ajv, seen, targetId, dot);
+  addAliasRefOnce(ajv, seen, targetId, slash);
+  addAliasRefOnce(ajv, seen, targetId, shortSlash);
+  addAliasRefOnce(ajv, seen, targetId, shortSlashCamel);
+  addAliasRefOnce(ajv, seen, targetId, shortDot);
+  addAliasRefOnce(ajv, seen, targetId, `mvs.${name}`);
+  addAliasRefOnce(ajv, seen, targetId, `mvs.${keb}`);
 }
 
 export function addCoreSchemas(
@@ -127,14 +147,13 @@ export function addCoreSchemas(
     throw new Error(`Schema file not found: directory "${dir}" does not exist or is not a directory`);
   }
 
-  // STRICT mode for env-provided schema roots (optional).
   if (usingEnv) {
     const required = [
       'mvs.core.schema.json',
       'mvs.ecosystem.schema.json',
       'mvs.issue.schema.json',
       'mvs.verification.schema.json',
-      'mvs.proofEnvelope.schema.json' // baseline
+      'mvs.proofEnvelope.schema.json',
     ];
     for (const rel of required) {
       const abs = path.join(dir, rel);
@@ -143,82 +162,78 @@ export function addCoreSchemas(
   }
 
   const files = walk(dir);
+  const seen: Seen = { ids: new Set<string>(), keys: new Set<string>() };
 
   for (const file of files) {
-    const schemaObj = JSON.parse(fs.readFileSync(file, 'utf8'));
+    const raw = fs.readFileSync(file, 'utf8');
+    const schemaObj = JSON.parse(raw) as object & { $id?: string | undefined };
 
-    const id = typeof (schemaObj as { $id?: unknown }).$id === 'string' ? (schemaObj as { $id: string }).$id : undefined;
-    if (id) addIfMissing(ajv, id, schemaObj);
-    else {
-      try {
-        ajv.addSchema(schemaObj);
-      } catch {
-        /* ignore */
-      }
-    }
+    const rel = path.relative(dir, file).replace(/\\/g, '/'); // Windows-friendly
+    const baseKey = rel; // used when no $id
 
+    // 1) Base registration (by $id if present else by rel key)
+    const baseIdOrKey = addBaseOnce(ajv, seen, schemaObj, baseKey);
+
+    // 2) Canonical family and target id/key (where aliases will point)
     const canonical = detectKind(schemaObj, file);
+    const newUrn = canonical ? NEW_URN_BY_CANONICAL[canonical] : undefined;
+    const targetId = baseIdOrKey ?? newUrn ?? (canonical ?? baseKey);
+
+    // 3) Canonical id and official colon-form URN
     if (canonical) {
-      // Ensure canonical id is present.
-      addIfMissing(ajv, canonical, schemaObj);
+      addAliasRefOnce(ajv, seen, targetId, canonical);
+      if (newUrn) addAliasRefOnce(ajv, seen, targetId, newUrn);
 
-      // Add the official colon-form URN for this canonical id.
-      const newUrn = NEW_URN_BY_CANONICAL[canonical];
-      if (newUrn) addIfMissing(ajv, newUrn, schemaObj);
+      for (const a of ALIASES[canonical] ?? []) addAliasRefOnce(ajv, seen, targetId, a);
 
-      // Static alias table (if present).
-      for (const a of ALIASES[canonical] ?? []) addIfMissing(ajv, a, schemaObj);
-
-      // https aliases derived from "tail"
+      // https aliases (from tails)
       const tailFromCanonical = canonical.split(':').pop()!;
-      addIfMissing(ajv, `https://zkpip.org/schemas/${tailFromCanonical}`, schemaObj);
+      addAliasRefOnce(ajv, seen, targetId, `https://zkpip.org/schemas/${tailFromCanonical}`);
       if (newUrn) {
         const tailNew = newUrn.split(':').pop()!;
-        addIfMissing(ajv, `https://zkpip.org/schemas/${tailNew}`, schemaObj);
+        addAliasRefOnce(ajv, seen, targetId, `https://zkpip.org/schemas/${tailNew}`);
       }
 
-      // dotted <-> colon autonormalization based on the runtime $id (if present)
-      const dotted = /^urn:zkpip:mvs\.([A-Za-z0-9]+)\.schema\.json$/i.exec(id ?? '');
-      const colon  = /^urn:zkpip:mvs:schemas:([A-Za-z0-9]+)\.schema\.json$/i.exec(id ?? '');
-      if (dotted) addIfMissing(ajv, `urn:zkpip:mvs:schemas:${dotted[1]}.schema.json`, schemaObj);
-      if (colon)  addIfMissing(ajv, `urn:zkpip:mvs.${colon[1]}.schema.json`, schemaObj);
+      // dotted <-> colon normalization based on runtime $id (if present)
+      const baseId = typeof schemaObj.$id === 'string' ? schemaObj.$id : undefined;
+      if (baseId) {
+        const dotted = /^urn:zkpip:mvs\.([A-Za-z0-9]+)\.schema\.json$/i.exec(baseId);
+        const colon  = /^urn:zkpip:mvs:schemas:([A-Za-z0-9]+)\.schema\.json$/i.exec(baseId);
+        if (dotted) addAliasRefOnce(ajv, seen, targetId, `urn:zkpip:mvs:schemas:${dotted[1]}.schema.json`);
+        if (colon)  addAliasRefOnce(ajv, seen, targetId, `urn:zkpip:mvs.${colon[1]}.schema.json`);
+      }
 
-      // Compute logical name ("core", "cir", "proofEnvelope", ...)
+      // Name-based short aliases
       const nameFromCanonical =
         /^urn:zkpip:mvs\.([A-Za-z0-9]+)\.schema\.json$/i.exec(canonical)?.[1] ??
         /^urn:zkpip:mvs:schemas:([A-Za-z0-9]+)\.schema\.json$/i.exec(canonical)?.[1];
 
       if (nameFromCanonical) {
         const low = nameFromCanonical.toLowerCase();
-        const keb = toKebab(nameFromCanonical);
 
-        // filename-style bare names
-        addIfMissing(ajv, nameFromCanonical, schemaObj);
-        addIfMissing(ajv, `${nameFromCanonical}.schema.json`, schemaObj);
-        addIfMissing(ajv, keb, schemaObj);
-        addIfMissing(ajv, `${keb}.schema.json`, schemaObj);
+        addAliasRefOnce(ajv, seen, targetId, nameFromCanonical);
+        addAliasRefOnce(ajv, seen, targetId, `${nameFromCanonical}.schema.json`);
+        addAliasRefOnce(ajv, seen, targetId, toKebab(nameFromCanonical));
+        addAliasRefOnce(ajv, seen, targetId, `${toKebab(nameFromCanonical)}.schema.json`);
 
-        // Short forms
-        addShortAliases(ajv, schemaObj, nameFromCanonical);
+        addShortAliases(ajv, seen, targetId, nameFromCanonical);
 
-        // Explicit legacy/subpath aliases
         if (low === 'proofbundle') {
-          addIfMissing(ajv, 'mvs/verification/proofEnvelope', schemaObj);
-          addIfMissing(ajv, 'mvs/proof-envelope', schemaObj);
+          addAliasRefOnce(ajv, seen, targetId, 'mvs/verification/proofEnvelope');
+          addAliasRefOnce(ajv, seen, targetId, 'mvs/proof-envelope');
         }
         if (low === 'cir') {
-          addIfMissing(ajv, 'mvs/verification/cir', schemaObj);
-          addIfMissing(ajv, 'mvs/cir', schemaObj);
+          addAliasRefOnce(ajv, seen, targetId, 'mvs/verification/cir');
+          addAliasRefOnce(ajv, seen, targetId, 'mvs/cir');
         }
       }
     }
 
-    // Also alias by relative path stem (path-based lookups)
-    const rel = path.relative(dir, file).replace(/\\/g, '/'); // Win compat
+    // 4) Path-based aliases (relative stem variants)
     const stem = rel.replace(/\.schema\.json$/i, '');
     if (stem && !stem.endsWith('.json')) {
-      addIfMissing(ajv, stem, schemaObj);
-      addIfMissing(ajv, `${stem}.schema.json`, schemaObj);
+      addAliasRefOnce(ajv, seen, targetId, stem);
+      addAliasRefOnce(ajv, seen, targetId, `${stem}.schema.json`);
 
       const lastSlash = stem.lastIndexOf('/');
       const dirPart = lastSlash >= 0 ? stem.slice(0, lastSlash) : '';
@@ -226,8 +241,23 @@ export function addCoreSchemas(
       const kebabBase = toKebab(basePart);
       const kebabStem = dirPart ? `${dirPart}/${kebabBase}` : kebabBase;
 
-      addIfMissing(ajv, kebabStem, schemaObj);
-      addIfMissing(ajv, `${kebabStem}.schema.json`, schemaObj);
+      addAliasRefOnce(ajv, seen, targetId, kebabStem);
+      addAliasRefOnce(ajv, seen, targetId, `${kebabStem}.schema.json`);
+    }
+
+    // --- Special-case: SEAL schema aliases (location-agnostic)
+    const baseId = typeof schemaObj.$id === 'string' ? schemaObj.$id : undefined;
+    if (baseId && /^urn:zkpip:schema:seal(\.v1)?$/i.test(baseId)) {
+      const sealAliases = [
+        'mvs/seal.schema.json',
+        'mvs/seal.v1.schema.json',
+        'mvs/seal',
+        'mvs/seal.v1',
+        'seal.schema.json',
+        'seal.v1.schema.json',
+        'urn:zkpip:schema:seal',
+      ];
+      for (const a of sealAliases) addAliasRefOnce(ajv, seen, targetId, a);
     }
   }
 

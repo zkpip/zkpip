@@ -11,7 +11,6 @@ export interface AjvLike {
   errors?: ErrorObject[] | null;
 }
 
-// ⬇️ MINIMÁL, amit az addCoreSchemas használ
 export interface AjvRegistryLike {
   addSchema(schema: object | object[], key?: string): unknown;
   getSchema(id: string): ValidateFunction | undefined;

@@ -15,18 +15,23 @@
   ],
   "anyOf": [
     {
-      "required": [
-        "result"
-      ]
+      "type": "object",
+      "properties": {
+        "result": {}
+      },
+      "required": ["result"]
     },
     {
+      "type": "object",
       "properties": {
         "artifacts": {
-          "required": [
-            "vkey",
-            "proof",
-            "publicSignals"
-          ]
+          "type": "object",
+          "properties": {
+            "vkey": {},
+            "proof": {},
+            "publicSignals": {}
+          },
+          "required": ["vkey", "proof", "publicSignals"]
         }
       }
     }

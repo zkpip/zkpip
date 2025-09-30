@@ -9,8 +9,7 @@
 import path, { dirname, join, resolve as resolvePath } from 'node:path';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 
-import type { VerifySealResult } from './commands/verifySeal.js';
-import { verifySealV1 } from './commands/verifySeal.js';
+import { verifySealV1, type VerifySealResult } from '@zkpip/core';
 
 import { signVector } from './lib/signVector.js';
 import { defaultStoreRoot } from './utils/keystore.js';
@@ -20,6 +19,7 @@ import { runVectorsSign, type VectorsSignOptions } from './commands/vectors-sign
 import { runVectorsPull } from './utils/runVectorsPull.js';
 import type { SealV1 } from '@zkpip/core/seal/v1';
 import { K } from '@zkpip/core/kind';
+import { fsPublicKeyProvider } from './utils/publicKeyProvider.js';
 
 // kind helpers (schema-aligned)
 import {
@@ -30,6 +30,8 @@ import {
   M1Kinds,
   type Kind,
 } from '@zkpip/core/kind';
+import { KeysGenerateOptions, runKeysGenerate } from './commands/keys-generate.js';
+import { VerifySealOptions } from '../../core/dist/verify/types.js';
 
 // --------- tiny argv parser (posix-ish, no short flags packing) ---------
 type Flags = Readonly<Record<string, string | boolean>>;
@@ -91,6 +93,47 @@ export async function runVectorsCli(argv: ReadonlyArray<string>): Promise<void> 
     };
 
     process.exitCode = await runVectorsSign(options);
+    return;
+  }
+
+  if (sub === 'keys') {
+    const sub2 = rest[0];
+    if (!sub2 || sub2 === 'help' || flags['help'] || flags['h']) {
+      // rövid inline help, hogy ne kelljen a teljes help-et végiggörgetni
+      console.log(
+        `zkpip keys\n\n` +
+        `Usage:\n` +
+        `  zkpip keys generate --store <dir> [--label <txt>] [--keyId <kid>] [--json]\n`
+      );
+      process.exitCode = 0;
+      return;
+    }
+
+    if (sub2 === 'generate') {
+      const outDir = typeof flags['store'] === 'string'
+        ? String(flags['store'])
+        : defaultStoreRoot(); // fallback a meglévő keystore root-ra
+
+      const options: KeysGenerateOptions = {
+        outDir,
+        ...(typeof flags['label'] === 'string' ? { label: String(flags['label']) } : {}),
+        ...(typeof flags['keyId'] === 'string' ? { keyId: String(flags['keyId']) } : {}),
+        ...(flags['json'] ? { json: true } : {}),
+      };
+
+      const code = await runKeysGenerate(options);
+      process.exitCode = code;
+      return;
+    }
+
+    // Ismeretlen keys alparancs
+    console.error(JSON.stringify({
+      ok: false as const,
+      code: 1 as const,
+      error: 'UNKNOWN_KEYS_SUBCOMMAND',
+      message: `Unknown keys subcommand: ${String(sub2)}`
+    }));
+    process.exitCode = 1;
     return;
   }
 
@@ -207,7 +250,14 @@ function printVectorsHelp(): void {
     `  --key-dir <dir>    Directory for private/public keys (default: ~/.zkpip/key)\n` +
     `  --kind <KIND>      Kind to seal as (default: vector)\n` +
     `  --json             Force JSON output (errors are always JSON)\n` +
-    `  --use-exit-codes   Use non-zero exit codes on error (default true)\n`;
+    `  --use-exit-codes   Use non-zero exit codes on error (default true)\n` +
+    `\nKeys:\n` +
+    `  zkpip keys generate --store <dir> [--label <txt>] [--keyId <kid>] [--json]\n` +
+    `\nOptions (keys generate):\n` +
+    `  --store <dir>      Keystore root directory (default: ~/.zkpip/key)\n` +
+    `  --label <txt>      Optional human-friendly label written into key.json and index\n` +
+    `  --keyId <kid>      Optional override; must match derived keyId from SPKI\n` +
+    `  --json             Machine-readable JSON output (errors are always JSON)\n`;
   console.log(msg);
 }
 
@@ -285,8 +335,11 @@ async function runVerifySeal(_rest: ReadonlyArray<string>, flags: Flags): Promis
       ensureUrnMatchesKind(expectKind, json.seal.urn);
     }
 
-    const opts: Readonly<{ keyDir?: string }> = { ...(keyDir ? { keyDir } : {}) };
-    const res = verifySealV1(json, opts);
+    const verifyOpts: VerifySealOptions = {
+      getPublicKey: fsPublicKeyProvider(keyDir)
+    };
+
+    const res = verifySealV1(json, verifyOpts);
     emitVerify(res, forceJson);
     process.exitCode = mapExitCode(res.ok, res.code, useExitCodes);
   } catch (e) {

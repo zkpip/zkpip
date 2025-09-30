@@ -104,13 +104,21 @@ function clearDir(dir: string): void {
 }
 
 export async function runForge(args: RunForgeArgs): Promise<number> {
+  if (!args.in || args.in.trim().length === 0) {
+    console.error(JSON.stringify({
+      ok: false,
+      code: 'FORGE_ERROR',
+      message: 'Missing --in option',
+    }));
+    return 1;
+  }
+
   const baseDir = resolve(args.in);
   const triplet = extractTripletFromDir(baseDir);
   const baseDirAbs = resolve(args.in);  
 
   function absolutizeVkeySmart(verificationPath?: string): { abs?: string; uri?: string } {
     if (!verificationPath) return {};
-    // 1) abszolút → kész
     if (isAbsolute(verificationPath) && existsSync(verificationPath)) {
       return { abs: verificationPath, uri: `file://${verificationPath}` };
     }
