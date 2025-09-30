@@ -9,7 +9,11 @@
     "declarationMap": false,
     "emitDeclarationOnly": false,
     "sourceMap": true,
-    "tsBuildInfoFile": "./dist/.tsbuildinfo"
+    "tsBuildInfoFile": "./dist/.tsbuildinfo",
+    "module": "NodeNext",
+    "target": "ES2022",
+    "moduleResolution": "NodeNext",
+    "allowJs": false
   },
   "include": ["src/**/*", "src/**/*.ts"],
   "exclude": [

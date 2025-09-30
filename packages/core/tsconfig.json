@@ -5,6 +5,8 @@
     "moduleResolution": "NodeNext",
     "rootDir": "./src",
     "outDir": "./dist",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,    
 
     "resolveJsonModule": true,
     "skipLibCheck": true,

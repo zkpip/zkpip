@@ -5,17 +5,17 @@ import yargs, { type Argv } from 'yargs';
 import { manifestSignCmd } from './commands/manifest/sign.js';
 import { manifestVerifyCmd } from './commands/manifest/verify.js';
 
-export async function runManifestCli(args: string[]): Promise<void> {
-  // Keep flags camelCase in types, but allow kebab-case in CLI (e.g., --key-id)
-  const parserCfg: Record<string, boolean> = { 'camel-case-expansion': true };
+export async function runManifestCli(args: readonly string[]): Promise<void> {
+  const a: string[] = Array.from(args);
 
-  await (yargs(args) as Argv<unknown>)
-    .parserConfiguration(parserCfg)
+  await (yargs(a) as Argv<unknown>)
+    .parserConfiguration({ 'camel-case-expansion': true })
     .scriptName('zkpip manifest')
     .strict()
+    .strictCommands()
     .command(manifestSignCmd)
     .command(manifestVerifyCmd)
     .demandCommand(1)
     .help()
-    .parse(); // note: args already sliced by index.ts
+    .parse();
 }

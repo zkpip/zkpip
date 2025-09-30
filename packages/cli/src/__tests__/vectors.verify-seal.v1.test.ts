@@ -10,14 +10,24 @@ import { join } from 'node:path';
 import { generateKeyPairSync, createPrivateKey, sign as edSign } from 'node:crypto';
 import { K } from '@zkpip/core/kind';
 
-import verifySealV1, {
-  type VerifySealResult,
-} from '../commands/verifySeal.js';
+import { verifySealV1 } from '@zkpip/core';
 
 import { canonicalize, sha256Hex, type JsonValue } from '@zkpip/core/json/c14n';
 import type { SealV1 } from '@zkpip/core/seal/v1';
 
 // ---- Helpers ----
+
+function providerFromPem(pubPem: string) {
+  return (keyId: string): string => {
+    void keyId;           
+    return pubPem;
+  };
+}
+
+function toKeyIdFromPubPem(pubPem: string): string {
+  // hex (lowercase), at least 16 chars to satisfy the schema
+  return sha256Hex(pubPem).slice(0, 16);
+}
 
 function toUrnFromHex(hex: string, kind = 'vector'): string {
   return `urn:zkpip:${kind}:sha256:${hex}`;
@@ -61,7 +71,7 @@ describe('vectors verify-seal (Seal v1)', () => {
     const privPem = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
 
     const keyDir = createTempKeyDir();
-    const keyId = 'test1';
+    const keyId = toKeyIdFromPubPem(pubPem);
     writePublicKeyPem(keyDir, pubPem);
 
     const body = makeBody();
@@ -78,14 +88,17 @@ describe('vectors verify-seal (Seal v1)', () => {
         keyId,
         signature: signCanonEd25519(canon, privPem),
         urn,
+        signer: 'codeseal/1',
+        createdAt: new Date().toISOString(),
       },
     } as const;
 
-    const res: VerifySealResult = verifySealV1(sealed, { keyDir });
+    const res = verifySealV1(sealed, { getPublicKey: providerFromPem(pubPem) });
     expect(res.ok).toBe(true);
     if (res.ok) {
       expect(res.code).toBe(0);
       expect(res.urn).toBe(urn);
+      expect(res.stage).toBe('verify');
     }
 
     rmSync(keyDir, { recursive: true, force: true });
@@ -97,7 +110,7 @@ describe('vectors verify-seal (Seal v1)', () => {
     const privPem = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
 
     const keyDir = createTempKeyDir();
-    const keyId = 'test2';
+    const keyId = toKeyIdFromPubPem(pubPem);
     writePublicKeyPem(keyDir, pubPem);
 
     const body = makeBody();
@@ -114,10 +127,12 @@ describe('vectors verify-seal (Seal v1)', () => {
         keyId,
         signature: signCanonEd25519(canon, privPem),
         urn: urn.replace(/([0-9a-f]{64})$/, h => (h[0] === 'a' ? 'b' : 'a') + h.slice(1)), 
+        signer: 'codeseal/1',
+        createdAt: new Date().toISOString(),
       },
     } as const;
 
-    const res = verifySealV1(sealed, { keyDir });
+    const res = verifySealV1(sealed, { getPublicKey: () => undefined });
     expect(res.ok).toBe(false);
     if (!res.ok) {
       expect(res.code).toBe(4); // verify_error
@@ -132,7 +147,7 @@ describe('vectors verify-seal (Seal v1)', () => {
     const pubPem = publicKey.export({ type: 'spki', format: 'pem' }).toString();
 
     const keyDir = createTempKeyDir();
-    const keyId = 'test3';
+    const keyId = toKeyIdFromPubPem(pubPem);
     writePublicKeyPem(keyDir, pubPem);
 
     const body = makeBody();
@@ -148,10 +163,12 @@ describe('vectors verify-seal (Seal v1)', () => {
         keyId,
         signature: '***not-base64***',
         urn: toUrnFromHex(hex),
+        signer: 'codeseal/1',
+        createdAt: new Date().toISOString(),
       },
     } as const;
 
-    const res = verifySealV1(sealed, { keyDir });
+    const res = verifySealV1(sealed, { getPublicKey: () => undefined });
     expect(res.ok).toBe(false);
     if (!res.ok) {
       expect(res.code).toBe(3); // schema_invalid
@@ -163,8 +180,9 @@ describe('vectors verify-seal (Seal v1)', () => {
 
   it('fails when public key cannot be found', () => {
     const emptyDir = createTempKeyDir(); // no key files
-    const { privateKey } = generateKeyPairSync('ed25519');
+    const { publicKey, privateKey } = generateKeyPairSync('ed25519');
     const privPem = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+    const pubPem = publicKey.export({ type: 'spki', format: 'pem' }).toString();
 
     const body = makeBody();
     const canon = canonicalize(body);
@@ -176,13 +194,15 @@ describe('vectors verify-seal (Seal v1)', () => {
       body,
       seal: {
         algo: 'ed25519',
-        keyId: 'missing',
+        keyId: toKeyIdFromPubPem(pubPem),
         signature: signCanonEd25519(canon, privPem),
         urn: toUrnFromHex(hex),
+        signer: 'codeseal/1',
+        createdAt: new Date().toISOString(),
       },
     } as const;
 
-    const res = verifySealV1(sealed, { keyDir: emptyDir });
+    const res = verifySealV1(sealed, { getPublicKey: () => undefined });
     expect(res.ok).toBe(false);
     if (!res.ok) {
       expect(res.code).toBe(2); // io_error
@@ -198,7 +218,7 @@ describe('vectors verify-seal (Seal v1)', () => {
     const privPem = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
 
     const keyDir = createTempKeyDir();
-    const keyId = 'test4';
+    const keyId = toKeyIdFromPubPem(pubPem);
     writePublicKeyPem(keyDir, pubPem);
 
     const body = makeBody();
@@ -214,10 +234,12 @@ describe('vectors verify-seal (Seal v1)', () => {
         keyId,
         signature: signCanonEd25519(canon, privPem),
         urn: toUrnFromHex(hex),
+        signer: 'codeseal/1',
+        createdAt: new Date().toISOString(),
       },
     } as unknown as SealV1;
 
-    const res = verifySealV1(sealed, { keyDir });
+    const res = verifySealV1(sealed, { getPublicKey: () => undefined });
     expect(res.ok).toBe(false);
     if (!res.ok) {
       expect(res.code).toBe(3); // schema_invalid

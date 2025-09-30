@@ -1,38 +1,68 @@
-// packages/core/src/schema/validateSeal.ts
-// Reuse shared AJV factory and import JSON via "with { type: 'json' }"
-import type { ErrorObject, ValidateFunction } from 'ajv';
-import { createAjv } from '../validation/ajv.js';
+import type { Options, ErrorObject } from 'ajv';
+import { createAjv } from '../validation/createAjv.js';
 import sealSchema from '../../schemas/mvs/seal.schema.json' with { type: 'json' };
 
-export type SchemaError = Readonly<{
-  instancePath: string;
-  message: string;
+export type AjvErrorLite = Readonly<{
+  path: string;
+  keyword: string;
+  message?: string;
 }>;
 
-export type SchemaValidateResult =
+type AjvErr = Readonly<{
+  instancePath: string;
+  keyword: string;
+  message?: string;
+  schemaPath?: string;
+  params?: Readonly<Record<string, unknown>>;
+}>;
+
+export type ValidateSealV1Ajv =
   | { ok: true }
-  | { ok: false; errors: ReadonlyArray<SchemaError> };
+  | {
+      ok: false;
+      errors: ReturnType<typeof errorsToMinimal>;
+      error: 'SCHEMA_VALIDATION_FAILED';
+      message: string;
+      rawErrors: readonly ErrorObject[];
+    };
 
-// Cache the compiled validator to avoid recompilation
-let _validator: ValidateFunction | null = null;
+export type AjvResult =
+  | Readonly<{ ok: true }>
+  | Readonly<{ ok: false; errors: readonly AjvErrorLite[]; error: string; message: string }>;
 
-function getValidator(): ValidateFunction {
-  if (_validator) return _validator;
-  const ajv = createAjv();
-  // Ajv expects a plain JSON schema object
-  _validator = ajv.compile(sealSchema as unknown as object);
-  return _validator;
+const defaultOptions: Options = { strict: true, allErrors: true };
+const ajv = createAjv(defaultOptions);
+const validate = ajv.compile(sealSchema);
+
+export function errorsToMinimal(es: readonly AjvErr[]): readonly AjvErrorLite[] {
+  return es.map((e) => ({
+    path: e.instancePath || '/',
+    keyword: e.keyword,
+    ...(e.message ? { message: e.message } : {}),
+  }));
 }
 
-export function validateSealJson(json: unknown): SchemaValidateResult {
-  const validate = getValidator(); // ValidateFunction
-  const ok = validate(json);
-  if (ok) return { ok: true };
+export function validateSealV1Ajv(input: unknown): ValidateSealV1Ajv {
+  const ok = validate(input);
+  if (ok) return { ok: true as const };
 
-  const errors = (validate.errors ?? []).map((e: ErrorObject) => ({
-    instancePath: e.instancePath,
-    message: e.message ?? 'validation error',
-  })) as ReadonlyArray<SchemaError>;
+  const rawErrors = (validate.errors ?? []) as readonly ErrorObject[];
 
-  return { ok: false, errors };
+  const rawLite = rawErrors.map((e) => ({
+    instancePath: e.instancePath ?? '',
+    keyword: e.keyword,
+    message: e.message,
+    schemaPath: e.schemaPath, // ok, Ajv ErrorObject-ben kötelező string; a te típusod optional, ez kompatibilis
+    params: (e.params ?? {}) as Readonly<Record<string, unknown>>,
+  }));
+
+  const minimal = errorsToMinimal(rawLite);
+
+  return {
+    ok: false as const,
+    errors: minimal,
+    error: 'SCHEMA_VALIDATION_FAILED',
+    message: 'Schema validation failed',
+    rawErrors
+  };
 }

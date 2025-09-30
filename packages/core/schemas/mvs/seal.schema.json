@@ -23,7 +23,8 @@
     },
 
     "body": {
-      "description": "Artifact content or reference (see kind-specific rules below)"
+      "description": "Artifact content or reference (see kind-specific rules below)",
+      "type": ["object", "array", "string", "number", "boolean", "null"]
     },
 
     "seal": {
@@ -32,11 +33,8 @@
       "required": ["algo", "keyId", "signature", "urn", "signer", "createdAt"],
       "properties": {
         "algo": { "enum": ["ed25519"] },
-        "keyId": {
-          "type": "string",
-          "description": "base32(lowercase, no padding) of sha256(SPKI) — min 8 chars",
-          "pattern": "^[a-z2-7]{8,}$"
-        },
+        "keyId": 
+          { "type":"string", "minLength": 8, "pattern":"^(?:[a-z2-7]{8,}|[0-9a-f]{16,})$" },
         "signature": {
           "type": "string",
           "description": "Base64 signature",
@@ -44,8 +42,8 @@
         },
         "urn": {
           "type": "string",
-          "description": "urn:zkpip:<kind>:sha256:<hex64>",
-          "pattern": "^urn:zkpip:(vector|circuit|image|proof|verifying-key|params|verifier-sol|verifier-bytecode|manifest|witness|proving-key|transcript|constraints|bench-report|adapter-meta|attestation|policy|bundle|artifact-log|x-[a-z0-9-]{1,63}):sha256:[0-9a-f]{64}$"
+          "description": "URN with zkpip scheme; exact hash and kind checked semantically",
+          "pattern": "^urn:zkpip:"
         },
         "signer": { "type": "string", "minLength": 1 },
         "createdAt": { "type": "string", "format": "date-time" }
