@@ -9,6 +9,7 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
 import { createAjv, addCoreSchemas } from '@zkpip/core';
+import { ExitCode } from '../utils/exit.js';
 
 type AjvErr = Readonly<{ instancePath?: string; message?: string }>;
 
@@ -21,7 +22,6 @@ type AjvValidateFn = ((data: unknown) => boolean) & {
 /* ---------------------------------------------------------------------- */
 
 // Safe argv flag reader (supports --flag value and --flag=value forms)
-// Guards against undefined elements (noUncheckedIndexedAccess-friendly)
 function getArgValue(flags: ReadonlyArray<string>): string | undefined {
   const argv: ReadonlyArray<string> = process.argv;
   for (let i = 0; i < argv.length; i++) {
@@ -42,7 +42,7 @@ function getArgValue(flags: ReadonlyArray<string>): string | undefined {
 
 /**
  * Installed  @zkpip/core → <corePackageDir>/schemas
- * Monorepo dev → <repo>/packages/core/schemas
+ * Monorepo dev          → <repo>/packages/core/schemas
  */
 function inferCoreSchemasRoot(): string | undefined {
   // 1) Resolve from installed package location
@@ -58,7 +58,7 @@ function inferCoreSchemasRoot(): string | undefined {
 
   // 2) Monorepo: <this_file>/../../../core/schemas
   try {
-    const here = fileURLToPath(new URL('.', import.meta.url)); // .../packages/cli/dist/commands/
+    const here = fileURLToPath(new URL('.', import.meta.url));
     const candidate = path.resolve(here, '../../../core/schemas');
     if (existsSync(candidate)) return candidate;
   } catch {
@@ -137,24 +137,30 @@ export async function validatePath(inputPath: string): Promise<void> {
   }
 }
 
-/**
- * Thin CLI wrapper: keeps current behavior (exit codes, console output).
- * Usage: node dist/cli/validate.js <path-to-json> [--schemas-root <dir>]
- */
+/* ---------------------------------------------------------------------- */
+/*                               CLI entry                                  */
+/* ---------------------------------------------------------------------- */
+
+/** Thin CLI wrapper. Returns ExitCode; entry sets process.exitCode. */
+async function main(argv: readonly string[]): Promise<ExitCode> {
+  const fileArg = argv[2];
+  if (!fileArg || fileArg.startsWith('-')) {
+    const note = 'Usage: zkpip-validate <path-to-json> [--schemas-root <dir>]';
+    console.log(note);
+    return ExitCode.INVALID_ARGS;
+  }
+  try {
+    await validatePath(fileArg);
+    console.log('✅ Validation OK');
+    return ExitCode.OK;
+  } catch (e) {
+    const note = String(e instanceof Error ? e.message : e);
+    console.error(note);
+    return ExitCode.UNEXPECTED;
+  }
+}
+
+// Run only when invoked directly (not when imported)
 if (import.meta.url === `file://${process.argv[1]}`) {
-  void (async () => {
-    const fileArg = process.argv[2];
-    if (!fileArg || fileArg.startsWith('-')) {
-      console.error('Usage: zkpip-validate <path-to-json> [--schemas-root <dir>]');
-      process.exit(2);
-    }
-    try {
-      await validatePath(fileArg);
-      console.log('✅ Validation OK');
-      process.exit(0);
-    } catch (e) {
-      console.error(String(e instanceof Error ? e.message : e));
-      process.exit(1);
-    }
-  })();
+  process.exitCode = await main(process.argv);
 }

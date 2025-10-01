@@ -8,7 +8,10 @@
 */
 
 import { composeHelp, topLevelUsage } from './help.js';
+import { classifyExitCode, getErrorMessage } from './utils/error.js';
+import { ExitCode } from './utils/exit.js';
 export { type AdapterId } from './registry/adapterRegistry.js';
+import { finalizeExit } from './utils/finalize.js';
 
 type Runner = (args: readonly string[]) => Promise<void> | void;
 
@@ -26,20 +29,24 @@ const factories: Record<string, () => Promise<Runner>> = {
   verify:   () => import('./verify-cli.js').then(m => m.runVerifyCli),
   manifest: () => import('./manifest-cli.js').then(m => m.runManifestCli),
   keys:     () => import('./keys-cli.js').then(m => m.runKeysCli),
-  forge:    () => import('./forge-cli.js').then(m => m.runForgeCli),
-  vectors:  () => import('./vectors-cli.js').then(m => m.runVectorsCli),
+  forge:    () =>
+    import('./forge-cli.js').then(m => {
+      return async (args: readonly string[]) => {
+        const code = await m.runForgeCli(args);  
+        process.exitCode = code;                 
+      };
+    }),
+  vectors:  () =>
+    import('./vectors-cli.js').then(m => {
+      return async (args: readonly string[]) => {
+        const code = await m.runVectorsCli(args); // Promise<ExitCode>
+        process.exitCode = code;
+      };
+    }),
 };
 
 function hasFlag(argv: readonly string[], ...flags: readonly string[]): boolean {
   return argv.some(a => flags.includes(a));
-}
-
-function hasInFlag(argv: readonly string[]): boolean {
-  return argv.some(a => a === '--in' || a.startsWith('--in=') || a === '--inDir' || a.startsWith('--inDir='));
-}
-
-function hasDryRunFlag(argv: readonly string[]): boolean {
-  return argv.includes('--dry-run');
 }
 
 (async () => {
@@ -50,8 +57,7 @@ function hasDryRunFlag(argv: readonly string[]): boolean {
   // No subcommand: show global help and exit 0
   if (!cmd) {
     printHelp();
-    process.exitCode = 0;
-    return;
+    return finalizeExit(ExitCode.OK);
   }
 
   // Explicit global help
@@ -60,12 +66,10 @@ function hasDryRunFlag(argv: readonly string[]): boolean {
     if (cmd === 'help' && sub && factories[sub]) {
       const run = await factories[sub]();
       await run(normalizeForHelp(argv.slice(2)));
-      process.exitCode = 0;
-      return;
+      return finalizeExit(ExitCode.OK);
     }
     printHelp();
-    process.exitCode = 0;
-    return;
+    return finalizeExit(ExitCode.OK);
   }
 
   // Known subcommand? Always delegate; do NOT print usage here.
@@ -80,34 +84,25 @@ function hasDryRunFlag(argv: readonly string[]): boolean {
 
       await run(args);
 
-      // If handler didn't set an exit code or exit, default to 0 (success)
-      if (typeof process.exitCode !== 'number') process.exitCode = 0;
-    } catch (err) {
-      // Standardize non-zero exit on errors
-      if (typeof process.exitCode !== 'number' || process.exitCode === 0) {
-        process.exitCode = 1;
+      // If handler didn't set an exit code or exit, default to success
+      if (process.exitCode == null) {
+        process.exitCode = ExitCode.OK;
       }
+    } catch (err) {
+      // Log a meaningful message, but don't hard-exit here
+      const note = getErrorMessage(err);
+      if (note) process.stderr.write(note + '\n');
 
-      // Special case: forge without --in/--dry-run → emit FORGE_ERROR if the handler didn't
-      if (
-        cmd === 'forge' &&
-        !hasInFlag(rest) &&
-        !hasDryRunFlag(rest)
-      ) {
-        const message =
-          err instanceof Error ? err.message : String(err ?? 'Missing --in option');
-        // Write a single-line JSON to stderr (what the test expects)
-        process.stderr.write(
-          JSON.stringify({ ok: false, code: 'FORGE_ERROR', message }) + '\n'
-        );
+      // If no exitCode was set yet (or was incorrectly left at OK), classify
+      if (process.exitCode == null || process.exitCode === ExitCode.OK) {
+        process.exitCode = classifyExitCode(err); // IO / SCHEMA / UNEXPECTED
       }
     }
 
-    if (process.env.ZKPIP_HARD_EXIT === '1') process.exit(process.exitCode ?? 0);
-    return;
+    return finalizeExit();
   }
 
-  // Unknown command
+  // Unknown command → INVALID_ARGS (user error)
   process.stderr.write(
     JSON.stringify({
       ok: false,
@@ -115,5 +110,5 @@ function hasDryRunFlag(argv: readonly string[]): boolean {
       message: `Unknown command: ${cmd}`,
     }) + '\n'
   );
-  process.exitCode = 1;
+  return finalizeExit(ExitCode.INVALID_ARGS);
 })();

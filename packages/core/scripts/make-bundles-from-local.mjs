@@ -1,8 +1,5 @@
 // packages/core/scripts/make-bundles-from-local.mjs
 // ESM only – Node 18+
-// Kimenet: proof-envelope.valid.json és proof-envelope.invalid.json (+ invalid proof/public fájlok)
-// Kötelező inputok a --dir mappában: verification_key.json (vagy vkey.json), proof.json, public.json
-// Opcionális: *.wasm, *.zkey, circuit.circom
 
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
@@ -65,8 +62,8 @@ function artifactMeta(absPath, mediaType = 'application/octet-stream') {
   const stat = fs.statSync(absPath);
   const buf = fs.readFileSync(absPath);
   return {
-    path: absPath, // abszolút path (loader barát)
-    uri: fileUri(absPath), // file:// URI (biztos feloldás)
+    path: absPath, 
+    uri: fileUri(absPath), 
     size: stat.size,
     mediaType,
     hash: { alg: 'sha256', value: sha256(buf) },
@@ -77,7 +74,6 @@ async function writeJsonPretty(absPath, obj) {
   await writeFile(absPath, JSON.stringify(obj, null, 2) + '\n', 'utf8');
 }
 
-// Biztos „meghamisítás”: keresünk az objektumban egy szám-stringet és +1
 function bumpFirstNumericStringDeep(obj) {
   let done = false;
   const bump = (v) => {
@@ -88,7 +84,6 @@ function bumpFirstNumericStringDeep(obj) {
         return (BigInt(v) + 1n).toString();
       }
       if (/^0x[0-9a-fA-F]+$/.test(v)) {
-        // hex: utolsó nibble flip (nem 'f'→'0')
         const hex = v.slice(2);
         const last = hex.slice(-1);
         const flipped = last.toLowerCase() === 'f' ? '0' : (parseInt(last, 16) ^ 1).toString(16);
@@ -116,7 +111,6 @@ function bumpFirstNumericStringDeep(obj) {
 async function main() {
   const { dir, out } = parseArgs(process.argv);
 
-  // Kötelező inputok
   const vkeyPath = [path.join(dir, 'verification_key.json'), path.join(dir, 'vkey.json')].find(
     exists,
   );
@@ -136,7 +130,6 @@ async function main() {
     process.exit(4);
   }
 
-  // Opcionális
   const cirPath = exists(path.join(dir, 'circuit.circom'))
     ? path.join(dir, 'circuit.circom')
     : null;
@@ -151,7 +144,6 @@ async function main() {
     process.exit(4);
   }
 
-  // Tartalmak
   const vkey = await readJson(vkeyPath);
   const proofRaw = await readJson(proofPath);
   const publicArray = await readJson(publicPath);
@@ -170,7 +162,6 @@ async function main() {
     process.exit(4);
   }
 
-  // Meta
   const program = { language: 'circom', entry: cirPath ? 'circuit.circom' : 'unknown' };
   const curve = typeof vkey?.curve === 'string' ? vkey.curve : 'bn128';
 
@@ -183,7 +174,6 @@ async function main() {
     program,
   };
 
-  // Artifacts (VALID) – az eredeti fájlokra mutatnak
   const artifactsValid = {
     vkey: artifactMeta(vkeyPath, 'application/json'),
     proof: artifactMeta(proofPath, 'application/json'),
@@ -192,17 +182,15 @@ async function main() {
     zkey: artifactMeta(zkeyPath, 'application/octet-stream'),
   };
 
-  // VALID bundle – inline result is
+  // VALID bundle – inline result
   const valid = {
     ...base,
     artifacts: artifactsValid,
     result: { proof: structuredClone(proofObj), publicSignals: structuredClone(publicSignals) },
   };
 
-  // INVALID bundle előkészítés: módosítunk publicSignals-t és a proof-ból is 1 számot
   const invalidPublic = structuredClone(publicSignals);
   if (invalidPublic.length > 0) {
-    // +1 az első numeric elemre (hexet is kezeljük)
     for (let i = 0; i < invalidPublic.length; i++) {
       const v = invalidPublic[i];
       if (typeof v === 'string' && /^-?\d+$/.test(v)) {
@@ -224,11 +212,9 @@ async function main() {
 
   const invalidProof = bumpFirstNumericStringDeep(proofObj);
 
-  // Kiírjuk az INVALID-hoz tartozó fájlokat az out mappába
   const invalidPublicPath = path.join(out, 'public.invalid.json');
   const invalidProofPath = path.join(out, 'proof.invalid.json');
 
-  // proof.json eredeti fájl formátuma lehet wrapperes -> tartsuk meg
   const invalidProofFileContent = proofHasWrapper
     ? { ...structuredClone(proofRaw), proof: structuredClone(invalidProof) }
     : structuredClone(invalidProof);
@@ -236,7 +222,6 @@ async function main() {
   await writeJsonPretty(invalidPublicPath, invalidPublic);
   await writeJsonPretty(invalidProofPath, invalidProofFileContent);
 
-  // Artifacts (INVALID) – proof/publicSignals átirányítva az új fájlokra
   const artifactsInvalid = {
     ...artifactsValid,
     proof: artifactMeta(invalidProofPath, 'application/json'),
@@ -245,12 +230,11 @@ async function main() {
 
   const invalid = {
     ...base,
-    envelopeId: `urn:uuid:${uuid()}`, // <<< ÚJ ID MINDIG az invalidnak
+    envelopeId: `urn:uuid:${uuid()}`, 
     artifacts: artifactsInvalid,
     result: { proof: invalidProof, publicSignals: invalidPublic },
   };
 
-  // Írás
   await fsp.mkdir(out, { recursive: true });
   const validOut = path.join(out, 'proof-envelope.valid.json');
   const invalidOut = path.join(out, 'proof-envelope.invalid.json');

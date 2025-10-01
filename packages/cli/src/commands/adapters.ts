@@ -31,7 +31,6 @@ function parseFlags(argv: readonly string[]): ParsedFlags {
   return { json, useExitCodes };
 }
 
-/** Core implementáció – kilistázza az adaptereket és kiírja JSON-ként (vagy raw JSON stringként). */
 async function listAdaptersAndPrint(json: boolean): Promise<void> {
   const adapters = await getAllAdapters();
   const rows: Row[] = adapters.map((a) => ({
@@ -43,7 +42,6 @@ async function listAdaptersAndPrint(json: boolean): Promise<void> {
   else console.log(JSON.stringify(rows));
 }
 
-/** Közvetlen CLI futtató ehhez a parancshoz. */
 export async function runAdaptersCli(argv: readonly string[]): Promise<void> {
   const flags = parseFlags(argv);
   try {
@@ -62,13 +60,10 @@ export async function runAdaptersCli(argv: readonly string[]): Promise<void> {
   }
 }
 
-/** Visszafelé kompatibilis export: csak a handler, yargs nélkül. */
 export const adaptersCmd = {
-  // yargs nélkül is hívható: adaptersCmd.handler({ json: true })
   async handler(argv: { json?: boolean; [k: string]: unknown }): Promise<void> {
     try {
       await listAdaptersAndPrint(argv.json === true);
-      // Ha valaki --use-exit-codes-t adott át "argv"-ban, tartsuk tiszteletben:
       const useExit =
         argv['use-exit-codes'] === true ||
         argv['exit-codes'] === true ||

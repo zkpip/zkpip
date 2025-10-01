@@ -10,6 +10,8 @@ import { existsSync, promises as fsp } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { writeFile } from '../src/utils/fs-compat.js';
+import { classifyExitCode, getErrorMessage } from '../src/utils/error.js';
+import { ExitCode } from '../src/utils/exit.js';
 
 // ---------- JSON types (immutable) ----------
 type JSONPrimitive = string | number | boolean | null;
@@ -243,7 +245,10 @@ async function main(): Promise<void> {
   process.stdout.write(`Stage 1 results → ${path.join(runDir, 'verify.ndjson')}\n`);
 }
 
-main().catch((e: unknown) => {
-  console.error(e instanceof Error ? e.message : String(e));
-  process.exit(2);
-});
+try {
+  await main();                           
+  process.exitCode = ExitCode.OK;
+} catch (e: unknown) {
+  console.error(getErrorMessage(e));
+  process.exitCode = classifyExitCode(e);
+}

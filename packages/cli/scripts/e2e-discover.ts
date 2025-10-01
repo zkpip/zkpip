@@ -13,6 +13,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { Kind } from '@zkpip/core/kind';
+import { classifyExitCode, getErrorMessage } from '../src/utils/error.js';
+import { ExitCode } from '../src/utils/exit.js';
 
 type JSONPrimitive = string | number | boolean | null;
 type JSONValue = JSONPrimitive | JSONObject | JSONArray;
@@ -334,7 +336,10 @@ async function main(): Promise<void> {
   process.stdout.write(`Stage 0 artifacts → ${OUT_DIR}\n`);
 }
 
-main().catch((e: unknown) => {
-  console.error(e instanceof Error ? e.message : String(e));
-  process.exit(2);
-});
+try {
+  await main();                           
+  process.exitCode = ExitCode.OK;
+} catch (e: unknown) {
+  console.error(getErrorMessage(e));
+  process.exitCode = classifyExitCode(e);
+}

@@ -19,7 +19,8 @@ import { resolveDumpRoot } from '../utils/dumpRoot.js';
 import { getDumpNormalizedArg, prettyVerificationPath } from './_internals/verify-argv.js';
 import { repoJoin } from '../utils/paths.js';
 import { K_VERIFICATION_JSON } from '../kinds.js';
-
+import { ExitCode } from '../utils/exit.js';
+import { finalizeExit } from '../utils/finalize.js';
 function toAdapterId(s: string): AdapterId {
   if (isAdapterId(s)) return s;
   throw new Error(`Unknown adapter: ${s}`);
@@ -178,7 +179,7 @@ export async function verifyCommand(argv: VerifyHandlerArgs): Promise<void> {
   const jsonMode = Boolean(argv.json);
 
   function emit(result: VerifyOutcomeU): void {
-    const code = result.ok ? 0 : mapVerifyOutcomeToExitCode(result);
+    const code = result.ok ? ExitCode.OK : mapVerifyOutcomeToExitCode(result);
 
     if (jsonMode) {
       (result.ok ? writeJsonStdout : writeJsonStderr)(result as VerifyOk & VerifyErr);
@@ -187,7 +188,7 @@ export async function verifyCommand(argv: VerifyHandlerArgs): Promise<void> {
     }
 
     // Hard-exit ALWAYS to avoid open handles keeping the loop alive.
-    process.exit(code);
+    finalizeExit(code);
   }
 
   let normalizedOut: VerifyOutcomeU;

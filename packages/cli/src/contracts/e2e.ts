@@ -1,7 +1,7 @@
 // Small shared helpers for E2E (no `any`; English comments)
 import { createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
-import { writeFile } from '../../src/utils/fs-compat.js';
+import { writeFile } from '../utils/fs-compat.js';
 
 export type JSONPrimitive = string | number | boolean | null;
 export type JSONArray = ReadonlyArray<JSONValue>;
