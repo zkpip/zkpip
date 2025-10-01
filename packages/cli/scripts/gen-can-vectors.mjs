@@ -9,6 +9,7 @@ import { dirname, resolve, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { writeFileSync } from '../dist/utils/fs-compat.js';
+import { ExitCode } from './utils/exit-codes.mjs';
 
 function b64uToBuf(s) {
   // convert base64url -> base64
@@ -27,8 +28,9 @@ function bufToB64u(buf) {
 function requireArg(name) {
   const i = process.argv.indexOf(name);
   if (i === -1 || !process.argv[i + 1]) {
-    console.error(`Missing required arg: ${name}`);
-    process.exit(2);
+    const note = `Missing required arg: ${name}`;
+    console.error(note);
+    return ExitCode.INVALID_ARGS;
   }
   return process.argv[i + 1];
 }

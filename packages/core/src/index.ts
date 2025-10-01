@@ -28,4 +28,6 @@ export * from './seal/v1.js';
 export { verifySealV1 as default } from './verify/verifySealV1.js';
 export { AjvRegistryLike } from './validation/ajv-types.js';
 
-export { PublicKeyProvider } from '../src/verify/types.js';
+export { PublicKeyProvider } from './verify/types.js';
+
+export { VerifySealOptions } from './verify/types.js';

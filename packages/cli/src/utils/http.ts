@@ -4,7 +4,7 @@ import { basename, resolve, sep } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { pipeline } from 'node:stream/promises';
 import { Readable, Transform } from 'node:stream';
-import { writeFile } from '../../src/utils/fs-compat.js';
+import { writeFile } from '../utils/fs-compat.js';
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
 
 export interface PullOptions {

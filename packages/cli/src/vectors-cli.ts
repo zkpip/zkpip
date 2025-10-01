@@ -1,8 +1,8 @@
 // packages/cli/src/vectors-cli.ts
 // Subcommand dispatcher for `zkpip vectors ...`
 // - verify-seal: verify a Seal V1
-// - sign:       new unified signer (uses runVectorsSign)  ← supports --kind
-// - seal:       legacy vector-only signer                 ← enforces kind=vector
+// - sign:       unified signer (uses runVectorsSign)  ← supports --kind
+// - seal:       legacy vector-only signer             ← enforces kind=vector
 // - pull:       fetch/store vectors
 // English comments, strict TS, Node 22+, ESM.
 
@@ -10,6 +10,8 @@ import path, { dirname, join, resolve as resolvePath } from 'node:path';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 
 import { verifySealV1, type VerifySealResult } from '@zkpip/core';
+import type { SealV1 } from '@zkpip/core/seal/v1';
+import { K } from '@zkpip/core/kind';
 
 import { signVector } from './lib/signVector.js';
 import { defaultStoreRoot } from './utils/keystore.js';
@@ -17,8 +19,6 @@ import { resolvePrivateKeyPath } from './utils/keystore-resolve.js';
 import type { VectorsPullArgs } from './commands/vectors-pull.js';
 import { runVectorsSign, type VectorsSignOptions } from './commands/vectors-sign.js';
 import { runVectorsPull } from './utils/runVectorsPull.js';
-import type { SealV1 } from '@zkpip/core/seal/v1';
-import { K } from '@zkpip/core/kind';
 import { fsPublicKeyProvider } from './utils/publicKeyProvider.js';
 
 // kind helpers (schema-aligned)
@@ -30,89 +30,96 @@ import {
   M1Kinds,
   type Kind,
 } from '@zkpip/core/kind';
-import { KeysGenerateOptions, runKeysGenerate } from './commands/keys-generate.js';
-import { VerifySealOptions } from '../../core/dist/verify/types.js';
+
+import type { KeysGenerateOptions } from './commands/keys-generate.js';
+import { runKeysGenerate } from './commands/keys-generate.js';
+import type { VerifySealOptions } from '@zkpip/core'; 
+import { ExitCode } from './utils/exit.js';
 
 // --------- tiny argv parser (posix-ish, no short flags packing) ---------
 type Flags = Readonly<Record<string, string | boolean>>;
 
-export async function runVectorsCli(argv: ReadonlyArray<string>): Promise<void> {
+/** Entry for `vectors` subcommand. Returns ExitCode; does NOT set process.exitCode. */
+export async function runVectorsCli(argv: ReadonlyArray<string>): Promise<ExitCode> {
   const { sub, rest, flags } = splitArgs(argv);
 
   if (!sub || flags['help'] || flags['h']) {
     printVectorsHelp();
-    process.exitCode = 0;
-    return;
+    return ExitCode.OK;
   }
 
   if (sub === 'verify-seal') {
-    await runVerifySeal(rest, flags);
-    return;
+    return runVerifySeal(rest, flags);
   }
 
   if (sub === 'seal') {
-    await runSeal(rest, flags);
-    return;
+    return runSeal(rest, flags);
   }
 
   if (sub === 'pull') {
     const args: VectorsPullArgs = {
-      ...(typeof flags['id'] === 'string'  ? { id:  String(flags['id']) }   : {}),
-      ...(typeof flags['url'] === 'string' ? { url: String(flags['url']) }  : {}),
+      ...(typeof flags['id'] === 'string' ? { id: String(flags['id']) } : {}),
+      ...(typeof flags['url'] === 'string' ? { url: String(flags['url']) } : {}),
       out: typeof flags['out'] === 'string' ? String(flags['out']) : '',
     };
     if (!args.out || (!('id' in args) && !('url' in args))) {
-      console.error(JSON.stringify({ ok:false, code:'MISSING_ARGS', message:'Need --url (or --id) and --out' }));
-      process.exitCode = 1;
-      return;
+      console.error(
+        JSON.stringify({
+          ok: false,
+          code: 'MISSING_ARGS',
+          message: 'Need --url (or --id) and --out',
+        }),
+      );
+      return ExitCode.INVALID_ARGS;
     }
-    process.exitCode = await runVectorsPull(args);
-    return;
+    return runVectorsPull(args);
   }
 
   if (sub === 'sign') {
-    const parsedKind = await resolveKindFlag(flags); // may exit on --kind help
+    const kindRes = await resolveKindFlag(flags); // result-pattern, no exit
+    if (!kindRes.ok) return kindRes.code;
 
-    const inFile  = typeof flags['in']  === 'string' ? String(flags['in'])  : '';
+    const inFile = typeof flags['in'] === 'string' ? String(flags['in']) : '';
     const outFile = typeof flags['out'] === 'string' ? String(flags['out']) : '';
-    const keyDir  = typeof flags['key-dir'] === 'string'
-      ? String(flags['key-dir'])
-      : defaultStoreRoot(); // default keyDir
+    const keyDir =
+      typeof flags['key-dir'] === 'string' ? String(flags['key-dir']) : defaultStoreRoot();
 
     if (!inFile || !outFile) {
-      console.error(JSON.stringify({ ok:false, code:'MISSING_ARGS', message:'Need --in and --out (and optionally --key-dir, --kind)' }));
-      process.exitCode = 1;
-      return;
+      console.error(
+        JSON.stringify({
+          ok: false,
+          code: 'MISSING_ARGS',
+          message: 'Need --in and --out (and optionally --key-dir, --kind)',
+        }),
+      );
+      return ExitCode.INVALID_ARGS;
     }
 
     const options: VectorsSignOptions = {
       inFile,
       outFile,
-      keyDir,                
-      kind: parsedKind ?? K.vector,
+      keyDir,
+      kind: kindRes.value ?? K.vector,
     };
 
-    process.exitCode = await runVectorsSign(options);
-    return;
+    return runVectorsSign(options);
   }
 
   if (sub === 'keys') {
     const sub2 = rest[0];
     if (!sub2 || sub2 === 'help' || flags['help'] || flags['h']) {
-      // rövid inline help, hogy ne kelljen a teljes help-et végiggörgetni
+      // short inline help
       console.log(
         `zkpip keys\n\n` +
-        `Usage:\n` +
-        `  zkpip keys generate --store <dir> [--label <txt>] [--keyId <kid>] [--json]\n`
+          `Usage:\n` +
+          `  zkpip keys generate --store <dir> [--label <txt>] [--keyId <kid>] [--json]\n`,
       );
-      process.exitCode = 0;
-      return;
+      return ExitCode.OK;
     }
 
     if (sub2 === 'generate') {
-      const outDir = typeof flags['store'] === 'string'
-        ? String(flags['store'])
-        : defaultStoreRoot(); // fallback a meglévő keystore root-ra
+      const outDir =
+        typeof flags['store'] === 'string' ? String(flags['store']) : defaultStoreRoot();
 
       const options: KeysGenerateOptions = {
         outDir,
@@ -121,60 +128,67 @@ export async function runVectorsCli(argv: ReadonlyArray<string>): Promise<void> 
         ...(flags['json'] ? { json: true } : {}),
       };
 
-      const code = await runKeysGenerate(options);
-      process.exitCode = code;
-      return;
+      return runKeysGenerate(options);
     }
 
-    // Ismeretlen keys alparancs
-    console.error(JSON.stringify({
-      ok: false as const,
-      code: 1 as const,
-      error: 'UNKNOWN_KEYS_SUBCOMMAND',
-      message: `Unknown keys subcommand: ${String(sub2)}`
-    }));
-    process.exitCode = 1;
-    return;
+    // unknown keys subcommand
+    console.error(
+      JSON.stringify({
+        ok: false as const,
+        code: 'UNKNOWN_KEYS_SUBCOMMAND' as const,
+        message: `Unknown keys subcommand: ${String(sub2)}`,
+      }),
+    );
+    return ExitCode.INVALID_ARGS;
   }
 
   if (sub === 'push') {
     // Accept many aliases to match old tests/helpers
-    const id     = pickString(flags, ['id', 'vector-id', 'urn']);
-    const store  = pickString(flags, ['store', 'out-dir', 'dir', 'base', 'base-dir', 'root']);
-    const dataArg= pickString(flags, ['data', 'body', 'payload', 'content']);
+    const id = pickString(flags, ['id', 'vector-id', 'urn']);
+    const store = pickString(flags, ['store', 'out-dir', 'dir', 'base', 'base-dir', 'root']);
+    const dataArg = pickString(flags, ['data', 'body', 'payload', 'content']);
     const inFile = pickString(flags, ['in', 'input', 'file', 'from']);
 
     if (!id || !store || (!dataArg && !inFile)) {
-      console.error(JSON.stringify({ ok:false, code:'MISSING_ARGS', message:'Need --id --store and (--data or --in)' }));
-      process.exitCode = 1;
-      return;
+      console.error(
+        JSON.stringify({
+          ok: false,
+          code: 'MISSING_ARGS',
+          message: 'Need --id --store and (--data or --in)',
+        }),
+      );
+      return ExitCode.INVALID_ARGS;
     }
 
     try {
       const root = resolvePath(store);
       await mkdir(root, { recursive: true });
 
-      const body = dataArg || await readFile(resolvePath(inFile), 'utf8');
-
+      const body = dataArg || (await readFile(resolvePath(inFile), 'utf8'));
       const safe = id.replace(/[^a-zA-Z0-9:._-]/g, '_');
+
       const outPath = join(root, `${safe}.json`);
       await mkdir(dirname(outPath), { recursive: true });
       await writeFile(outPath, body, 'utf8');
 
       console.log(`stored:${id}`);
-      process.exitCode = 0;
-      return;
+      return ExitCode.OK;
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      console.error(JSON.stringify({ ok:false, code:'PUSH_FAILED', message: msg }));
-      process.exitCode = 1;
-      return;
+      console.error(JSON.stringify({ ok: false, code: 'PUSH_FAILED', message: msg }));
+      return ExitCode.IO_ERROR;
     }
-  }  
+  }
 
   // Unknown vectors subcommand
-  console.error(JSON.stringify({ ok: false, code: 'UNKNOWN_VECTORS_SUBCOMMAND', message: `Unknown vectors subcommand: ${sub}` }));
-  process.exitCode = 1;
+  console.error(
+    JSON.stringify({
+      ok: false,
+      code: 'UNKNOWN_VECTORS_SUBCOMMAND',
+      message: `Unknown vectors subcommand: ${sub}`,
+    }),
+  );
+  return ExitCode.INVALID_ARGS;
 }
 
 function pickString(flags: Flags, keys: ReadonlyArray<string>): string {
@@ -270,27 +284,32 @@ function emitVerify(result: VerifySealResult, forceJson: boolean): void {
   }
 }
 
-function mapExitCode(ok: boolean, code: number, useExitCodes: boolean): number {
-  return useExitCodes ? (ok ? 0 : code) : 0;
+/** map ok/code to ExitCode when --use-exit-codes is on; otherwise always OK. */
+function mapExitCode(ok: boolean, code: number, useExitCodes: boolean): ExitCode {
+  if (!useExitCodes) return ExitCode.OK;
+  return ok ? ExitCode.OK : (code as ExitCode); // caller passes schema-aligned numeric code
 }
 
 // ---------------- kind helpers ----------------
 
-async function resolveKindFlag(flags: Flags): Promise<Kind | null> {
+type KindResolve =
+  | { ok: true; value: Kind | null }
+  | { ok: false; code: ExitCode; message: string };
+
+async function resolveKindFlag(flags: Flags): Promise<KindResolve> {
   const k = typeof flags['kind'] === 'string' ? String(flags['kind']) : '';
-  if (!k || k.length === 0) return null;
+  if (!k || k.length === 0) return { ok: true, value: null };
   if (k.toLowerCase() === 'help') {
     printKindHelp();
-    // We exit(0) style by returning null and letting caller decide to stop.
-    // For CLI UX, ha --kind help volt, ne folytassuk az adott parancsot.
-    process.exit(0);
+    return { ok: false, code: ExitCode.OK, message: 'help' };
   }
   const parsed = parseKind(k, /*allowExtensions*/ true);
   if (!parsed) {
-    console.error(JSON.stringify({ ok:false, code:'UNKNOWN_KIND', message:`Unknown kind: ${k}` }));
-    process.exit(1);
+    const note = `Unknown kind: ${k}`;
+    console.error(JSON.stringify({ ok: false, code: 'UNKNOWN_KIND', message: note }));
+    return { ok: false, code: ExitCode.SCHEMA_INVALID, message: note };
   }
-  return parsed;
+  return { ok: true, value: parsed };
 }
 
 function printKindHelp(): void {
@@ -306,16 +325,26 @@ function printKindHelp(): void {
 
 // ---------------- verify-seal ----------------
 
-async function runVerifySeal(_rest: ReadonlyArray<string>, flags: Flags): Promise<void> {
+async function runVerifySeal(
+  _rest: ReadonlyArray<string>,
+  flags: Flags,
+): Promise<ExitCode> {
   const inPath = typeof flags['in'] === 'string' ? String(flags['in']) : '';
   const keyDir = typeof flags['key-dir'] === 'string' ? String(flags['key-dir']) : undefined;
   const forceJson = Boolean(flags['json']);
   const useExitCodes = flags['use-exit-codes'] === false ? false : true; // default true
 
   if (!inPath) {
-    console.error(JSON.stringify({ ok: false, code: 2, stage: 'io', error: 'MISSING_INPUT', message: 'Missing --in <file>' }));
-    process.exitCode = mapExitCode(false, 2, useExitCodes);
-    return;
+    console.error(
+      JSON.stringify({
+        ok: false,
+        code: 2,
+        stage: 'io',
+        error: 'MISSING_INPUT',
+        message: 'Missing --in <file>',
+      }),
+    );
+    return mapExitCode(false, 2, useExitCodes);
   }
 
   try {
@@ -326,27 +355,38 @@ async function runVerifySeal(_rest: ReadonlyArray<string>, flags: Flags): Promis
     const expectKind = typeof flags['kind'] === 'string' ? String(flags['kind']) : '';
     if (expectKind && isKind(expectKind)) {
       if (json.kind !== expectKind) {
-        const err = { ok:false as const, code:11 as const, stage:'schema' as const, error:'KIND_MISMATCH', message:`Expected kind=${expectKind}, got kind=${json.kind}` };
+        const err = {
+          ok: false as const,
+          code: 11 as const,
+          stage: 'schema' as const,
+          error: 'KIND_MISMATCH',
+          message: `Expected kind=${expectKind}, got kind=${json.kind}`,
+        };
         emitVerify(err, true);
-        process.exitCode = mapExitCode(false, err.code, useExitCodes);
-        return;
+        return mapExitCode(false, err.code, useExitCodes);
       }
       // extra: guard URN subject consistency
       ensureUrnMatchesKind(expectKind, json.seal.urn);
     }
 
     const verifyOpts: VerifySealOptions = {
-      getPublicKey: fsPublicKeyProvider(keyDir)
+      getPublicKey: fsPublicKeyProvider(keyDir),
     };
 
     const res = verifySealV1(json, verifyOpts);
     emitVerify(res, forceJson);
-    process.exitCode = mapExitCode(res.ok, res.code, useExitCodes);
+    return mapExitCode(res.ok, res.code, useExitCodes);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    const err = { ok: false as const, code: 2 as const, stage: 'io' as const, error: 'READ_FAILED', message: msg };
+    const err = {
+      ok: false as const,
+      code: 2 as const,
+      stage: 'io' as const,
+      error: 'READ_FAILED',
+      message: msg,
+    };
     emitVerify(err, true);
-    process.exitCode = mapExitCode(false, err.code, useExitCodes);
+    return mapExitCode(false, err.code, useExitCodes);
   }
 }
 
@@ -354,7 +394,10 @@ async function runVerifySeal(_rest: ReadonlyArray<string>, flags: Flags): Promis
 
 type Meta = Record<string, string | number | boolean>;
 
-async function runSeal(_rest: ReadonlyArray<string>, flags: Flags): Promise<void> {
+async function runSeal(
+  _rest: ReadonlyArray<string>,
+  flags: Flags,
+): Promise<ExitCode> {
   const inPath = typeof flags['in'] === 'string' ? String(flags['in']) : '';
   const outPath = typeof flags['out'] === 'string' ? String(flags['out']) : '';
   const keyId = typeof flags['keyId'] === 'string' ? String(flags['keyId']) : '';
@@ -364,35 +407,49 @@ async function runSeal(_rest: ReadonlyArray<string>, flags: Flags): Promise<void
   const useExitCodes = flags['use-exit-codes'] === false ? false : true; // default true
 
   // Enforce kind=vector for legacy flow (explicit UX)
-  const wanted = (typeof flags['kind'] === 'string' && flags['kind'].length > 0)
-    ? String(flags['kind'])
-    : K.vector;
+  const wanted =
+    typeof flags['kind'] === 'string' && flags['kind'].length > 0
+      ? String(flags['kind'])
+      : K.vector;
 
   const parsed = parseKind(wanted, /*allowExtensions*/ true);
   if (!parsed) {
-    const payload = { ok:false as const, code:1 as const, stage:'args' as const, error:'UNKNOWN_KIND', message:`Unknown kind: ${wanted}` };
+    const payload = {
+      ok: false as const,
+      code: 1 as const,
+      stage: 'args' as const,
+      error: 'UNKNOWN_KIND',
+      message: `Unknown kind: ${wanted}`,
+    };
     console.error(JSON.stringify(payload));
-    process.exitCode = mapExitCode(false, payload.code, useExitCodes);
-    return;
+    return mapExitCode(false, payload.code, useExitCodes);
   }
 
   const resolvedKind: Kind = parsed;
   if (resolvedKind !== K.vector) {
-    const payload = { ok:false as const, code:1 as const, stage:'args' as const, error:'UNSUPPORTED_KIND', message:`Legacy 'seal' supports only kind=vector (got "${resolvedKind}")` };
+    const payload = {
+      ok: false as const,
+      code: 1 as const,
+      stage: 'args' as const,
+      error: 'UNSUPPORTED_KIND',
+      message: `Legacy 'seal' supports only kind=vector (got "${resolvedKind}")`,
+    };
     console.error(JSON.stringify(payload));
-    process.exitCode = mapExitCode(false, payload.code, useExitCodes);
-    return;
+    return mapExitCode(false, payload.code, useExitCodes);
   }
 
   // Basic arg validation
   if (!inPath || !outPath || !keyId) {
-    const errMsg = !inPath ? 'Missing --in <file>'
-      : !outPath ? 'Missing --out <file>'
-      : 'Missing --keyId <id>';
-    const payload = { ok: false as const, code: 1 as const, stage: 'args' as const, error: 'MISSING_ARG', message: errMsg };
+    const errMsg = !inPath ? 'Missing --in <file>' : !outPath ? 'Missing --out <file>' : 'Missing --keyId <id>';
+    const payload = {
+      ok: false as const,
+      code: 1 as const,
+      stage: 'args' as const,
+      error: 'MISSING_ARG',
+      message: errMsg,
+    };
     console.error(JSON.stringify(payload));
-    process.exitCode = mapExitCode(false, payload.code, useExitCodes);
-    return;
+    return mapExitCode(false, payload.code, useExitCodes);
   }
 
   try {
@@ -404,14 +461,19 @@ async function runSeal(_rest: ReadonlyArray<string>, flags: Flags): Promise<void
     let meta: Meta | undefined;
     if (metaPath) {
       const metaRaw = await readFile(path.resolve(metaPath), 'utf8');
-      const parsed = JSON.parse(metaRaw) as unknown;
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        meta = parsed as Meta;
+      const parsedMeta = JSON.parse(metaRaw) as unknown;
+      if (parsedMeta && typeof parsedMeta === 'object' && !Array.isArray(parsedMeta)) {
+        meta = parsedMeta as Meta;
       } else {
-        const payload = { ok: false as const, code: 1 as const, stage: 'args' as const, error: 'META_INVALID', message: 'Meta must be a JSON object (primitive values only)' };
+        const payload = {
+          ok: false as const,
+          code: 1 as const,
+          stage: 'args' as const,
+          error: 'META_INVALID',
+          message: 'Meta must be a JSON object (primitive values only)',
+        };
         console.error(JSON.stringify(payload));
-        process.exitCode = mapExitCode(false, payload.code, useExitCodes);
-        return;
+        return mapExitCode(false, payload.code, useExitCodes);
       }
     }
 
@@ -419,10 +481,15 @@ async function runSeal(_rest: ReadonlyArray<string>, flags: Flags): Promise<void
     const keyRoot = path.resolve(store);
     const privatePemPath = await resolvePrivateKeyPath(keyRoot, keyId);
     if (!privatePemPath) {
-      const payload = { ok: false as const, code: 2 as const, stage: 'keystore' as const, error: 'KEY_NOT_FOUND', message: `Private key not found for keyId="${keyId}" under "${keyRoot}"` };
+      const payload = {
+        ok: false as const,
+        code: 2 as const,
+        stage: 'keystore' as const,
+        error: 'KEY_NOT_FOUND',
+        message: `Private key not found for keyId="${keyId}" under "${keyRoot}"`,
+      };
       console.error(JSON.stringify(payload));
-      process.exitCode = mapExitCode(false, payload.code, useExitCodes);
-      return;
+      return mapExitCode(false, payload.code, useExitCodes);
     }
     const privatePem = await readFile(privatePemPath, 'utf8');
 
@@ -457,11 +524,17 @@ async function runSeal(_rest: ReadonlyArray<string>, flags: Flags): Promise<void
       console.log(`   Env: ${sealed.envelopeId}`);
       console.log(`   Key: ${keyId}`);
     }
-    process.exitCode = mapExitCode(true, 0, useExitCodes);
+    return mapExitCode(true, 0, useExitCodes);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    const payload = { ok: false as const, code: 4 as const, stage: 'io' as const, error: 'SEAL_FAILED', message: msg };
+    const payload = {
+      ok: false as const,
+      code: 4 as const,
+      stage: 'io' as const,
+      error: 'SEAL_FAILED',
+      message: msg,
+    };
     console.error(JSON.stringify(payload));
-    process.exitCode = mapExitCode(false, payload.code, useExitCodes);
+    return mapExitCode(false, payload.code, useExitCodes);
   }
 }
