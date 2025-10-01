@@ -30,7 +30,7 @@ function requireArg(name) {
   if (i === -1 || !process.argv[i + 1]) {
     const note = `Missing required arg: ${name}`;
     console.error(note);
-    return ExitCode.
+    return ExitCode.INVALID_ARGS;
   }
   return process.argv[i + 1];
 }
