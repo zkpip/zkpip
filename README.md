@@ -1,101 +1,168 @@
-# ZKPIP --- Zero-Knowledge Proof Interoperability Project
+# ZKPIP — Zero-Knowledge Proof Interoperability Project
 
-ZKPIP is an open-source initiative to improve **interoperability** in
-the zero-knowledge ecosystem.Our goal is to provide **portable formats, verifiers, and tools** that
-make ZK proofs easier to validate and reuse across different frameworks.
+> **Tagline:** Universal proof validator & schemas for cross-tooling ZK workflows (batch & mixed validation).
 
----
+> **Status:** Documentation refresh in progress. The CLI package is the primary focus and already functional. This README reflects the latest direction; detailed per-package docs will land shortly.
 
-## Current Focus
+[![TypeScript Strict](https://img.shields.io/badge/TypeScript-strict-blue)](#)
+[![CLI First](https://img.shields.io/badge/focus-CLI%20first-success)](#)
+[![License: MIT](https://img.shields.io/badge/License-MIT-informational.svg)](./LICENSE)
 
-The first package of this monorepo is:
-
-- **[@zkpip/core](./packages/core/)** Off-chain verifier CLI with multiple adapters (`snarkjs`,
-  `rapidsnark`, `gnark`) and a local "verified" badge generator. → [Read more](./packages/core/README.md)
+ZKPIP provides a **meta-layer** for the fragmented ZK tooling landscape: portable **schemas**, pluggable **adapters**, and a **CLI** that verifies proofs across multiple ecosystems (Circom/snarkjs, RapidSnark, gnark, Halo2, Plonky2—growing over time). The goal is simple: make **CI, audits, and dev workflows** consistent regardless of the underlying proving system.
 
 ---
 
-## Roadmap (high level)
+## Why ZKPIP?
 
-- **Core CLI & Schemas** --- MVS release, JSON Schemas + CLI verifier
-- **Error Catalog** --- standard taxonomy of ZK error types
-- **Lab** --- experimental crawlers & classification pipelines
-- **zkTools (future)** --- developer-facing CLI & API utilities
-
----
-
-## Repository Structure
-
-```text
-zkpip/
- ├─ packages/
- │   └─ core/          # @zkpip/core verifier CLI
- │
- ├─ schemas/           # Shared JSON Schemas
- ├─ ZKPIPs/            # Governance documents (ZKPIP-XXXX.md)
- └─ ...                # Future modules (error-catalog, lab, tools)
-```
+- **Interoperability by design:** One CLI + canonical JSON schemas → fewer bespoke scripts.
+- **CI-ready from day one:** Deterministic inputs, strict typing, explicit exit codes.
+- **Batch & mixed validation:** Validate multiple proofs (and multiple systems) in a single run.
+- **Open standards mindset:** ProofEnvelope schema with a stable `$id` and consistent field names (e.g., `envelopeId`).
 
 ---
 
-## Naming
+## Highlights (current)
 
-**ZKPIP** can be read in two ways:
+- **CLI-first architecture:** The `@zkpip/cli` package is the largest and most actively updated package.
+- **ProofEnvelope schema:** Canonical wrapper for proof, verification key, public inputs, and metadata.
+- **Adapter layer:** Start with snarkjs; structure prepared for rapid addition of others.
+- **Strict TypeScript:** No `any`, ESM, exact optional types, CI-friendly.
 
-- **Zero-Knowledge Proof Interoperability Project** -- the open-source initiative and umbrella repository you are looking
-  at.
-- **Zero-Knowledge Proof Improvement Proposal** -- the planned proposal format (similar to Ethereum's EIPs or Bitcoin's
-  BIPs), which will define and standardize ZK-related specifications.
-
-This dual meaning is intentional:the **Project** exists to host tools and schemas, while the
-**Proposals** will define long-term community standards.
+> Detailed per-adapter docs are being migrated. The CLI help and samples work today.
 
 ---
 
-## Community & License
-
-- **Homepage:** [zkpip.org](https://zkpip.org)- **Repository:**
-  [github.com/zkpip/zkpip](https://github.com/zkpip/zkpip)- **License:** Apache-2.0
-
----
-
-## Schema Loader Rules & Alias Behavior
-
-**Scope.** The Core loader resolves schemas by canonical `$id` and supports a limited alias map for internal developer experience (DX).
-
-**Resolution order.**
-
-1. **Canonical `$id`** (preferred): exact match must resolve to a single schema.
-2. **Alias map**: short keys map to canonical `$id`. Aliases must be injective (no collisions).
-3. **Local fallback (dev-only)**: if `SCHEMA_DEV_ROOT` is set, disk resolution is allowed for rapid iteration.
-
-**Rules.**
-
-- Every loaded schema must expose a unique canonical `$id`.
-- Aliases must not shadow canonical `$id` values.
-- Loader MUST reject:
-  - duplicate `$id`
-  - alias cycles or collisions
-  - ambiguous resolutions
-
-**Alias examples.**
-
-```ts
-export const SCHEMA_ALIASES = {
-  'mvs.proofEnvelope': 'https://zkpip.org/mvs/proof-envelope.schema.json',
-  'mvs.cir': 'https://zkpip.org/mvs/cir.schema.json',
-} as const;
-```
-
-**Environment variable for local development.**
+## Quickstart
 
 ```bash
-export SCHEMA_DEV_ROOT=./packages/core/schemas
+# 1) Clone & install
+git clone https://github.com/zkpip/zkpip
+cd zkpip
+pnpm i
+
+# 2) Build all packages (monorepo)
+pnpm -w build
+
+# 3) Run the CLI (help)
+pnpm -w zkpip:cli --help
+
+# 4) Example verification (snarkjs sample)
+pnpm -w zkpip:cli verify   --proof   samples/snarkjs/proof.json   --vk      samples/snarkjs/verification_key.json   --public  samples/snarkjs/public.json   --adapter snarkjs
 ```
 
-**Validation gates.**
+> Tip: for local schema development, set `SCHEMA_DEV_ROOT=./packages/<schema-package>/schemas`.
 
-- Unit tests ensure:
-  - all core schemas compile
-  - canonical `$id` uniqueness
-  - alias map injective & acyclic
+---
+
+## Monorepo at a glance
+
+```
+zkpip/
+  packages/
+    cli/                # @zkpip/cli — primary entrypoint, adapter-aware verify commands
+    core/               # shared types, validation utils, schema loaders
+    adapters/           # adapter packages (e.g., snarkjs, gnark, halo2, plonky2)
+    schemas/            # canonical JSON Schemas (e.g., ProofEnvelope)
+  samples/              # small proof/VK/public fixtures for smoke tests
+  docs/                 # (WIP) user & adapter guides
+  ZKPIPs/               # governance proposals (RFC-style)
+```
+
+> The CLI has absorbed most functionality and documentation. Package READMEs are being aligned.
+
+---
+
+## CLI — Examples
+
+```bash
+# Single proof
+zkpip verify   --proof ./proof.json --vk ./verification_key.json --public ./public.json   --adapter snarkjs
+
+# Batch (mixed systems)
+zkpip verify   --manifest ./manifests/mixed.batch.json
+```
+
+**Exit codes**
+- `0` = all proofs valid
+- `1` = verification error(s)
+- `2` = schema / IO / config error
+
+---
+
+## ProofEnvelope (JSON)
+
+```json
+{
+  "$schema": "https://zkpip.org/mvs/proof-envelope.schema.json",
+  "version": "0.2.0",
+  "envelopeId": "ulid_01JEXAMPLEENVELOPEID",
+  "proofSystem": { "name": "groth16", "tool": "snarkjs", "curve": "bn128" },
+  "artifacts": {
+    "proof": { "path": "./proof.json", "hash": "sha256-..." },
+    "verificationKey": { "path": "./verification_key.json", "hash": "sha256-..." },
+    "publicInputs": { "path": "./public.json", "hash": "sha256-..." }
+  },
+  "meta": { "tags": ["demo"] }
+}
+```
+
+---
+
+## Design principles
+
+- **Deterministic by default:** hash-pinned inputs, explicit manifest format.
+- **Strict validation:** JSON Schemas with stable `$id`; aliases resolved via a canonical map.
+- **Adapter isolation:** thin, testable boundaries to integrate new proving stacks quickly.
+- **Dev-first ergonomics:** helpful errors, minimal boilerplate, samples included.
+
+---
+
+## Roadmap (next)
+
+1. **Adapter coverage:** gnark, Halo2, Plonky2 parity with snarkjs.
+2. **Error Catalog:** standard error taxonomy with machine-readable codes.
+3. **CI templates:** GitHub Actions samples (matrix across adapters & circuits).
+4. **Docs site:** task-based guides (verify, batch, manifests, writing adapters).
+5. **Reports:** optional JSON/Markdown reports for audits and dashboards.
+
+---
+
+## Contributing
+
+We welcome issues and PRs. Please:
+- keep code **strict TypeScript** (no `any`);
+- write **English** comments and commit messages;
+- include a **minimal reproducible sample** for adapter bugs.
+
+See `ZKPIPs/` for governance/RFC flow (WIP).
+
+---
+
+## License
+
+MIT — see [LICENSE](./LICENSE).
+
+---
+
+## Maintainer note (temporary)
+
+This README is the interim, CLI-first snapshot. Package-level READMEs and a full docs site are coming shortly to reflect the evolved structure.
+
+---
+
+### BONUS: GitHub Description & Topics
+
+- **Description:** `ZKPIP — Universal proof validator & schemas for cross-tooling ZK workflows (batch & mixed validation). CLI-first.`
+- **Topics:** `zero-knowledge, zk, interoperability, circom, snarkjs, gnark, halo2, plonky2, typescript, cli, json-schema`
+
+---
+
+## Quick tasks
+
+1) Replace this README in repo root.  
+2) Update repo description & topics on GitHub.  
+3) Confirm LICENSE consistency (MIT vs Apache).  
+4) Ensure sample proof/VK/public exist in `/samples/snarkjs`.  
+5) (Later) Add `.github/workflows/verify.yml` with adapter smoke tests.
+
+---
