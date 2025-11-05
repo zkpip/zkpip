@@ -35,8 +35,19 @@ jobs:
       - name: Install deps (monorepo)
         run: npm ci
 
+      - run: sudo apt-get update && sudo apt-get install -y ripgrep  # just to be sure that ripgrep installed
+
       - name: Build (core & cli)
         run: npm run build
+
+      - name: Filter src paths (no ../src in dist)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if rg -n --no-ignore '\.\./src/' packages/**/dist; then
+            echo "ERROR: Found '../src/' imports in dist."
+            exit 1
+          fi
 
       - name: Typecheck
         run: npm run typecheck

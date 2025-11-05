@@ -1,87 +1,71 @@
 #!/usr/bin/env node
-/**
- * Generate manifest conformance vectors under <REPO_ROOT>/can/manifest/{valid,invalid}
- * CWD-independent: resolves paths from script location.
- */
-
-import { mkdirSync, readFileSync } from 'node:fs';
-import { dirname, resolve, isAbsolute } from 'node:path';
+import fs from 'node:fs';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { execFileSync } from 'node:child_process';
-import { writeFileSync } from '../dist/utils/fs-compat.js';
-import { ExitCode } from './utils/exit-codes.mjs';
-
-function b64uToBuf(s) {
-  // convert base64url -> base64
-  const b64 = s.replace(/-/g, '+').replace(/_/g, '/') + ('==='.slice((s.length + 3) % 4));
-  return Buffer.from(b64, 'base64');
-}
-
-function bufToB64u(buf) {
-  return Buffer.from(buf)
-    .toString('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/g, '');
-}
-
-function requireArg(name) {
-  const i = process.argv.indexOf(name);
-  if (i === -1 || !process.argv[i + 1]) {
-    const note = `Missing required arg: ${name}`;
-    console.error(note);
-    return ExitCode.INVALID_ARGS;
-  }
-  return process.argv[i + 1];
-}
+import { spawn } from 'node:child_process';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const __dirname = path.dirname(__filename);
 
-// PKG root = packages/cli, REPO root = one level up from packages/
-const PKG_ROOT = resolve(__dirname, '..');
-const REPO_ROOT = resolve(PKG_ROOT, '..', '..');
-
-// Normalize helper: if absolute → keep; else resolve from REPO_ROOT
-const norm = (p) => (isAbsolute(p) ? p : resolve(REPO_ROOT, p));
-
-// Args (prefer repo-root-relative like "samples/...", "keys/...")
-const inPath  = norm(requireArg('--in'));   // unsigned manifest
-const keyPath = norm(requireArg('--key'));  // private key (PKCS#8)
-
-// Output dirs under repo root
-const canValidDir  = resolve(REPO_ROOT, 'can/manifest/valid');
-const canInvalidDir = resolve(REPO_ROOT, 'can/manifest/invalid');
-mkdirSync(canValidDir, { recursive: true });
-mkdirSync(canInvalidDir, { recursive: true });
-
-// Built CLI entry (under the same package)
-const cliEntry = resolve(PKG_ROOT, 'dist/index.js');
-
-function runCli(args) {
-  return execFileSync(process.execPath, [cliEntry, ...args], { encoding: 'utf8' });
+function parseArgs(argv) {
+  const args = { _: [] };
+  for (let i = 2; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === '--help' || a === '-h') { args.help = true; continue; }
+    if (a.startsWith('--')) {
+      const k = a.slice(2);
+      const v = argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[++i] : true;
+      args[k] = v;
+    } else args._.push(a);
+  }
+  return args;
 }
 
-// 1) valid: ok.signed.json
-const okOut = resolve(canValidDir, 'ok.signed.json');
-runCli(['manifest', 'sign', '--in', inPath, '--out', okOut, '--priv', keyPath, '--key-id', 'zkpip:ci', '--json']);
+function printHelp() {
+  process.stdout.write(
+`Usage:
+  node packages/cli/scripts/gen-can-vectors.mjs --in <manifest.json> --key-dir <dir> --out <sealed.json>
 
-// 2) invalid: signature_invalid
-const okObj = JSON.parse(readFileSync(okOut, 'utf8'));
-const sigBuf = b64uToBuf(okObj.signature.sig);
-// flip the last bit of the last byte to guarantee a change
-sigBuf[sigBuf.length - 1] ^= 0x01;
-const mutated = { ...okObj, signature: { ...okObj.signature, sig: bufToB64u(sigBuf) } };
-writeFileSync(resolve(canInvalidDir, 'signature_invalid.json'), JSON.stringify(mutated, null, 2) + '\n', 'utf8');
+Options:
+  --in <path>       Manifest JSON path (required)
+  --key-dir <dir>   Key directory (required)
+  --out <path>      Output sealed JSON (required)
+  --help            Show this help and exit 0
+`);
+}
 
-// 3) invalid: hash_mismatch
-const badHash = JSON.parse(JSON.stringify(okObj));
-badHash.meta = { ...(badHash.meta ?? {}), tampered: true };
-writeFileSync(resolve(canInvalidDir, 'hash_mismatch.json'), JSON.stringify(badHash, null, 2) + '\n', 'utf8');
+function isString(x) { return typeof x === 'string'; }
+function norm(p, base = process.cwd()) {
+  if (!isString(p)) throw new TypeError(`Path must be string, got: ${typeof p}`);
+  return path.isAbsolute(p) ? p : path.resolve(base, p);
+}
 
-// 4) invalid: missing_signature
-const missingSig = JSON.parse(JSON.stringify(okObj));
-delete missingSig.signature;
-writeFileSync(resolve(canInvalidDir, 'missing_signature.json'), JSON.stringify(missingSig, null, 2) + '\n', 'utf8');
+async function main() {
+  const args = parseArgs(process.argv);
+  if (args.help) { printHelp(); process.exit(0); return; }
 
-console.log('[can:gen] generated vectors at can/manifest/{valid,invalid}');
+  const missing = [];
+  if (!isString(args.in)) missing.push('--in');
+  if (!isString(args['key-dir'])) missing.push('--key-dir');
+  if (!isString(args.out)) missing.push('--out');
+  if (missing.length) { process.stderr.write(`Missing required arg(s): ${missing.join(', ')}\n`); process.exit(2); return; }
+
+  const manifest = norm(args.in);
+  const keyDir = norm(args['key-dir']);
+  const out = norm(args.out);
+
+  if (!fs.existsSync(manifest)) { process.stderr.write(`Manifest not found: ${manifest}\n`); process.exit(2); return; }
+  if (!fs.existsSync(keyDir)) { process.stderr.write(`Key dir not found: ${keyDir}\n`); process.exit(2); return; }
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+
+  const cliBin = norm(path.join(__dirname, '..', 'dist', 'index.js'));
+  const child = spawn(process.execPath, [
+    cliBin, 'vectors', 'forge-seal', // ← ha nálatok más a subcommand, ITT 1 helyen átírható
+    '--manifest', manifest, '--key-dir', keyDir, '--out', out, '--json'
+  ], { stdio: 'inherit' });
+
+  child.on('close', (code) => process.exit(code ?? 70));
+  child.on('error', () => process.exit(70));
+}
+
+main().catch(() => process.exit(70));
