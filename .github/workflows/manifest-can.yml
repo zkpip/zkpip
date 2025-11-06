@@ -30,7 +30,16 @@ jobs:
           openssl pkey -in keys/ci.key -pubout -out keys/ci.pub
 
       - name: Generate conformance vectors
-        run: npm -w @zkpip/cli run can:gen
+        run: |
+          mkdir -p packages/cli/samples/can
+          npm -w @zkpip/cli run can:gen
+
+      - name: Upload conformance vectors (artifact)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: conformance-vectors
+          path: packages/cli/samples/can/*.json
 
       - name: Sanity — no bundleId
         run: npm -w @zkpip/core run test -- src/__tests__/nobundleid.sanity.test.ts
