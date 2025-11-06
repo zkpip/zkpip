@@ -38,6 +38,15 @@ jobs:
       - name: Build (core & cli)
         run: npm run build
 
+      - name: Guard: no '../src/' in dist runtime artifacts
+        run: |
+          set -euo pipefail
+          if grep -RIn "../src/" packages/cli/dist --include="*.js" --include="*.d.ts"; then
+            echo "ERROR: Found '../src/' imports in dist .js/.d.ts"
+            exit 1
+          fi
+          echo "OK: no bad '../src/' imports in runtime artifacts."
+
       - name: Typecheck
         run: npm run typecheck
 
