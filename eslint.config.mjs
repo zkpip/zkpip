@@ -53,6 +53,12 @@ export default [
             '@typescript-eslint/no-unsafe-return': 'off',
           }
         : {}),
+
+      'no-restricted-syntax': [
+        'error',
+        { selector: "CallExpression[callee.object.name='process'][callee.property.name='exit']", message: 'Use ExitCode + process.exitCode in entry.' },
+        { selector: "CallExpression[callee.name='doExit']", message: 'doExit is deprecated.' },
+      ],        
     },
   },
 

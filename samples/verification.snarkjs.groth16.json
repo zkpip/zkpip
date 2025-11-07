@@ -1,0 +1,4 @@
+{
+  "framework": "snarkjs",
+  "proofSystem": "groth16"
+}

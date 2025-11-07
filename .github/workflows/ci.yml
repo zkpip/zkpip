@@ -35,8 +35,13 @@ jobs:
       - name: Install deps (monorepo)
         run: npm ci
 
+      - run: sudo apt-get update && sudo apt-get install -y ripgrep  # just to be sure that ripgrep installed
+
       - name: Build (core & cli)
         run: npm run build
+
+      - name: "Guard: no '../src/' in dist runtime artifacts"
+        run: npm run ci:guard:dist
 
       - name: Typecheck
         run: npm run typecheck

@@ -56,7 +56,7 @@
     "e2e": "tsx ./scripts/e2e.ts",
     "e2e:snarkjs": "E2E_ADAPTER=snarkjs-groth16 tsx ./scripts/e2e.ts",
     "e2e:discover": "tsx ./scripts/e2e-discover.ts",
-    "can:gen": "node ./scripts/gen-can-vectors.mjs --in samples/demo.manifest.json --key keys/ci.key --pub keys/ci.pub",
+    "can:gen": "node ./scripts/gen-can-vectors.mjs --in samples/demo.manifest.json --key-dir keys --out samples/can/demo.vectors.json",
     "can:verify": "node ./scripts/verify-can-vectors.mjs --pub keys/ci.pub",
     "trust:init": "node ./scripts/trust-init.mjs",
     "docs:examples:validate": "tsx ./scripts/validate-proof-envelope.ts ../../docs/spec/examples/proof-envelope.result.json ../../docs/spec/examples/proof-envelope.artifacts.json",
