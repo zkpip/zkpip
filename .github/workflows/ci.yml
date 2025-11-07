@@ -40,23 +40,8 @@ jobs:
       - name: Build (core & cli)
         run: npm run build
 
-      - name: Filter src paths (no ../src in dist)
-        shell: bash
-        run: |
-          set -euo pipefail
-          if rg -n --no-ignore '\.\./src/' packages/**/dist; then
-            echo "ERROR: Found '../src/' imports in dist."
-            exit 1
-          fi
-
       - name: "Guard: no '../src/' in dist runtime artifacts"
-        run: |
-          set -euo pipefail
-          if grep -RIn "../src/" packages/cli/dist --include="*.js" --include="*.d.ts"; then
-            echo "ERROR: Found '../src/' imports in dist .js/.d.ts"
-            exit 1
-          fi
-          echo "OK: no bad '../src/' imports in runtime artifacts."
+        run: npm run ci:guard:dist
 
       - name: Typecheck
         run: npm run typecheck

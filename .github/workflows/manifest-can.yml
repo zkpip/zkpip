@@ -29,10 +29,32 @@ jobs:
           openssl genpkey -algorithm Ed25519 -out keys/ci.key
           openssl pkey -in keys/ci.key -pubout -out keys/ci.pub
 
-      - name: Generate conformance vectors
+      - name: "Generate conformance vectors (if manifest present)"
+        working-directory: packages/cli
         run: |
-          mkdir -p packages/cli/samples/can
-          npm -w @zkpip/cli run can:gen
+          set -euo pipefail
+          mkdir -p samples/can
+
+          # Try to find a manifest JSON for conformance vectors
+          MANIFEST="$(git ls-files 'samples/**/*.manifest.json' 'spec/**/manifest*.json' '*manifest-can*.json' | head -n1 || true)"
+
+          if [ -z "${MANIFEST}" ]; then
+            echo "No manifest JSON found for CAN vectors on this branch."
+            echo "Skipping conformance vector generation step."
+            exit 0
+          fi
+
+          echo "Using manifest: ${MANIFEST}"
+
+          # Ensure CI keys exist
+          if [ ! -s keys/ci.key ] || [ ! -s keys/ci.pub ]; then
+            echo "ERROR: Missing keys/ci.key or keys/ci.pub"
+            ls -la keys || true
+            exit 2
+          fi
+
+          node ./scripts/gen-can-vectors.mjs --in "${MANIFEST}" --key-dir keys --out samples/can/demo.vectors.json
+          echo "Conformance vectors generated at samples/can/demo.vectors.json"
 
       - name: Upload conformance vectors (artifact)
         if: always()

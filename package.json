@@ -18,6 +18,7 @@
     "lint": "npm --prefix packages/core run lint && npm --prefix packages/cli run lint",
     "test": "npm --prefix packages/core run test && npm --prefix packages/cli run test",
     "ci": "npm run build && npm run lint && npm run test",
+    "ci:guard:dist": "bash -c 'set -euo pipefail; if grep -RIn \"../src/\" packages/cli/dist --include=\"*.js\" --include=\"*.d.ts\"; then echo \"ERROR: Found ../src/ in runtime\"; exit 1; fi; echo \"OK: runtime clean\"'",
     "lint:fix": "eslint -c eslint.config.mjs \"packages/**/src/**/*.{ts,tsx}\" --fix",
     "lint:strict": "STRICT_LINT=1 eslint -c eslint.config.mjs \"packages/**/{src,scripts}/**/*.ts\"",
     "lint:fresh": "eslint . .ts,.tsx --max-warnings=0 --no-cache",
